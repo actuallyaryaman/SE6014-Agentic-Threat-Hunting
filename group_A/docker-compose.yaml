@@ -1,53 +1,37 @@
 
 services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.3
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
-    ports:
-      - "127.0.0.1:9200:9200"
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - "curl -fsS http://localhost:9200/_cluster/health >/dev/null"
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
-
   logstash:
-    image: docker.elastic.co/logstash/logstash:8.19.3
+    image: docker.elastic.co/logstash/logstash:8.19.23
+    container_name: logstash-a1
+    env_file:
+      - ../.env
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
-      - "127.0.0.1:5044:5044"
       - "127.0.0.1:9600:9600"
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
       - ./sample-data:/usr/share/logstash/ingest_data:ro
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - "curl -fsS http://localhost:9600/_node/pipelines >/dev/null"
-      interval: 15s
-      timeout: 5s
-      retries: 20
-      start_period: 40s
+      - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+    networks:
+      - elastic
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.19.3
+    image: docker.elastic.co/kibana/kibana:8.19.23
+    container_name: kibana-a1
     environment:
-      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      SERVER_HOST: "0.0.0.0"
+      ELASTICSEARCH_HOSTS: '["https://172.18.0.2:9200"]'
+      KIBANA_SERVICE_ACCOUNT_TOKEN: "${KIBANA_SERVICE_ACCOUNT_TOKEN:?Add KIBANA_SERVICE_ACCOUNT_TOKEN to the root .env file}"
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/http_ca.crt
     ports:
       - "127.0.0.1:5601:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
+    volumes:
+      - ../certs/http_ca.crt:/usr/share/kibana/config/certs/http_ca.crt:ro
+    networks:
+      - elastic
 
-volumes:
-  esdata:
+networks:
+  elastic:
+    external: true
+    name: elastic
