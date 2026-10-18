@@ -1,0 +1,3 @@
+{"@timestamp":"2026-10-18T08:00:00Z","event_type":"authentication","source_type":"windows_security","host":{"name":"lab-pc-01"},"user":{"name":"student1"},"source_ip":"192.0.2.10","action":"logon_failure","event_id":"4625","message":"Synthetic failed logon"}
+{"@timestamp":"2026-10-18T08:01:00Z","event_type":"process_creation","source_type":"sysmon","host":{"name":"lab-pc-01"},"user":{"name":"student1"},"process":{"name":"powershell.exe"},"event_id":"1","message":"Synthetic PowerShell process creation"}
+{"@timestamp":"2026-10-18T08:02:00Z","event_type":"web_access","source_type":"web_server","host":{"name":"web-lab-01"},"source_ip":"192.0.2.20","http":{"request":{"method":"GET"},"response":{"status_code":401}},"url":{"path":"/login"},"message":"Synthetic HTTP request"}

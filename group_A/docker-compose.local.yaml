@@ -1,0 +1,21 @@
+﻿services:
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.23
+    container_name: logstash-a1
+    env_file:
+      - ../.env
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "127.0.0.1:9600:9600"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./sample-data:/usr/share/logstash/ingest_data:ro
+      - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+    networks:
+      - elastic
+
+networks:
+  elastic:
+    external: true
+    name: elastic
