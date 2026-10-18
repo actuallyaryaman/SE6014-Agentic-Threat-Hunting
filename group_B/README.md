@@ -6,7 +6,7 @@
 |---|---|---|
 | B1 | Noor Al Ibrahim | Log Recognition + Known Schemas |
 | B2 | Aryaman Srivastava | Unknown Schema Creation |
-| B3 | Aryaman Srivastava, Ashwin | Agentic Source Onboarding |
+| B3 | Aryaman Srivastava, Ashvin Kalaivanan | Agentic Source Onboarding |
 
 ## Responsibilities
 
