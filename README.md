@@ -1,3 +1,11 @@
+## ⚠️ IMPORTANT: GitHub Collaboration Rules
+
+- Do not push code directly to `main`.
+- Work freely on your own feature branches.
+- Submit a Pull Request (PR) when your code is ready.
+- Get at least one other member to review and approve your PR before merging into `main`.
+- Coordinate with other groups before modifying shared configurations or interfaces.
+
 NTU | SE6014 Security Monitoring & Threat Detection
 
 Project: Question 1 – Agentic Threat Hunting on the ELK Stack
