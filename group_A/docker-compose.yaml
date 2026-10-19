@@ -21,7 +21,7 @@ services:
     container_name: kibana-a1
     environment:
       SERVER_HOST: "0.0.0.0"
-      ELASTICSEARCH_HOSTS: '["https://172.18.0.2:9200"]'
+      ELASTICSEARCH_HOSTS: '["${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL in root .env}"]'
       ELASTICSEARCH_SERVICEACCOUNTTOKEN: "${KIBANA_SERVICE_ACCOUNT_TOKEN:?Add KIBANA_SERVICE_ACCOUNT_TOKEN to the root .env file}"
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/http_ca.crt
     ports:
