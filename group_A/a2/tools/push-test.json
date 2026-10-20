@@ -1,0 +1,15 @@
+
+{
+  "@timestamp": "2026-10-21T00:10:00Z",
+  "event_id": "A2-PUSH-001",
+  "event_type": "authentication",
+  "source_type": "windows_security",
+  "host": {
+    "name": "a2-push-lab"
+  },
+  "user": {
+    "name": "test-user"
+  },
+  "action": "logon_failure",
+  "message": "A2 automated push ingestion test"
+}

@@ -1,0 +1,50 @@
+
+services:
+  logstash-a2-pull:
+    image: docker.elastic.co/logstash/logstash:8.19.23
+    container_name: logstash-a2-pull
+
+    env_file:
+      - ../.env
+
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      XPACK_MONITORING_ENABLED: "false"
+
+    volumes:
+      - ./a2/pipeline:/usr/share/logstash/pipeline:ro
+      - ./a2/incoming:/usr/share/logstash/a2_incoming:ro
+      - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+      - a2_pull_state:/usr/share/logstash/data
+
+    networks:
+      - elastic
+
+  logstash-a2-push:
+    image: docker.elastic.co/logstash/logstash:8.19.23
+    container_name: logstash-a2-push
+
+    env_file:
+      - ../.env
+
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      XPACK_MONITORING_ENABLED: "false"
+
+    ports:
+      - "127.0.0.1:8088:8088"
+
+    volumes:
+      - ./a2/push-pipeline:/usr/share/logstash/pipeline:ro
+      - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+
+    networks:
+      - elastic
+
+volumes:
+  a2_pull_state:
+
+networks:
+  elastic:
+    external: true
+    name: elastic
