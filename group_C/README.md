@@ -7,7 +7,7 @@
 | C1 | xuelei wu | MCP Server + ELK Tools |
 | C2 | VU TUAN DAT | Threat-Hunting Agent |
 | C3 | Rafi Dasa Nanda Putra | Evidence + Report Generation |
-| C4 | Gurmehr Singh | Experiments + Repeatability |
+| C4 | Ashvin Kalaivanan | Experiments + Repeatability |
 
 ## Responsibilities
 
