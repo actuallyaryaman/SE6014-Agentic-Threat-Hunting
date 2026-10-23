@@ -1,0 +1,5 @@
+# Keep fixture bytes stable across platforms. These files are verified by
+# SHA-256, so Git must not rewrite their line endings or treat the upstream
+# CRLF data as a whitespace error.
+*.csv -text -diff
+*.auditd -text -diff

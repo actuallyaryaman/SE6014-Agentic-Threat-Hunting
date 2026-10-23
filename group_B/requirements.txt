@@ -1,0 +1,8 @@
+# Group B runtime and test dependencies.
+# Python 3.11 is the project standard.
+pydantic==2.14.1
+httpx==0.28.1
+elasticsearch==8.19.3
+jsonschema==4.26.0
+pytest==9.1.1
+pytest-cov==7.1.0
