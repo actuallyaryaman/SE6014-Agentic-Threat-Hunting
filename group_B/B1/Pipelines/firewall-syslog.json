@@ -1,0 +1,77 @@
+{
+  "description": "B1 firewall syslog (Allowed/Blocked connection) -> ECS",
+  "processors": [
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message"
+      }
+    },
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{SYSLOGTIMESTAMP:tmp.ts} %{SYSLOGHOST:host.name} firewall: %{WORD:tmp.action} connection from %{IP:source.ip} to %{IP:destination.ip}"
+        ]
+      }
+    },
+    {
+      "date": {
+        "field": "tmp.ts",
+        "target_field": "@timestamp",
+        "timezone": "UTC",
+        "formats": [
+          "MMM d HH:mm:ss",
+          "MMM  d HH:mm:ss",
+          "MMM dd HH:mm:ss"
+        ]
+      }
+    },
+    {
+      "lowercase": {
+        "field": "tmp.action",
+        "target_field": "event.action"
+      }
+    },
+    {
+      "set": {
+        "field": "event.category",
+        "value": [
+          "network"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp.action == 'Blocked'",
+        "field": "event.type",
+        "value": [
+          "connection",
+          "denied"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp.action == 'Allowed'",
+        "field": "event.type",
+        "value": [
+          "connection",
+          "allowed"
+        ]
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "firewall"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
+  ]
+}

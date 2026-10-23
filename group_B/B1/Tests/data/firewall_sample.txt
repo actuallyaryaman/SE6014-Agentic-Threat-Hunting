@@ -1,0 +1,6 @@
+﻿Oct 22 10:20:01 fw01 firewall: Blocked connection from 198.51.100.20 to 203.0.113.10
+Oct 22 10:20:05 fw01 firewall: Allowed connection from 192.168.1.15 to 203.0.113.25
+Oct 22 10:20:12 fw01 firewall: Blocked connection from 203.0.113.45 to 192.168.1.100
+Oct 22 10:20:18 fw01 firewall: Allowed connection from 10.0.0.8 to 192.168.1.20
+Oct 22 10:20:25 fw01 firewall: Blocked connection from 198.51.100.77 to 10.0.0.15
+Oct 22 10:20:31 fw01 firewall: Allowed connection from 192.168.1.50 to 203.0.113.80
