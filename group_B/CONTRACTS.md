@@ -234,8 +234,8 @@ an explicit local fallback.
 `IngestionPlan` with `status` `planned` or `blocked`, a selected transport,
 pipeline ID, registration requirement and explicit warnings. It never writes
 to Group A, Elasticsearch or the schema registry. A supplied `dry_run=False`
-does not execute anything in this batch. Every plan requires later indexing
-verification; a plan is not an ingestion-success result.
+does not execute anything through the planning API. Every plan requires later
+indexing verification; a plan is not an ingestion-success result.
 
 Known-format pipeline selection requires an operator-approved mapping. Missing
 B1 configuration is distinct from an explicit format miss. B2 receives the
@@ -247,6 +247,32 @@ agreement before raw-envelope stream execution can be planned as supported.
 Source inspection and exact B2 resolution remain available in memory; raw
 samples and candidate resolution are excluded from JSON plan summaries.
 
+### Batch 6 execution interface
+
+`onboard(source, policy, ExecutionConfig, ...)` captures a complete bounded
+file/HTTP snapshot and makes a fresh plan. Dry run is the default. Explicit
+execution validates B2 pipelines against live ES, installs missing definitions,
+registers new schemas, sends missing records through the selected adapter, and
+verifies indexed documents. Conflicting installed pipelines are never overwritten.
+
+`ExecutionReport.status` is `dry_run`, `blocked`, `verified`, `failed`, or
+`unverified`. It includes record/submission/acknowledgement/indexed/reused/failure
+counts, pipeline/dataset, run/source IDs and stable error codes. Only `verified`
+means all expected records were found with required evidence and no duplicate
+matches or transport errors. Parse failures are counted separately. Unavailable
+verification returns `unverified`; it never counts as success. Audit failures
+return `failed`, including when records already indexed.
+
+`verify_only=True` (CLI `verify`) queries expected records and audits the result
+without transport, pipeline or registry writes. Execution defaults to 10,000
+nonblank lines/16 MiB; exceeding either fails before submission. The inspection
+sample cap does not truncate ingestion. Sequential replay skips verified IDs;
+operators must serialize runs per source because A2 delivery/refresh and daily
+index rollover are not a distributed exactly-once transaction.
+
+See `agentic_ingestion/README.md` for operator settings, adapter bounds, audit
+semantics and the remaining shared integration checks.
+
 ## 6. Index naming and IDs
 
 - The root README recommends `security-events-YYYY.MM.dd`; A1, B1 and C1 must
@@ -256,11 +282,12 @@ samples and candidate resolution are excluded from JSON plan summaries.
   integrated index.
 - C2 should search the recommended `security-events-*` pattern.
 - B3 emits a deterministic nested `event.id` and a top-level `event_id`
-  (**proposal** for A2's fingerprint) derived from
+  (preserved by A2's fingerprint path) derived from
   `source_id + record offset + raw line`.
-- Direct-ES ingestion uses `event_id` as the Elasticsearch `_id`. A2 must use
-  the same deterministic value for deduplication, or B3 must treat duplicate
-  documents as a verification failure.
+- Direct-ES ingestion uses `event_id` as the Elasticsearch `_id`. A2 PR #2 currently
+  fingerprints source ID plus the supplied event ID, so its `_id` differs. B3
+  queries the preserved logical `event_id` and treats duplicate matches across
+  indices as a verification failure. Shared A2 execution still needs testing.
 - Re-ingesting the same source with the same `source_id` must not create
   duplicate documents.
 

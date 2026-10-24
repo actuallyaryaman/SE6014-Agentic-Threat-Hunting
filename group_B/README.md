@@ -89,10 +89,12 @@ python group_B/scripts/fetch_otrf_fixtures.py --check
 The fixture provenance, upstream commit, ATT&CK mappings and licence note are
 in `tests/fixtures/otrf/`.
 
-## B3 Batch 5
+## B3 Batches 5–6
 
-`agentic_ingestion` now provides bounded source inspection and read-only
-ingestion planning. See its README for the Python API, JSON CLI, source
-allowlists and remaining integration boundaries. Plans do not execute
-ingestion or establish indexing success. Batch 6 adds transport, verification
-and audit.
+`agentic_ingestion` provides bounded inspection, read-only planning, opt-in
+pull/push/direct execution, independent Elasticsearch verification and JSONL
+audit evidence. The CLI adds `onboard` (dry-run by default, `--execute` for
+writes) and `verify`. Stream execution remains blocked pending A3 agreement.
+See [the B3 README](agentic_ingestion/README.md) for configuration and failure
+semantics, and [live ES results](tests/LIVE_ES_RESULTS.md) for isolated indexing
+and replay evidence. Shared A1/A2/A3 integration remains Batch 7 work.
