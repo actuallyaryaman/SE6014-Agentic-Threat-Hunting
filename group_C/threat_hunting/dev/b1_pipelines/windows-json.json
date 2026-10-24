@@ -1,0 +1,196 @@
+{
+  "description": "B1 Windows/Sysmon JSON events -> ECS",
+  "processors": [
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message"
+      }
+    },
+    {
+      "json": {
+        "field": "message",
+        "add_to_root": true
+      }
+    },
+    {
+      "rename": {
+        "field": "host",
+        "target_field": "observer.hostname",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "EventID",
+        "target_field": "event.code",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "Hostname",
+        "target_field": "host.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SourceIp",
+        "target_field": "source.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "IpAddress",
+        "target_field": "source.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SourcePort",
+        "target_field": "source.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "IpPort",
+        "target_field": "source.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "DestinationIp",
+        "target_field": "destination.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "DestinationPort",
+        "target_field": "destination.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "User",
+        "target_field": "user.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SubjectUserName",
+        "target_field": "user.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "Image",
+        "target_field": "process.executable",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "ProcessId",
+        "target_field": "process.pid",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "event.code",
+        "type": "string",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "source.port",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "destination.port",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "process.pid",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "copy_from": "Channel",
+        "ignore_empty_value": true
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Message != null",
+        "field": "message",
+        "copy_from": "Message"
+      }
+    },
+    {
+      "remove": {
+        "field": "Message",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Message == null && ctx.message == ctx.event.original",
+        "field": "message",
+        "value": "Windows event {{event.code}} on {{host.name}} ({{event.dataset}})"
+      }
+    },
+    {
+      "lowercase": {
+        "field": "Severity",
+        "target_field": "log.level",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.EventType == 'AUDIT_SUCCESS'",
+        "field": "event.outcome",
+        "value": "success"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.EventType == 'AUDIT_FAILURE'",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "script": {
+        "lang": "painless",
+        "source": "def code = ctx.event?.code;\ndef ch = ctx.Channel;\nif (code == null) { return; }\ndef m = [:];\nif (ch != null && ch.contains('Sysmon')) {\n  m.put('1','process'); m.put('3','network'); m.put('11','file');\n  m.put('12','registry'); m.put('13','registry'); m.put('14','registry');\n} else {\n  m.put('5145','file'); m.put('4624','authentication'); m.put('4625','authentication'); m.put('4688','process');\n}\ndef c = m.get(code);\nif (c != null) { ctx.event.category = [c]; }"
+      }
+    },
+    {
+      "script": {
+        "lang": "painless",
+        "source": "def exe = ctx.process?.executable;\nif (exe == null) { return; }\nint a = exe.lastIndexOf('\\\\');\nint b = exe.lastIndexOf('/');\nint i = a > b ? a : b;\nctx.process.name = exe.substring(i + 1);"
+      }
+    }
+  ]
+}
