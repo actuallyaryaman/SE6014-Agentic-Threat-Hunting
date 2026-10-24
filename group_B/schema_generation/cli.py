@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from group_B.common.errors import GroupBError, SchemaGenerationError
 from group_B.schema_generation.compile_es import compile_pipeline
@@ -52,10 +52,7 @@ from group_B.schema_generation.registry import (
     default_registry_root,
 )
 from group_B.schema_generation.signature import SourceSignature
-from group_B.schema_generation.validate import (
-    validate_pipeline,
-    validate_pipeline_safety,
-)
+from group_B.schema_generation.validate import validate_pipeline
 
 MAX_INPUT_LINES = 200
 
@@ -183,11 +180,11 @@ class _Bundle(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_spec: dict[str, Any]
-    signature: dict[str, Any]
+    schema_spec: SchemaSpec
+    signature: SourceSignature
     pipeline: dict[str, Any]
-    validation: dict[str, Any]
-    provenance: dict[str, Any]
+    validation: ValidationReport
+    provenance: Provenance
 
 
 def _bundle_path(
@@ -217,6 +214,7 @@ def _bundle_path(
 def _registered_entry(
     registry: SchemaRegistry,
     result: GenerationResult,
+    samples: list[str],
 ) -> RegistryEntry:
     if not result.accepted:
         raise RegistryError(
@@ -229,6 +227,7 @@ def _registered_entry(
         pipeline=result.pipeline,
         validation=result.validation,
         provenance=result.provenance,
+        samples=samples,
     )
 
 
@@ -255,20 +254,22 @@ def _cmd_detect(args: argparse.Namespace) -> int:
 
 def _cmd_generate(args: argparse.Namespace) -> int:
     lines = _read_sample_lines(Path(args.samples))
+    registry = _registry(args)
     result = generate_schema(
         lines,
         args.dataset,
         provider=_provider(args),
+        registry=registry,
     )
     registered = None
     if result.accepted and getattr(args, "register", False):
-        registered = _registered_entry(_registry(args), result)
-    _print(_generate_payload(result, registered=registered))
+        registered = _registered_entry(registry, result, lines)
     emit = getattr(args, "emit", None)
     if emit and result.accepted:
         Path(emit).expanduser().write_text(
             _payload(_bundle_path(result)) + "\n", encoding="utf-8"
         )
+    _print(_generate_payload(result, registered=registered))
     return 0 if result.accepted else 1
 
 
@@ -283,12 +284,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
         raise SchemaGenerationError(
             f"schema file is not valid JSON: {error}"
         ) from error
-    try:
-        spec = SchemaSpec.model_validate(raw)
-    except Exception as error:  # noqa: BLE001 - file content is untrusted
-        raise SchemaGenerationError(
-            f"schema file is not a valid SchemaSpec: {error}"
-        ) from error
+    spec = SchemaSpec.model_validate(raw)
     pipeline = compile_pipeline(spec, samples=lines)
     report = validate_pipeline(spec, pipeline, lines)
     _print(
@@ -305,6 +301,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 def _cmd_register(args: argparse.Namespace) -> int:
     registry = _registry(args)
+    lines = _read_sample_lines(Path(args.samples))
     bundle_path = Path(args.bundle).expanduser()
     if not bundle_path.is_file():
         raise SchemaGenerationError(f"bundle file not found: {args.bundle}")
@@ -316,15 +313,13 @@ def _cmd_register(args: argparse.Namespace) -> int:
         raise SchemaGenerationError(
             f"bundle file is not valid JSON: {error}"
         ) from error
-    except Exception as error:  # noqa: BLE001 - file content is untrusted
-        raise SchemaGenerationError(f"invalid entry bundle: {error}") from error
-    validate_pipeline_safety(bundle.pipeline)
     entry = registry.register(
-        schema=SchemaSpec.model_validate(bundle.schema_spec),
-        signature=SourceSignature.model_validate(bundle.signature),
+        schema=bundle.schema_spec,
+        signature=bundle.signature,
         pipeline=bundle.pipeline,
-        validation=ValidationReport.model_validate(bundle.validation),
-        provenance=Provenance.model_validate(bundle.provenance),
+        validation=bundle.validation,
+        provenance=bundle.provenance,
+        samples=lines,
     )
     _print(
         {
@@ -375,7 +370,7 @@ def _cmd_resolve(args: argparse.Namespace) -> int:
     registered = None
     if not resolution.reused and resolution.generation is not None:
         if getattr(args, "register", False):
-            registered = _registered_entry(registry, resolution.generation)
+            registered = _registered_entry(registry, resolution.generation, lines)
     payload = _resolution_payload(resolution, registered=registered)
     _print(payload)
     exit_code = 0 if payload.get("accepted") else 1
@@ -441,6 +436,9 @@ def build_parser() -> argparse.ArgumentParser:
         "register", help="register a validated entry bundle"
     )
     register.add_argument("bundle", help="entry bundle JSON file (--emit)")
+    register.add_argument(
+        "samples", help="original sample file path, or - for stdin"
+    )
     register.set_defaults(func=_cmd_register)
 
     sub.add_parser("list", help="list registry entries").set_defaults(
@@ -474,6 +472,19 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     except GroupBError as error:
         return _fail(error)
+    except ValidationError as error:
+        return _fail(
+            SchemaGenerationError(
+                "invalid input model",
+                errors=error.errors(
+                    include_input=False, include_context=False, include_url=False
+                ),
+            )
+        )
+    except (OSError, UnicodeError):
+        return _fail(
+            SchemaGenerationError("could not read or write a requested file")
+        )
 
 
 if __name__ == "__main__":

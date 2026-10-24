@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from group_B.common.errors import RegistryError
+from group_B.schema_generation.compile_es import compile_pipeline
 from group_B.schema_generation.models import (
     Provenance,
     SchemaSpec,
@@ -29,6 +30,7 @@ def _register(
     validation: ValidationReport,
     provenance: Provenance,
     pipeline: dict[str, object],
+    samples: list[str],
 ) -> RegistryEntry:
     return registry.register(
         schema=schema,
@@ -36,16 +38,18 @@ def _register(
         pipeline=pipeline,
         validation=validation,
         provenance=provenance,
+        samples=samples,
     )
 
 
 def test_register_and_lookup(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
 
@@ -55,7 +59,8 @@ def test_register_and_lookup(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
 
     assert entry.schema_spec == aws_schema
@@ -78,11 +83,12 @@ def test_register_and_lookup(
 
 def test_register_is_idempotent(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     first = _register(
@@ -91,7 +97,8 @@ def test_register_is_idempotent(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
     second = _register(
         registry,
@@ -99,7 +106,8 @@ def test_register_is_idempotent(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
 
     assert first == second
@@ -108,11 +116,12 @@ def test_register_is_idempotent(
 
 def test_versioning_and_latest(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     first = _register(
@@ -121,20 +130,23 @@ def test_versioning_and_latest(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
 
     data = aws_schema.model_dump(mode="json")
     data["version"] = 2
     second_schema = SchemaSpec.model_validate(data)
-    second_signature = build_signature(["a,b,c", "1,2,3"])
+    second_lines = [line + ",extra" for line in aws_lines]
+    second_signature = build_signature(second_lines)
     second = _register(
         registry,
         schema=second_schema,
         signature=second_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compile_pipeline(second_schema, samples=second_lines),
+        samples=second_lines,
     )
 
     assert registry.get(aws_schema.schema_id, 1) == first
@@ -145,11 +157,12 @@ def test_versioning_and_latest(
 
 def test_duplicate_signature_with_different_schema_is_rejected(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     _register(
@@ -158,7 +171,8 @@ def test_duplicate_signature_with_different_schema_is_rejected(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
 
     data = aws_schema.model_dump(mode="json")
@@ -169,46 +183,49 @@ def test_duplicate_signature_with_different_schema_is_rejected(
             field["constant"] = "other.dataset"
     other_schema = SchemaSpec.model_validate(data)
 
-    with pytest.raises(RegistryError):
+    with pytest.raises(RegistryError, match="signature is already registered"):
         _register(
             registry,
             schema=other_schema,
             signature=aws_signature,
             validation=accepted_validation,
             provenance=heuristic_provenance,
-            pipeline=minimal_pipeline,
+            pipeline=compile_pipeline(other_schema, samples=aws_lines),
+            samples=aws_lines,
         )
 
 
 def test_out_of_order_version_is_rejected(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     data = aws_schema.model_dump(mode="json")
     data["version"] = 2
     schema = SchemaSpec.model_validate(data)
 
-    with pytest.raises(RegistryError):
+    with pytest.raises(RegistryError, match="expected version 1"):
         _register(
             registry,
             schema=schema,
-            signature=build_signature(["a,b,c", "1,2,3"]),
+            signature=build_signature(aws_lines),
             validation=accepted_validation,
             provenance=heuristic_provenance,
-            pipeline=minimal_pipeline,
+            pipeline=compile_pipeline(schema, samples=aws_lines),
+            samples=aws_lines,
         )
 
 
 def test_rejected_validation_is_not_registered(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     rejected = ValidationReport(
@@ -227,7 +244,8 @@ def test_rejected_validation_is_not_registered(
             signature=aws_signature,
             validation=rejected,
             provenance=heuristic_provenance,
-            pipeline=minimal_pipeline,
+            pipeline=compiled_aws_pipeline,
+            samples=aws_lines,
         )
 
     assert not (tmp_path / "schemas").exists()
@@ -235,6 +253,7 @@ def test_rejected_validation_is_not_registered(
 
 def test_register_requires_a_non_empty_pipeline(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
@@ -250,16 +269,18 @@ def test_register_requires_a_non_empty_pipeline(
             validation=accepted_validation,
             provenance=heuristic_provenance,
             pipeline={},
+            samples=aws_lines,
         )
 
 
 def test_index_is_rebuilt_when_missing(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     entry = _register(
@@ -268,7 +289,8 @@ def test_index_is_rebuilt_when_missing(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
     (tmp_path / "index.json").unlink()
 
@@ -278,11 +300,12 @@ def test_index_is_rebuilt_when_missing(
 
 def test_tampered_entry_is_rejected(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     _register(
@@ -291,7 +314,8 @@ def test_tampered_entry_is_rejected(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
     entry_path = registry.entry_path(aws_schema.schema_id, 1)
     entry_path.write_text("{not valid json", encoding="utf-8")
@@ -309,11 +333,12 @@ def test_path_traversal_is_rejected(tmp_path: Path) -> None:
 
 def test_index_path_traversal_is_rejected(
     tmp_path: Path,
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     _register(
@@ -322,7 +347,8 @@ def test_index_path_traversal_is_rejected(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
 
     index_path = tmp_path / "index.json"

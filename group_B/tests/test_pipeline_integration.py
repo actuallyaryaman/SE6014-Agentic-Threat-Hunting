@@ -28,6 +28,7 @@ def test_compiled_schema_is_validated_registered_and_reused(
     )
     registry = SchemaRegistry(tmp_path)
     entry = registry.register(
+        samples=aws_lines,
         schema=aws_schema,
         signature=aws_signature,
         pipeline=pipeline,

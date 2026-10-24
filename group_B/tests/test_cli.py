@@ -137,7 +137,7 @@ def test_emit_and_register_bundle(
     _last_json(capsys)
     assert bundle.is_file()
 
-    exit_code = cli.main(registry_args + ["register", str(bundle)])
+    exit_code = cli.main(registry_args + ["register", str(bundle), str(json_samples)])
     assert exit_code == 0
     registered = _last_json(capsys)
     assert registered["registered"]["version"] == 1

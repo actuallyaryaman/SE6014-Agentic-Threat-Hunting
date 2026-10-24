@@ -41,6 +41,7 @@ if report.accepted:
         pipeline=pipeline,
         validation=report,
         provenance=provenance,
+        samples=samples,
     )
 ```
 
@@ -48,7 +49,10 @@ if report.accepted:
 `group_B/CONTRACTS.md`. CSV is compiled to a bounded `grok` pattern because the
 native Elasticsearch `csv` processor is not allowlisted; CSV compilation
 therefore needs representative samples to infer the header or column count.
-Sample values are not written into the pipeline.
+Sample values are not written into the pipeline. Grok processors use the
+Elasticsearch `patterns` list; Dissect retains its singular `pattern`.
+Common processor options, including `ignore_failure` and nested `on_failure`,
+are stored inside the processor configuration.
 
 `validate_pipeline` defaults to a deterministic offline simulation of the
 generated processors. Pass `mode="es_simulate"` and an Elasticsearch client to
@@ -70,7 +74,7 @@ from group_B.schema_generation import (
 )
 
 # heuristics only; deterministic offline
-report = generate_schema(samples, "unknown.dataset")
+report = generate_schema(samples, "unknown.dataset", registry=registry)
 
 # with an OpenRouter candidate provider (offline tests inject the callable)
 provider = OpenRouterCandidateProvider(model="google/gemini-2.0-flash-001")
@@ -132,28 +136,44 @@ integration requirement only; B2 does not vendor B1's code.
 
 ```bash
 # signature lookup against the registry
-group_B.schema_generation.cli --registry ./my-registry detect samples.jsonl
+python -m group_B.schema_generation.cli --registry ./my-registry detect samples.jsonl
 
 # generate (offline heuristics) and register on acceptance
-group_B.schema_generation.cli --registry ./my-registry generate samples.jsonl \
+python -m group_B.schema_generation.cli --registry ./my-registry generate samples.jsonl \
     --dataset unknown.dataset --register
 
 # generate with an OpenRouter provider (OPENROUTER_* env vars)
-group_B.schema_generation.cli generate samples.jsonl --llm --register
+python -m group_B.schema_generation.cli generate samples.jsonl --llm --register
 
 # re-validate a SchemaSpec JSON file against samples
-group_B.schema_generation.cli validate schema.json samples.jsonl
+python -m group_B.schema_generation.cli validate schema.json samples.jsonl
 
 # register a bundle produced by `generate --emit bundle.json`
-group_B.schema_generation.cli register bundle.json
+python -m group_B.schema_generation.cli register bundle.json samples.jsonl
 
-# end-to-end: reuse when the signature is known, else generate
-group_B.schema_generation.cli resolve samples.jsonl --dataset unknown.dataset
+# end-to-end: reuse when known, else generate and register
+python -m group_B.schema_generation.cli resolve samples.jsonl --dataset unknown.dataset --register
 ```
 
-Every command prints one JSON document. Rejected candidates exit non-zero with
-an error document on stderr; raw sample text is never written to the registry
-or the output.
+Run these commands from the repository root with the Group B virtual environment
+activated. Successful commands print one JSON document on stdout. Candidate
+rejections print their report on stdout and exit nonzero. Invalid inputs and
+file failures print a structured error on stderr without a success document.
+
+Standalone `register` requires the original samples, including the CSV header
+when applicable. The registry recomputes the signature, recompiles the schema,
+compares the supplied pipeline, and validates again before writing. It stores
+the fresh report and sample hashes; bundles contain no raw samples. Imports
+with incompatible old Grok `pattern` properties must be regenerated.
+
+Generation with a registry assigns the next version before compilation when
+a new structure is seen under an existing schema ID. `resolve` reuses existing
+signatures. Bundle imports retain their declared version and reject stale or
+out-of-order versions. Registry writes require a single writer.
+
+A report in `es_simulate` mode requires an `es_client` passed to
+`SchemaRegistry.register` for fresh live validation. The CLI currently creates
+and registers offline reports only; it cannot import live-report bundles.
 
 ## Batch status
 
@@ -166,3 +186,17 @@ or the output.
   end-to-end signature reuse; complete.
 
 See `group_B/CONTRACTS.md` for the interfaces with B1, B3, A2/A3 and C2.
+
+## Live Elasticsearch verification
+
+The normal offline run skips live tests. To check the compiler against a real
+Elasticsearch server, set `ES_URL` and, when needed, `ES_WRITE_API_KEY` (or
+`ES_API_KEY`) and `ES_CA_CERT` in your shell, then run:
+
+```bash
+python -m pytest -q group_B/tests/test_live_es.py -m integration
+```
+
+These tests call `_simulate` without installing pipelines or indexing records.
+They cover all parser kinds and tagged parse failures. TLS verification stays
+enabled. No live run has been completed as part of the local B2 repair.

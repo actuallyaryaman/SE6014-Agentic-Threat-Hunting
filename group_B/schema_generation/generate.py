@@ -186,6 +186,7 @@ class SchemaGenerator:
         provider: CandidateProvider | None = None,
         *,
         max_candidates: int = MAX_CANDIDATES,
+        registry: SchemaRegistry | None = None,
     ) -> None:
         if not isinstance(max_candidates, int) or isinstance(max_candidates, bool):
             raise SchemaGenerationError(
@@ -197,6 +198,7 @@ class SchemaGenerator:
             )
         self._provider = provider
         self._max_candidates = max_candidates
+        self._registry = registry
 
     def generate(
         self,
@@ -277,8 +279,8 @@ class SchemaGenerator:
             errors=errors,
         )
 
-    @staticmethod
     def _evaluate_candidate(
+        self,
         candidate: Mapping[str, Any],
         *,
         origin: str,
@@ -296,6 +298,16 @@ class SchemaGenerator:
                     f"SchemaSpec: {error}"
                 ],
             )
+
+        if self._registry is not None:
+            existing = self._registry.find_by_signature(build_signature(samples))
+            version = (
+                existing.schema_spec.version
+                if existing is not None
+                and existing.schema_spec.schema_id == spec.schema_id
+                else self._registry.next_version(spec.schema_id)
+            )
+            spec = spec.model_copy(update={"version": version})
 
         try:
             pipeline = compile_pipeline(spec, samples=samples)
@@ -409,6 +421,7 @@ class SchemaResolver:
         self._generator = SchemaGenerator(
             provider=provider,
             max_candidates=max_candidates,
+            registry=registry,
         )
 
     def resolve_or_generate(
@@ -438,12 +451,14 @@ def generate_schema(
     *,
     provider: CandidateProvider | None = None,
     max_candidates: int = MAX_CANDIDATES,
+    registry: SchemaRegistry | None = None,
 ) -> GenerationResult:
     """Convenience wrapper around :class:`SchemaGenerator.generate`."""
 
     return SchemaGenerator(
         provider=provider,
         max_candidates=max_candidates,
+        registry=registry,
     ).generate(samples, dataset_hint)
 
 

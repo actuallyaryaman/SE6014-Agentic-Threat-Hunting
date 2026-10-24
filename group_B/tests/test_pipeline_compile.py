@@ -129,7 +129,7 @@ def test_compile_auditd_extracts_audit_timestamp(
 
     assert any(
         "grok" in processor
-        and "audit\\(" in processor["grok"]["pattern"]
+        and "audit\\(" in processor["grok"]["patterns"][0]
         for processor in processors
     )
     assert any(
@@ -169,11 +169,11 @@ def test_compile_grok_rewrites_semantics() -> None:
         if "grok" in processor
     )
 
-    assert "b2g0" in grok["pattern"]
-    assert "b2g1" in grok["pattern"]
-    assert "b2g2" in grok["pattern"]
-    assert grok["pattern"].startswith("^(?:")
-    assert grok["pattern"].endswith(")$")
+    assert "b2g0" in grok["patterns"][0]
+    assert "b2g1" in grok["patterns"][0]
+    assert "b2g2" in grok["patterns"][0]
+    assert grok["patterns"][0].startswith("^(?:")
+    assert grok["patterns"][0].endswith(")$")
 
 
 def test_compile_regex_rewrites_python_named_groups() -> None:
@@ -184,10 +184,10 @@ def test_compile_regex_rewrites_python_named_groups() -> None:
         if "grok" in processor
     )
 
-    assert "(?P<" not in grok["pattern"]
-    assert "(?<b2r0>" in grok["pattern"]
-    assert "(?<b2r1>" in grok["pattern"]
-    assert "(?<b2r2>" in grok["pattern"]
+    assert "(?P<" not in grok["patterns"][0]
+    assert "(?<b2r0>" in grok["patterns"][0]
+    assert "(?<b2r1>" in grok["patterns"][0]
+    assert "(?<b2r2>" in grok["patterns"][0]
 
 
 def test_compile_rejects_unsafe_target() -> None:

@@ -238,6 +238,7 @@ def test_resolver_reuses_registered_schema(tmp_path: Path) -> None:
     assert generation.schema_spec is not None
     assert generation.validation is not None
     entry = SchemaRegistry(tmp_path).register(
+        samples=CSV_SAMPLES,
         schema=generation.schema_spec,
         signature=resolution.signature,
         pipeline=generation.pipeline,
@@ -264,6 +265,7 @@ def test_generated_schema_round_trips_through_registry_and_detector(
     assert generation.validation is not None
     assert generation.provenance is not None
     entry = registry.register(
+        samples=JSON_SAMPLES,
         schema=generation.schema_spec,
         signature=generation.signature,
         pipeline=generation.pipeline,

@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from group_B.common import FakeRecognizer, RecogniseResult
+from group_B.schema_generation.compile_es import compile_pipeline
 from group_B.schema_generation.detect import SchemaDetector
 from group_B.schema_generation.models import (
     Provenance,
@@ -30,7 +31,6 @@ def test_otrf_unknown_formats_are_registered_and_reused(
     auditd_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
 ) -> None:
     recognizer = FakeRecognizer(
         RecogniseResult.unknown("not in B1", reason_code="no_match")
@@ -47,16 +47,18 @@ def test_otrf_unknown_formats_are_registered_and_reused(
     assert aws_signature.hash != auditd_signature.hash
 
     aws_entry = registry.register(
+        samples=aws_lines,
         schema=aws_schema,
         signature=aws_signature,
-        pipeline=minimal_pipeline,
+        pipeline=compile_pipeline(aws_schema, samples=aws_lines),
         validation=accepted_validation,
         provenance=heuristic_provenance,
     )
     auditd_entry = registry.register(
+        samples=auditd_lines,
         schema=auditd_schema,
         signature=auditd_signature,
-        pipeline=minimal_pipeline,
+        pipeline=compile_pipeline(auditd_schema, samples=auditd_lines),
         validation=accepted_validation,
         provenance=heuristic_provenance,
     )
