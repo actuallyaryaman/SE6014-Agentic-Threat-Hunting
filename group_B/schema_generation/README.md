@@ -22,7 +22,7 @@ detect no match
 | `generate.py` | Heuristic and LLM candidate generation | Batch 3 |
 | `validate.py` | Required fields, timestamps, types, parse rate, safety rules | Batch 2 |
 | `compile_es.py` | `SchemaSpec` to Elasticsearch ingest pipeline JSON | Batch 2 |
-| `cli.py` | `detect`, `generate`, `validate`, `register`, `list` | Batch 4 |
+| `cli.py` | `detect`, `generate`, `validate`, `register`, `list`, `resolve` | Batch 4 |
 
 ## Compile and validate
 
@@ -128,6 +128,33 @@ Runtime loading also requires B1 to be importable from one of the allowlisted
 module prefixes and to expose a callable. This is an
 integration requirement only; B2 does not vendor B1's code.
 
+## CLI
+
+```bash
+# signature lookup against the registry
+group_B.schema_generation.cli --registry ./my-registry detect samples.jsonl
+
+# generate (offline heuristics) and register on acceptance
+group_B.schema_generation.cli --registry ./my-registry generate samples.jsonl \
+    --dataset unknown.dataset --register
+
+# generate with an OpenRouter provider (OPENROUTER_* env vars)
+group_B.schema_generation.cli generate samples.jsonl --llm --register
+
+# re-validate a SchemaSpec JSON file against samples
+group_B.schema_generation.cli validate schema.json samples.jsonl
+
+# register a bundle produced by `generate --emit bundle.json`
+group_B.schema_generation.cli register bundle.json
+
+# end-to-end: reuse when the signature is known, else generate
+group_B.schema_generation.cli resolve samples.jsonl --dataset unknown.dataset
+```
+
+Every command prints one JSON document. Rejected candidates exit non-zero with
+an error document on stderr; raw sample text is never written to the registry
+or the output.
+
 ## Batch status
 
 - Batch 0: package scaffold.
@@ -135,6 +162,7 @@ integration requirement only; B2 does not vendor B1's code.
 - Batch 2: pipeline compiler and validator.
 - Batch 3: agentic generation with an optional OpenRouter candidate provider;
   the heuristic generators stay offline and deterministic.
-- Batch 4: CLI and end-to-end reuse.
+- Batch 4: CLI (detect, generate, validate, register, list, resolve) with
+  end-to-end signature reuse; complete.
 
 See `group_B/CONTRACTS.md` for the interfaces with B1, B3, A2/A3 and C2.
