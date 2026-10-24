@@ -35,4 +35,7 @@ jobs:
       - name: Run B1 tests (recogniser, pipeline policy, Elasticsearch pipelines)
         env:
           ES_URL: http://localhost:9200
-        run: python -m unittest discover -s group_B/B1/tests -v
+        run: |
+          TESTS=$(find group_B -type d -ipath 'group_B/b1/tests' | head -1)
+          echo "Using test folder: $TESTS"
+          python -m unittest discover -s "$TESTS" -v
