@@ -1,0 +1,7 @@
+# Python 3.11+ (tested with 3.12). Versions match the environment the port was tested in.
+mcp==1.30.0                # official MCP SDK; 1.x FastMCP is the stable server API
+elasticsearch==8.19.3      # client major must match the server (team stack: Elastic 8.19)
+pydantic==2.13.5
+PyYAML==6.0.3
+pytest==9.1.1
+anthropic==1.11.0          # optional: only when an LLM is configured for the planner

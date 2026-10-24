@@ -1,0 +1,19 @@
+{
+  "description": "C2 test extension appended to B1's windows-json pipeline (request R3a to B1): set @timestamp and map the Sysmon fields the hunt playbooks need to ECS / Elastic Sysmon-integration names",
+  "processors": [
+    {"date": {"if": "ctx.EventTime != null", "field": "EventTime", "target_field": "@timestamp", "formats": ["ISO8601"], "timezone": "UTC"}},
+    {"rename": {"field": "CommandLine", "target_field": "process.command_line", "ignore_missing": true}},
+    {"rename": {"field": "ParentImage", "target_field": "process.parent.executable", "ignore_missing": true}},
+    {"rename": {"field": "ParentCommandLine", "target_field": "process.parent.command_line", "ignore_missing": true}},
+    {"rename": {"field": "ProcessGuid", "target_field": "process.entity_id", "ignore_missing": true}},
+    {"rename": {"field": "SourceImage", "target_field": "process.executable", "ignore_missing": true}},
+    {"rename": {"field": "TargetImage", "target_field": "winlog.event_data.TargetImage", "ignore_missing": true}},
+    {"rename": {"field": "GrantedAccess", "target_field": "winlog.event_data.GrantedAccess", "ignore_missing": true}},
+    {"rename": {"field": "CallTrace", "target_field": "winlog.event_data.CallTrace", "ignore_missing": true}},
+    {"rename": {"field": "IntegrityLevel", "target_field": "winlog.event_data.IntegrityLevel", "ignore_missing": true}},
+    {"rename": {"field": "TargetFilename", "target_field": "file.path", "ignore_missing": true}},
+    {"lowercase": {"field": "Protocol", "target_field": "network.transport", "ignore_missing": true}},
+    {"remove": {"field": ["EventTime", "Protocol"], "ignore_missing": true}},
+    {"script": {"lang": "painless", "source": "String base(def p) { if (p == null) { return null; } String s = p.toString(); int a = s.lastIndexOf('\\\\'); int b = s.lastIndexOf('/'); return s.substring((a > b ? a : b) + 1); }\nif (ctx.process != null) {\n  if (ctx.process.executable != null && ctx.process.name == null) { ctx.process.name = base(ctx.process.executable); }\n  if (ctx.process.parent != null && ctx.process.parent.executable != null) { ctx.process.parent.name = base(ctx.process.parent.executable); }\n}\nif (ctx.file != null && ctx.file.path != null) { ctx.file.name = base(ctx.file.path); }"}}
+  ]
+}

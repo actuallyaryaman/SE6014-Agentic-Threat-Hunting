@@ -1,0 +1,35 @@
+# Common Normalized Event Fields (B1)
+
+All parsers and pipelines in Group B should output these field names (based on Elastic Common Schema, ECS). If a log type does not have a field, leave it empty.
+
+## Rules
+1. Use the official ECS name. Do not invent new names.
+2. Only include fields that can be filled from our datasets.
+3. Prefer fields that detections use (IP, user, program, URL, status code).
+4. Always keep the original raw line in `event.original`.
+
+## Fields
+
+| Meaning | ECS field | Apache access log | Windows JSON (Sysmon) |
+|---|---|---|---|
+| Event time | `@timestamp` | timestamp | `EventTime` / `@timestamp` |
+| Original raw line | `event.original` | whole line | whole line |
+| Log type | `event.dataset` | `apache.access` | `windows.sysmon` |
+| Event type ID | `event.code` | - | `EventID` |
+| Computer name | `host.name` | - | `Hostname` |
+| Source IP | `source.ip` | client IP | `SourceIp` |
+| Source port | `source.port` | - | `SourcePort` |
+| Destination IP | `destination.ip` | - | `DestinationIp` |
+| Destination port | `destination.port` | - | `DestinationPort` |
+| User | `user.name` | - | `User` |
+| Program path | `process.executable` | - | `Image` |
+| Process ID | `process.pid` | - | `ProcessId` |
+| Web method | `http.request.method` | GET, PUT, ... | - |
+| Web path | `url.path` | request path | - |
+| Web status | `http.response.status_code` | 200, 404, ... | - |
+| Bytes sent | `http.response.body.bytes` | size | - |
+| Referrer | `http.request.referrer` | referrer | - |
+| Client / browser | `user_agent.original` | user agent | - |
+
+## Change process
+Need a new field? Tell B1 (Noor) in the team chat or open an issue. B1 adds a row here after the team agrees.
