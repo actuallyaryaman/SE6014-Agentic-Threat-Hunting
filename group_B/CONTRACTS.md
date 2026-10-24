@@ -216,16 +216,36 @@ shared integration path.
 | Stream | A3 UDP JSON envelope | JSON event payloads |
 | Direct | Elasticsearch `_bulk` | Explicit local fallback only |
 
-B3 supplies the selected pipeline ID in `labels.ingest_pipeline` (**proposal**
-pending A2 agreement). The integrated Logstash output should apply it with:
+B3 supplies the selected pipeline ID in `labels.ingest_pipeline`. A2 PR #2
+now implements this option in its pull and push outputs:
 
 ```ruby
 pipeline => "%{[labels][ingest_pipeline]}"
 ```
 
-The current A2 pipelines do not yet set this option. Until they do, direct-ES
-ingestion with the `pipeline` query parameter on `_bulk` remains a local
-fallback, not the shared path.
+The A2 README reports local Apache tests through both routes. Generated B2
+pipelines and automated B3 execution still need shared integration testing.
+Direct-ES ingestion with the `pipeline` query parameter on `_bulk` remains
+an explicit local fallback.
+
+### Batch 5 planning interface
+
+`group_B.agentic_ingestion.plan_source(source, policy, ...)` returns an
+`IngestionPlan` with `status` `planned` or `blocked`, a selected transport,
+pipeline ID, registration requirement and explicit warnings. It never writes
+to Group A, Elasticsearch or the schema registry. A supplied `dry_run=False`
+does not execute anything in this batch. Every plan requires later indexing
+verification; a plan is not an ingestion-success result.
+
+Known-format pipeline selection requires an operator-approved mapping. Missing
+B1 configuration is distinct from an explicit format miss. B2 receives the
+source timezone for candidate generation; naive timestamps without one and
+yearless syslog remain blocked. Stream inspection accepts supplied samples
+without opening a UDP listener. A3's normalized-event interface still needs
+agreement before raw-envelope stream execution can be planned as supported.
+
+Source inspection and exact B2 resolution remain available in memory; raw
+samples and candidate resolution are excluded from JSON plan summaries.
 
 ## 6. Index naming and IDs
 

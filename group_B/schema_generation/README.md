@@ -171,6 +171,11 @@ a new structure is seen under an existing schema ID. `resolve` reuses existing
 signatures. Bundle imports retain their declared version and reject stale or
 out-of-order versions. Registry writes require a single writer.
 
+For B3 inspection, `SchemaRegistry(root, read_only=True)` looks up entry files
+without rebuilding a missing index and rejects registration/index writes.
+`generate_schema` and `resolve_or_generate` accept an optional `timezone` for
+naive source timestamps; an offset embedded in a record retains its meaning.
+
 A report in `es_simulate` mode requires an `es_client` passed to
 `SchemaRegistry.register` for fresh live validation. The CLI currently creates
 and registers offline reports only; it cannot import live-report bundles.
@@ -198,5 +203,12 @@ python -m pytest -q group_B/tests/test_live_es.py -m integration
 ```
 
 These tests call `_simulate` without installing pipelines or indexing records.
-They cover all parser kinds and tagged parse failures. TLS verification stays
-enabled. No live run has been completed as part of the local B2 repair.
+They cover all parser kinds, tagged parse failures, heuristic generation,
+live-validated local registration and signature reuse. TLS verification stays
+enabled when using an HTTPS endpoint.
+
+Live verification on 2026-10-24 passed all 10 cases against Elasticsearch
+8.19.23; the full Group B suite passed 227 tests with live ES enabled. See
+`group_B/tests/LIVE_ES_RESULTS.md` for environment details and remaining shared
+integration checks. The isolated loopback run used authenticated HTTP; shared
+A1 HTTPS and A2/A3 transport remain unverified.

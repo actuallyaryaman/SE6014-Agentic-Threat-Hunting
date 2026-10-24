@@ -5,7 +5,9 @@ import os
 import pytest
 
 from group_B.schema_generation.compile_es import compile_pipeline
+from group_B.schema_generation.generate import generate_schema, resolve_or_generate
 from group_B.schema_generation.models import SchemaSpec
+from group_B.schema_generation.registry import SchemaRegistry
 from group_B.schema_generation.validate import validate_pipeline
 
 pytestmark = pytest.mark.integration
@@ -77,3 +79,33 @@ def test_compiled_pipeline_on_real_elasticsearch(
     )
     assert failure_report.accepted, failure_report.errors
     assert failure_report.parse_failure_count == 1
+
+
+@pytest.mark.parametrize("kind", ["json", "csv", "kv"])
+def test_generated_schema_live_registration_and_reuse(kind, live_es, tmp_path):
+    """Exercise real heuristic generation, live evidence, registration and reuse."""
+    if kind == "json":
+        lines = ['{"timestamp":"2026-10-24T12:00:00Z","message":"hello"}'] * 5
+    elif kind == "csv":
+        lines = ["timestamp,message"] + ["2026-10-24T12:00:00Z,hello"] * 5
+    else:
+        lines = ["timestamp=2026-10-24T12:00:00Z msg=hello"] * 5
+    generated = generate_schema(lines, "test.generated")
+    assert generated.accepted, generated.errors
+    report = validate_pipeline(
+        generated.schema_spec, generated.pipeline, lines,
+        mode="es_simulate", es_client=live_es,
+    )
+    assert report.accepted, report.errors
+    registry = SchemaRegistry(tmp_path / "registry")
+    entry = registry.register(
+        schema=generated.schema_spec, signature=generated.signature,
+        pipeline=generated.pipeline, validation=report,
+        provenance=generated.provenance, samples=lines, es_client=live_es,
+    )
+    assert entry.validation.mode == "es_simulate"
+    assert entry.validation.accepted
+    reused = resolve_or_generate(lines, registry=registry)
+    assert reused.reused
+    assert reused.entry.pipeline == generated.pipeline
+    assert reused.pipeline_id == entry.pipeline_id

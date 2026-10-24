@@ -129,13 +129,14 @@ class RegistryEntry(BaseModel):
 class SchemaRegistry:
     """Read and write validated schema entries under one registry root."""
 
-    def __init__(self, root: Path | str | None = None) -> None:
+    def __init__(self, root: Path | str | None = None, *, read_only: bool = False) -> None:
         if root is None:
             self.root = default_registry_root()
         else:
             self.root = Path(root).expanduser().resolve()
         self.schemas_dir = self.root / "schemas"
         self.index_path = self.root / "index.json"
+        self.read_only = read_only
 
     def register(
         self,
@@ -153,6 +154,8 @@ class SchemaRegistry:
         The supplied report is historical evidence, never authorization to
         register a pipeline. Live reports require a client for fresh simulation.
         """
+        if self.read_only:
+            raise RegistryError("cannot register through a read-only registry")
 
         if not isinstance(schema, SchemaSpec):
             raise RegistryError("schema must be a SchemaSpec")
@@ -260,6 +263,13 @@ class SchemaRegistry:
                 "signature hash must be 64 lowercase hex characters"
             )
 
+        if self.read_only:
+            matches = [entry for entry in self.list_entries()
+                       if entry.signature.hash == signature_hash]
+            if len(matches) > 1:
+                raise RegistryError("duplicate signature found in read-only registry")
+            return matches[0] if matches else None
+
         if not self.index_path.is_file() and self._has_entries():
             self.rebuild_index()
         index = self._read_index()
@@ -325,6 +335,9 @@ class SchemaRegistry:
 
     def rebuild_index(self) -> RegistryIndex:
         """Rebuild ``index.json`` from the entry files."""
+
+        if self.read_only:
+            raise RegistryError("cannot rebuild a read-only registry")
 
         index = RegistryIndex()
         for entry in self.list_entries():

@@ -187,6 +187,7 @@ class SchemaGenerator:
         *,
         max_candidates: int = MAX_CANDIDATES,
         registry: SchemaRegistry | None = None,
+        timezone: str | None = None,
     ) -> None:
         if not isinstance(max_candidates, int) or isinstance(max_candidates, bool):
             raise SchemaGenerationError(
@@ -199,6 +200,7 @@ class SchemaGenerator:
         self._provider = provider
         self._max_candidates = max_candidates
         self._registry = registry
+        self._timezone = timezone
 
     def generate(
         self,
@@ -299,6 +301,10 @@ class SchemaGenerator:
                 ],
             )
 
+        if self._timezone is not None:
+            spec = spec.model_copy(update={
+                "timestamp": spec.timestamp.model_copy(update={"timezone": self._timezone}),
+            })
         if self._registry is not None:
             existing = self._registry.find_by_signature(build_signature(samples))
             version = (
@@ -416,12 +422,14 @@ class SchemaResolver:
         *,
         provider: CandidateProvider | None = None,
         max_candidates: int = MAX_CANDIDATES,
+        timezone: str | None = None,
     ) -> None:
         self._registry = registry
         self._generator = SchemaGenerator(
             provider=provider,
             max_candidates=max_candidates,
             registry=registry,
+            timezone=timezone,
         )
 
     def resolve_or_generate(
@@ -452,6 +460,7 @@ def generate_schema(
     provider: CandidateProvider | None = None,
     max_candidates: int = MAX_CANDIDATES,
     registry: SchemaRegistry | None = None,
+    timezone: str | None = None,
 ) -> GenerationResult:
     """Convenience wrapper around :class:`SchemaGenerator.generate`."""
 
@@ -459,6 +468,7 @@ def generate_schema(
         provider=provider,
         max_candidates=max_candidates,
         registry=registry,
+        timezone=timezone,
     ).generate(samples, dataset_hint)
 
 
@@ -469,6 +479,7 @@ def resolve_or_generate(
     registry: SchemaRegistry | None = None,
     provider: CandidateProvider | None = None,
     max_candidates: int = MAX_CANDIDATES,
+    timezone: str | None = None,
 ) -> SchemaResolution:
     """Contract-facing entry point used by B3 and the Batch 4 CLI."""
 
@@ -480,6 +491,7 @@ def resolve_or_generate(
         registry,
         provider=provider,
         max_candidates=max_candidates,
+        timezone=timezone,
     ).resolve_or_generate(lines, dataset_hint)
 
 
