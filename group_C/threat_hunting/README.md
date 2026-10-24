@@ -2,8 +2,6 @@
 
 Takes a plain-language hypothesis, plans a hunt from vetted playbooks, queries Elasticsearch **only through MCP tools**, and returns a rule-based verdict (`SUPPORTED`, `NOT_SUPPORTED`, `INCONCLUSIVE` or `INSUFFICIENT_DATA`). Every claim is tied to event IDs and to the query that found them. Design: [DESIGN.md](DESIGN.md). Contracts with other members: [INTERFACES.md](INTERFACES.md).
 
-**Origin.** This is a port of the C2 parts of the author's (Vu Tuan Dat) earlier prototype, `vtdat/se6014-agentic-threat-hunting@d1956af` (private). The port is adapted to the team's `security-events-*` index, `event.dataset` and B1's ingest pipelines. The prototype's ingestion, verifier, reporter and experiments are **not** included; they belong to Group B, C3 and C4.
-
 ## Layout
 
 | Path | What |
