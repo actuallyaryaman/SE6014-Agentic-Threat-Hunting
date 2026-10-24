@@ -91,6 +91,7 @@ def required_ok(doc):
 class TestRecogniser(unittest.TestCase):
     def check(self, lines, fmt, dataset, pipeline):
         r = recognise(lines)
+        self.assertIs(r["matched"], True)
         self.assertEqual(r["format_id"], fmt)
         self.assertEqual(r["dataset"], dataset)
         self.assertEqual(r["pipeline_id"], pipeline)
@@ -117,10 +118,29 @@ class TestRecogniser(unittest.TestCase):
     def test_no_match_has_no_match_fields(self):
         for lines in (["hello world", "not a log"], [], ["", "  "], ["{bad json"]):
             r = recognise(lines)
-            self.assertEqual(r, {"reason_code": "no_match"})
+            self.assertEqual(r, {"matched": False, "reason_code": "no_match"})
 
     def test_mixed_below_threshold_is_no_match(self):
-        self.assertEqual(recognise([FIREWALL, "junk", "junk", "junk"]), {"reason_code": "no_match"})
+        self.assertEqual(recognise([FIREWALL, "junk", "junk", "junk"]),
+                         {"matched": False, "reason_code": "no_match"})
+
+
+class TestShim(unittest.TestCase):
+    """recognizer.py (the allowlisted import name) exposes the same function."""
+
+    def test_shim_returns_same_result(self):
+        import recognizer
+        self.assertIs(recognizer.recognise, recognise)
+        self.assertEqual(recognizer.recognise([FIREWALL])["matched"], True)
+
+    def test_package_import(self):
+        import importlib
+        sys.path.insert(0, os.path.dirname(B1))  # folder that contains B1
+        try:
+            mod = importlib.import_module(os.path.basename(B1) + ".recognizer")
+        finally:
+            sys.path.pop(0)
+        self.assertEqual(mod.recognise(["hello"]), {"matched": False, "reason_code": "no_match"})
 
 
 class TestPipelinePolicy(unittest.TestCase):

@@ -115,7 +115,7 @@ def main():
         lines = [l.rstrip("\r\n") for l in f if l.strip()]
 
     result = recognise(lines[:50])
-    if "reason_code" in result:
+    if not result["matched"]:
         sys.exit(f"Not recognised ({result['reason_code']}). No pipeline to use.")
     name, conf = result["format_id"], result["confidence"]
     pipeline = result["pipeline_id"]

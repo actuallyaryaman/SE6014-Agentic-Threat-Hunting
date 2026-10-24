@@ -2,8 +2,8 @@
 
     recognise(lines: Sequence[str]) -> dict
 
-Match:     {"format_id", "dataset", "pipeline_id", "confidence"}
-No match:  {"reason_code": "no_match"}   (no match fields)
+Match:     {"matched": True, "format_id", "dataset", "pipeline_id", "confidence"}
+No match:  {"matched": False, "reason_code": "no_match"}   (no other match fields)
 
 Usage:  python recognise.py yourfile.log
 """
@@ -78,13 +78,14 @@ def recognise(lines, min_conf=0.8):
     """Look at a sample of lines and say which known format they are."""
     lines = [l.lstrip("\ufeff") for l in lines if isinstance(l, str) and l.strip()]
     if not lines:
-        return {"reason_code": "no_match"}
+        return {"matched": False, "reason_code": "no_match"}
     scores = {n: sum(bool(f(l)) for l in lines) / len(lines) for n, f in TEMPLATES.items()}
     best = max(scores, key=scores.get)
     conf = scores[best]
     if conf < min_conf:
-        return {"reason_code": "no_match"}
+        return {"matched": False, "reason_code": "no_match"}
     return {
+        "matched": True,
         "format_id": best,
         "dataset": _dataset(best, lines),
         "pipeline_id": PIPELINES[best],
