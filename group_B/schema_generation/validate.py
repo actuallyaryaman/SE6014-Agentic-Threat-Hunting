@@ -50,9 +50,6 @@ from group_B.schema_generation.models import (
 MAX_VALIDATION_SAMPLES = 50
 MAX_REPORT_ERRORS = 20
 _PROCESSOR_NAMES = ALLOWED_PROCESSORS - {"on_failure"}
-_COMMON_OPTIONS = frozenset(
-    {"description", "if", "ignore_failure", "on_failure", "tag"}
-)
 _DATE_FORMATS = {"ISO8601", "UNIX", "UNIX_MS", "TAI64N"}
 _CONVERT_TYPES = {
     "integer",
@@ -102,11 +99,7 @@ def _validate_processors(processors: list[Any], location: str) -> None:
                 f"{where} uses an if condition; generated pipelines may not "
                 "contain executable conditions"
             )
-        keys = [
-            key
-            for key in processor
-            if key not in _COMMON_OPTIONS
-        ]
+        keys = list(processor)
         if len(keys) != 1:
             raise PipelineSafetyError(
                 f"{where} must contain exactly one processor type"
@@ -131,7 +124,7 @@ def _validate_processors(processors: list[Any], location: str) -> None:
             config,
             f"{where}.{processor_type}",
         )
-        nested = processor.get("on_failure")
+        nested = config.get("on_failure")
         if nested is not None:
             if not isinstance(nested, list) or not nested:
                 raise PipelineSafetyError(
@@ -153,12 +146,23 @@ def _validate_processor_config(
             f"{where} uses an if condition; generated pipelines may not "
             "contain executable conditions"
         )
-    if processor_type in {"grok", "dissect", "gsub"}:
+    if processor_type in {"dissect", "gsub"}:
         pattern = config.get("pattern")
         if not isinstance(pattern, str) or not pattern:
             raise PipelineSafetyError(f"{where}.pattern must be a string")
         _validate_pattern_safety(pattern, f"{where}.pattern")
     if processor_type == "grok":
+        if "pattern" in config:
+            raise PipelineSafetyError(f"{where} requires patterns, not pattern")
+        patterns = config.get("patterns")
+        if not isinstance(patterns, list) or not patterns:
+            raise PipelineSafetyError(f"{where}.patterns must be a non-empty list")
+        for index, pattern in enumerate(patterns):
+            if not isinstance(pattern, str) or not pattern:
+                raise PipelineSafetyError(
+                    f"{where}.patterns[{index}] must be a string"
+                )
+            _validate_pattern_safety(pattern, f"{where}.patterns[{index}]")
         definitions = config.get("pattern_definitions", {})
         if not isinstance(definitions, dict):
             raise PipelineSafetyError(
@@ -817,9 +821,9 @@ def _run_processors(
         except _DropDocument:
             raise
         except Exception as error:  # noqa: BLE001 - simulator boundary
-            if processor.get("ignore_failure"):
+            if config.get("ignore_failure"):
                 continue
-            nested = processor.get("on_failure")
+            nested = config.get("on_failure")
             if isinstance(nested, list) and nested:
                 metadata["_ingest"]["on_failure_message"] = str(error)
                 _run_processors(
@@ -882,12 +886,14 @@ def _run_processor(
     if processor_type == "grok":
         field = _required_field(config)
         value = _string_field(document, field)
-        pattern = config.get("pattern")
+        patterns = config.get("patterns")
         definitions = config.get("pattern_definitions", {})
-        if not isinstance(pattern, str):
-            raise _ProcessorFailure("grok pattern is required")
-        regex = _grok_regex(pattern, definitions)
-        match = re.search(regex, value)
+        match = None
+        for pattern in patterns:
+            regex = _grok_regex(pattern, definitions)
+            match = re.search(regex, value)
+            if match is not None:
+                break
         if match is None:
             raise _ProcessorFailure(f"grok pattern did not match {field!r}")
         for name, captured in match.groupdict().items():

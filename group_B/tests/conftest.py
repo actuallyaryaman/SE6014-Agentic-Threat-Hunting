@@ -137,8 +137,7 @@ def heuristic_provenance() -> Provenance:
 
 
 @pytest.fixture
-def minimal_pipeline() -> dict[str, object]:
-    return {
-        "description": "Batch 1 test pipeline",
-        "processors": [],
-    }
+def compiled_aws_pipeline(aws_schema, aws_lines) -> dict[str, object]:
+    from group_B.schema_generation.compile_es import compile_pipeline
+
+    return compile_pipeline(aws_schema, samples=aws_lines)

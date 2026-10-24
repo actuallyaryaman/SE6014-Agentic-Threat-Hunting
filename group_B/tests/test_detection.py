@@ -25,6 +25,7 @@ def _register(
     validation: ValidationReport,
     provenance: Provenance,
     pipeline: dict[str, object],
+    samples: list[str],
 ):
     return registry.register(
         schema=schema,
@@ -32,6 +33,7 @@ def _register(
         pipeline=pipeline,
         validation=validation,
         provenance=provenance,
+        samples=samples,
     )
 
 
@@ -56,7 +58,7 @@ def test_known_source_matches_after_registration(
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     entry = _register(
@@ -65,7 +67,8 @@ def test_known_source_matches_after_registration(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
     detector = SchemaDetector(registry)
 
@@ -79,11 +82,12 @@ def test_known_source_matches_after_registration(
 def test_auditd_does_not_match_an_aws_entry(
     tmp_path: Path,
     auditd_lines: list[str],
+    aws_lines: list[str],
     aws_schema: SchemaSpec,
     aws_signature: SourceSignature,
     accepted_validation: ValidationReport,
     heuristic_provenance: Provenance,
-    minimal_pipeline: dict[str, object],
+    compiled_aws_pipeline: dict[str, object],
 ) -> None:
     registry = SchemaRegistry(tmp_path)
     _register(
@@ -92,7 +96,8 @@ def test_auditd_does_not_match_an_aws_entry(
         signature=aws_signature,
         validation=accepted_validation,
         provenance=heuristic_provenance,
-        pipeline=minimal_pipeline,
+        pipeline=compiled_aws_pipeline,
+        samples=aws_lines,
     )
     detector = SchemaDetector(registry)
 

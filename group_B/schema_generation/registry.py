@@ -17,6 +17,7 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -30,14 +31,16 @@ from pydantic import (
     model_validator,
 )
 
-from group_B.common.errors import RegistryError
+from group_B.common.errors import GroupBError, RegistryError
+from group_B.schema_generation.compile_es import compile_pipeline
 from group_B.schema_generation.models import (
     Provenance,
     SchemaSpec,
     ValidationReport,
     utc_now,
 )
-from group_B.schema_generation.signature import SourceSignature
+from group_B.schema_generation.signature import SourceSignature, build_signature
+from group_B.schema_generation.validate import sample_hashes, validate_pipeline
 
 _SCHEMA_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _HEX64_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -142,8 +145,14 @@ class SchemaRegistry:
         pipeline: dict[str, Any],
         validation: ValidationReport,
         provenance: Provenance,
+        samples: Sequence[str],
+        es_client: Any | None = None,
     ) -> RegistryEntry:
-        """Register a validated schema, or return the identical existing one."""
+        """Recompile and revalidate against samples before registering.
+
+        The supplied report is historical evidence, never authorization to
+        register a pipeline. Live reports require a client for fresh simulation.
+        """
 
         if not isinstance(schema, SchemaSpec):
             raise RegistryError("schema must be a SchemaSpec")
@@ -157,6 +166,35 @@ class SchemaRegistry:
             raise RegistryError("cannot register a rejected schema")
         if not isinstance(pipeline, dict) or not pipeline:
             raise RegistryError("pipeline must be a non-empty dict")
+
+        try:
+            fresh_signature = build_signature(samples)
+            if fresh_signature.hash != signature.hash:
+                raise RegistryError("samples do not match the bundle signature")
+            compiled = compile_pipeline(schema, samples=samples)
+            if compiled != pipeline:
+                raise RegistryError("pipeline does not match the compiled schema")
+            fresh_validation = validate_pipeline(
+                schema,
+                compiled,
+                samples,
+                mode=validation.mode,
+                es_client=es_client,
+            )
+            if not fresh_validation.accepted:
+                raise RegistryError(
+                    "fresh sample validation rejected the schema",
+                    errors=fresh_validation.errors,
+                )
+            hashes = sample_hashes(samples)
+        except RegistryError:
+            raise
+        except (GroupBError, TypeError, ValueError) as error:
+            raise RegistryError("could not revalidate registration samples") from error
+
+        signature = fresh_signature
+        validation = fresh_validation
+        provenance = provenance.model_copy(update={"sample_hashes": hashes})
 
         existing = self.find_by_signature(signature)
         if existing is not None:

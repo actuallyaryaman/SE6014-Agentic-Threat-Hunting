@@ -206,8 +206,8 @@ def compile_pipeline(
                 "field": "event.original",
                 "copy_from": TEMP_RAW_FIELD,
                 "override": True,
+                "ignore_failure": True,
             },
-            "ignore_failure": True,
         },
         {
             "set": {
@@ -670,7 +670,7 @@ def _parser_processors(
             {
                 "grok": {
                     "field": "message",
-                    "pattern": layout.pattern,
+                    "patterns": [layout.pattern],
                     "pattern_definitions": layout.pattern_definitions,
                 }
             }
@@ -739,7 +739,7 @@ def _parser_processors(
             raise PipelineCompileError("grok layout is missing its pattern")
         config: dict[str, Any] = {
             "field": "message",
-            "pattern": layout.pattern,
+            "patterns": [layout.pattern],
         }
         if layout.pattern_definitions:
             config["pattern_definitions"] = layout.pattern_definitions
@@ -759,10 +759,10 @@ def _timestamp_processors(
             {
                 "grok": {
                     "field": source_path,
-                    "pattern": (
+                    "patterns": [
                         r"^audit\(%{BASE10NUM:b2ts0}:"
                         r"%{BASE10NUM:b2ts1}\):$"
-                    ),
+                    ],
                 }
             }
         ]
@@ -821,7 +821,7 @@ def _field_processors(
             }
             processor: dict[str, Any] = {"set": config}
             if not field.required and field.target not in REQUIRED_FIELDS:
-                processor["ignore_failure"] = True
+                config["ignore_failure"] = True
             processors.append(processor)
 
         processors.extend(_field_type_processors(field))

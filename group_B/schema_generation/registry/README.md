@@ -14,7 +14,13 @@ ingest pipeline, the pipeline ID, the validation report and provenance. The
 index maps a structural source signature hash to the latest registered entry
 for that signature.
 
-Only schemas with an accepted validation report can be registered. Entry and
-index writes use a temporary file followed by `os.replace`. The registry
-assumes a single writer; the Batch 4 CLI should serialize writes if it runs
-concurrently.
+Registration requires the original samples as `samples=...`. Before writing,
+the registry recomputes the signature, recompiles and compares the pipeline,
+and freshly validates it. Stored reports and sample hashes describe that run;
+an imported `accepted: true` flag is insufficient. Live-mode reports require
+an Elasticsearch client for another `_simulate` call.
+
+Entry and index writes each use a temporary file followed by `os.replace`.
+They are not a multi-file transaction. The registry and CLI assume one writer;
+callers must serialize concurrent writes. Existing entries are not migrated
+automatically; regenerate pipelines that use the old singular Grok property.
