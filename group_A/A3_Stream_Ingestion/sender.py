@@ -23,7 +23,7 @@ except ValueError as error:
     sys.exit(1)
 
 project_root = Path(__file__).resolve().parent
-file_path = project_root / "data" / "fixed_events.jsonl"
+file_path = project_root / "Data" / "fixed_events.jsonl"
 
 sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

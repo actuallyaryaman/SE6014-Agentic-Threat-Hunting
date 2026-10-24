@@ -6,6 +6,7 @@ from log_parser import (
     parse_linux_auth,
     parse_apache_access,
     parse_firewall_log,
+    parse_windows_event,
 )
 
 
@@ -48,6 +49,57 @@ class TestLogParser(unittest.TestCase):
     def test_invalid_linux_log(self):
         with self.assertRaises(ValueError):
             parse_linux_auth("This is not a supported SSH log")
+
+    def test_windows_sysmon_network_event(self):
+        line = (
+            '{"@timestamp":"2020-10-22T18:32:43.779Z",'
+            '"EventID":3,'
+            '"RecordNumber":924068,'
+            '"Message":"Network connection detected",'
+            '"Hostname":"MORDORDC.theshire.local",'
+            '"SourceIp":"192.0.2.10",'
+            '"DestinationIp":"192.0.2.20",'
+            '"SourcePort":"61901",'
+            '"DestinationPort":"389",'
+            '"Image":"C:\\\\Windows\\\\System32\\\\lsass.exe",'
+            '"ProcessId":"696",'
+            '"User":"NT AUTHORITY\\\\\\\\SYSTEM",'
+            '"Protocol":"tcp"}'
+        )
+
+        event = parse_windows_event(line)
+
+        self.assertEqual(event["event"]["dataset"], "windows.sysmon")
+        self.assertEqual(event["event"]["code"], "3")
+        self.assertEqual(event["event"]["action"], "network_connect")
+        self.assertEqual(
+            event["host"]["name"],
+            "MORDORDC.theshire.local",
+        )
+        self.assertEqual(event["source"]["ip"], "192.0.2.10")
+        self.assertEqual(event["destination"]["ip"], "192.0.2.20")
+        self.assertEqual(event["source"]["port"], 61901)
+        self.assertEqual(event["destination"]["port"], 389)
+        self.assertEqual(event["process"]["pid"], 696)
+        self.assertEqual(
+            event["process"]["executable"],
+            "C:\\Windows\\System32\\lsass.exe",
+        )
+        self.assertEqual(event["network"]["transport"], "tcp")
+        validate_event(event)
+
+    def test_invalid_windows_json(self):
+        with self.assertRaises(ValueError):
+            parse_windows_event("This is not JSON")
+
+    def test_windows_event_missing_timestamp(self):
+        line = (
+            '{"EventID":3,'
+            '"Message":"Network connection detected"}'
+        )
+
+        with self.assertRaises(ValueError):
+            parse_windows_event(line)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 import re
 import uuid
 from datetime import datetime, timezone
+import json
 
 
 def parse_linux_auth(line):
@@ -208,3 +209,122 @@ def parse_firewall_log(line):
             "level": "warning",
         },
     }
+
+
+def parse_windows_event(line):
+    """Convert a Windows Sysmon JSON event into ECS-style JSON."""
+
+    try:
+        record = json.loads(line)
+    except (json.JSONDecodeError, TypeError) as error:
+        raise ValueError("Invalid Windows event JSON") from error
+
+    if not isinstance(record, dict):
+        raise ValueError("Windows event must be a JSON object")
+
+    timestamp = record.get("@timestamp")
+    message = record.get("Message")
+    event_id = record.get("EventID")
+
+    if not isinstance(timestamp, str) or not timestamp.strip():
+        raise ValueError("Windows event is missing @timestamp")
+
+    try:
+        parsed_timestamp = datetime.fromisoformat(
+            timestamp.replace("Z", "+00:00")
+        )
+    except ValueError as error:
+        raise ValueError("Invalid Windows event timestamp") from error
+
+    if parsed_timestamp.tzinfo is None:
+        raise ValueError("Windows event timestamp must include a timezone")
+
+    if parsed_timestamp.utcoffset().total_seconds() != 0:
+        raise ValueError("Windows event timestamp must use UTC")
+
+    if not isinstance(message, str) or not message.strip():
+        raise ValueError("Windows event is missing Message")
+
+    if event_id is None:
+        raise ValueError("Windows event is missing EventID")
+
+    try:
+        event_id = int(event_id)
+    except (ValueError, TypeError) as error:
+        raise ValueError("Windows EventID must be an integer") from error
+
+    if event_id == 3:
+        dataset = "windows.sysmon"
+        category = ["network"]
+        action = "network_connect"
+    else:
+        dataset = "windows.event"
+        category = ["host"]
+        action = "event"
+
+    event = {
+        "@timestamp": (
+            parsed_timestamp.astimezone(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        ),
+        "event": {
+            "id": str(record.get("RecordNumber", event_id)),
+            "code": str(event_id),
+            "dataset": dataset,
+            "category": category,
+            "action": action,
+            "original": line.strip(),
+        },
+        "message": message,
+    }
+
+    # Add optional host information when available.
+    hostname = record.get("Hostname") or record.get("host")
+    if hostname:
+        event["host"] = {"name": hostname}
+
+    # Preserve useful network details for Sysmon Event ID 3.
+    if event_id == 3:
+        if record.get("SourceIp"):
+            event["source"] = {"ip": record["SourceIp"]}
+
+        if record.get("DestinationIp"):
+            event["destination"] = {"ip": record["DestinationIp"]}
+
+        if record.get("DestinationPort") is not None:
+            try:
+                event.setdefault("destination", {})["port"] = int(
+                    record["DestinationPort"]
+                )
+            except (ValueError, TypeError):
+                pass
+
+        if record.get("SourcePort") is not None:
+            try:
+                event.setdefault("source", {})["port"] = int(
+                    record["SourcePort"]
+                )
+            except (ValueError, TypeError):
+                pass
+
+        if record.get("Image"):
+            event["process"] = {"executable": record["Image"]}
+
+        if record.get("ProcessId") is not None:
+            try:
+                event.setdefault("process", {})["pid"] = int(
+                    record["ProcessId"]
+                )
+            except (ValueError, TypeError):
+                pass
+
+    if record.get("User"):
+        event["user"] = {"name": record["User"]}
+
+    if record.get("Protocol"):
+        event.setdefault("network", {})["transport"] = (
+            record["Protocol"].lower()
+        )
+
+    return event

@@ -1,27 +1,22 @@
 
 from datetime import datetime, timezone
+import warnings
 
 
 def validate_event(event):
-    """Validate the basic structure of an ECS-compatible log event."""
+    """Validate an ECS-compatible log event."""
 
     if not isinstance(event, dict):
         raise ValueError("Event must be a dictionary")
 
-    # Check the required top-level ECS fields.
-    required_fields = {
-        "@timestamp",
-        "event",
-        "message",
-        "host",
-    }
-
-    missing_fields = required_fields - event.keys()
+    # The four required fields at the top level / inside event.
+    required_top_level_fields = {"@timestamp", "event", "message"}
+    missing_fields = required_top_level_fields - event.keys()
 
     if missing_fields:
         raise ValueError(f"Missing required fields: {missing_fields}")
 
-    # Check the timestamp.
+    # Validate the timestamp.
     timestamp = event["@timestamp"]
 
     if not isinstance(timestamp, str):
@@ -40,40 +35,56 @@ def validate_event(event):
     if parsed_timestamp.utcoffset() != timezone.utc.utcoffset(parsed_timestamp):
         raise ValueError("@timestamp must use UTC")
 
-    # Check the nested event object.
+    # Validate the event object.
     event_details = event["event"]
 
     if not isinstance(event_details, dict):
         raise ValueError("event must be a dictionary")
 
-    required_event_fields = {
-        "id",
-        "dataset",
-        "category",
-        "action",
-        "outcome",
-        "original",
-    }
+    # event.dataset and event.original are mandatory.
+    for field in ("dataset", "original"):
+        value = event_details.get(field)
 
-    missing_event_fields = required_event_fields - event_details.keys()
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"event.{field} must be a non-empty string")
 
-    if missing_event_fields:
-        raise ValueError(
-            f"Missing required event fields: {missing_event_fields}"
-        )
+    if not event_details["dataset"].strip():
+        raise ValueError("event.dataset must be a non-empty string")
 
-    if not isinstance(event_details["category"], list):
-        raise ValueError("event.category must be a list")
-
-    # Check the host object.
-    if not isinstance(event["host"], dict):
-        raise ValueError("host must be a dictionary")
-
-    if not event["host"].get("name"):
-        raise ValueError("host.name is required")
-
-    # Check human-readable message.
+    # Validate message.
     if not isinstance(event["message"], str) or not event["message"].strip():
         raise ValueError("message must be a non-empty string")
+
+    # Optional fields: report missing values without rejecting the event.
+    optional_fields = {
+        "host.name": (
+            isinstance(event.get("host"), dict)
+            and bool(event["host"].get("name"))
+        ),
+        "event.action": bool(event_details.get("action")),
+        "event.id": bool(event_details.get("id")),
+        "event.category": bool(event_details.get("category")),
+        "event.outcome": bool(event_details.get("outcome")),
+    }
+
+    missing_optional = [
+        field for field, present in optional_fields.items() if not present
+    ]
+
+    if missing_optional:
+        warnings.warn(
+            f"Optional fields missing: {', '.join(missing_optional)}",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    # Validate optional fields if they are provided.
+    if "host" in event and not isinstance(event["host"], dict):
+        raise ValueError("host must be a dictionary when provided")
+
+    if "category" in event_details and not isinstance(
+        event_details["category"], list
+    ):
+        raise ValueError("event.category must be a list when provided")
 
     return event
