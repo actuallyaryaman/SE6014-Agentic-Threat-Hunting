@@ -1,0 +1,197 @@
+{
+  "description": "B1 Linux auth log (syslog or ISO timestamps; sshd, sudo, PAM) -> ECS",
+  "processors": [
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message"
+      }
+    },
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{TIMESTAMP_ISO8601:tmp.ts} %{SYSLOGHOST:host.name} %{DATA:process.name}(?:\\[%{POSINT:process.pid:long}\\])?:\\s+%{GREEDYDATA:tmp.msg}",
+          "%{SYSLOGTIMESTAMP:tmp.ts} %{SYSLOGHOST:host.name} %{DATA:process.name}(?:\\[%{POSINT:process.pid:long}\\])?:\\s+%{GREEDYDATA:tmp.msg}"
+        ]
+      }
+    },
+    {
+      "date": {
+        "field": "tmp.ts",
+        "target_field": "@timestamp",
+        "timezone": "UTC",
+        "formats": [
+          "ISO8601",
+          "MMM d HH:mm:ss",
+          "MMM  d HH:mm:ss",
+          "MMM dd HH:mm:ss"
+        ]
+      }
+    },
+    {
+      "grok": {
+        "field": "tmp.msg",
+        "patterns": [
+          "Failed password for invalid user %{DATA:user.name} from %{IP:source.ip} port %{INT:source.port:long}",
+          "Failed password for %{DATA:user.name} from %{IP:source.ip} port %{INT:source.port:long}",
+          "Accepted %{WORD:tmp.method} for %{DATA:user.name} from %{IP:source.ip} port %{INT:source.port:long}",
+          "Invalid user %{DATA:user.name} from %{IP:source.ip} port %{INT:source.port:long}",
+          "Connection closed by (?:invalid user |authenticating user )?%{DATA:user.name} %{IP:source.ip} port %{INT:source.port:long}",
+          "%{DATA:user.name} : TTY=%{DATA:tmp.tty} ; PWD=%{DATA:tmp.pwd} ; USER=%{DATA:user.target.name} ; COMMAND=%{GREEDYDATA:process.command_line}",
+          "pam_unix\\(%{DATA:tmp.pam}:session\\): session %{WORD:tmp.state} for user %{DATA:user.name}(?:\\(uid=%{INT}\\))?(?: by %{DATA:tmp.by}\\(uid=%{INT}\\))?$",
+          "pam_unix\\(%{DATA:tmp.pam}:auth\\): authentication failure;.*rhost=%{IP:source.ip}"
+        ],
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "linux.auth"
+      }
+    },
+    {
+      "set": {
+        "field": "event.category",
+        "value": [
+          "authentication"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Failed password')",
+        "field": "event.action",
+        "value": "ssh_login"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Failed password')",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Accepted ')",
+        "field": "event.action",
+        "value": "ssh_login"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Accepted ')",
+        "field": "event.outcome",
+        "value": "success"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Invalid user')",
+        "field": "event.action",
+        "value": "invalid_user"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Invalid user')",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('Connection closed')",
+        "field": "event.action",
+        "value": "connection_closed"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.process?.command_line != null",
+        "field": "event.action",
+        "value": "sudo_command"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('pam_unix') && ctx.tmp.msg.contains('authentication failure')",
+        "field": "event.action",
+        "value": "pam_auth_failure"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.msg != null && ctx.tmp.msg.startsWith('pam_unix') && ctx.tmp.msg.contains('authentication failure')",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.state != null",
+        "field": "event.action",
+        "value": "session_{{tmp.state}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "message",
+        "value": "(no message)",
+        "if": "ctx.message == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message",
+        "if": "ctx.event?.original == null"
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "linux.auth",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "append": {
+        "field": "tags",
+        "value": [
+          "_parse_failure"
+        ],
+        "allow_duplicates": false
+      }
+    },
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
+  ]
+}

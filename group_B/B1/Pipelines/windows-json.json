@@ -1,0 +1,329 @@
+{
+  "description": "B1 Windows/Sysmon JSON events -> ECS",
+  "processors": [
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message"
+      }
+    },
+    {
+      "json": {
+        "field": "message",
+        "add_to_root": true
+      }
+    },
+    {
+      "rename": {
+        "field": "host",
+        "target_field": "observer.hostname",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "EventID",
+        "target_field": "event.code",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "Hostname",
+        "target_field": "host.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SourceIp",
+        "target_field": "source.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "IpAddress",
+        "target_field": "source.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SourcePort",
+        "target_field": "source.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "IpPort",
+        "target_field": "source.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "DestinationIp",
+        "target_field": "destination.ip",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "DestinationPort",
+        "target_field": "destination.port",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "User",
+        "target_field": "user.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "SubjectUserName",
+        "target_field": "user.name",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "Image",
+        "target_field": "process.executable",
+        "ignore_missing": true
+      }
+    },
+    {
+      "rename": {
+        "field": "ProcessId",
+        "target_field": "process.pid",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "event.code",
+        "type": "string",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "source.port",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "destination.port",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "convert": {
+        "field": "process.pid",
+        "type": "long",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "copy_from": "Channel",
+        "if": "ctx.Channel != null && ctx.Channel != ''"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "windows",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Message != null",
+        "field": "message",
+        "copy_from": "Message"
+      }
+    },
+    {
+      "remove": {
+        "field": "Message",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Message == null && ctx.message == ctx.event?.original",
+        "field": "message",
+        "value": "Windows event {{event.code}} on {{host.name}} ({{event.dataset}})"
+      }
+    },
+    {
+      "lowercase": {
+        "field": "Severity",
+        "target_field": "log.level",
+        "ignore_missing": true
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.EventType == 'AUDIT_SUCCESS'",
+        "field": "event.outcome",
+        "value": "success"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.EventType == 'AUDIT_FAILURE'",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '1')",
+        "field": "event.category",
+        "value": [
+          "process"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '3')",
+        "field": "event.category",
+        "value": [
+          "network"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '11')",
+        "field": "event.category",
+        "value": [
+          "file"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '12' || ctx.event?.code == '13' || ctx.event?.code == '14')",
+        "field": "event.category",
+        "value": [
+          "registry"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '5145')",
+        "field": "event.category",
+        "value": [
+          "file"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '4624' || ctx.event?.code == '4625')",
+        "field": "event.category",
+        "value": [
+          "authentication"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '4688')",
+        "field": "event.category",
+        "value": [
+          "process"
+        ]
+      }
+    },
+    {
+      "grok": {
+        "field": "process.executable",
+        "patterns": [
+          ".*[\\\\/]%{GREEDYDATA:process.name}"
+        ],
+        "if": "ctx.process?.executable != null",
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "field": "process.name",
+        "copy_from": "process.executable",
+        "if": "ctx.process?.executable != null && ctx.process?.name == null"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "message",
+        "value": "(no message)",
+        "if": "ctx.message == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message",
+        "if": "ctx.event?.original == null"
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "windows",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "append": {
+        "field": "tags",
+        "value": [
+          "_parse_failure"
+        ],
+        "allow_duplicates": false
+      }
+    },
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
+  ]
+}
