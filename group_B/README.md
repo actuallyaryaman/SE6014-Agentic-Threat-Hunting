@@ -58,3 +58,33 @@
 - Document code, dependencies and test results.
 - Coordinate interface changes with Groups A and C.
 - Submit pull requests before merging into main.
+
+## Implementation Layout
+
+| Path | Purpose |
+|---|---|
+| `common/` | Shared models, errors and the B1 `recognise(lines)` adapter |
+| `schema_generation/` | B2 unknown-schema detection, generation, validation and registry |
+| `agentic_ingestion/` | B3 source inspection, ingestion planning, adapters and verification |
+| `tests/` | Offline unit tests and OTRF fixtures |
+| `CONTRACTS.md` | Shared interfaces with B1, B3, A2/A3 and C2 |
+| `requirements.txt` | Pinned Python dependencies |
+
+Run the offline tests from this directory:
+
+```bash
+python -m pytest
+```
+
+The tests do not require Elasticsearch or an LLM API key. Tests that need
+live services must use `@pytest.mark.integration` and are selected explicitly
+with `python -m pytest -m integration`.
+
+From the repository root, verify the committed OTRF fixture hashes:
+
+```bash
+python group_B/scripts/fetch_otrf_fixtures.py --check
+```
+
+The fixture provenance, upstream commit, ATT&CK mappings and licence note are
+in `tests/fixtures/otrf/`.
