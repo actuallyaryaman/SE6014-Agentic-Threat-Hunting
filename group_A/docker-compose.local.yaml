@@ -6,6 +6,7 @@
       - ../.env
     environment:
       LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      MONITORING_ELASTICSEARCH_HOSTS: '["https://es01:9200"]'
     ports:
       - "127.0.0.1:9600:9600"
     volumes:
@@ -23,6 +24,7 @@
       ELASTICSEARCH_HOSTS: '["${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL in root .env}"]'
       ELASTICSEARCH_SERVICEACCOUNTTOKEN: "${KIBANA_SERVICE_ACCOUNT_TOKEN:?Add KIBANA_SERVICE_ACCOUNT_TOKEN to the root .env file}"
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/http_ca.crt
+      ELASTICSEARCH_SSL_VERIFICATIONMODE: certificate
     ports:
       - "127.0.0.1:5601:5601"
     volumes:
