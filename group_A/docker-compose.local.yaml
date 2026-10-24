@@ -12,6 +12,7 @@
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
       - ./sample-data:/usr/share/logstash/ingest_data:ro
       - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
     networks:
       - elastic
 
@@ -23,6 +24,7 @@
       ELASTICSEARCH_HOSTS: '["${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL in root .env}"]'
       ELASTICSEARCH_SERVICEACCOUNTTOKEN: "${KIBANA_SERVICE_ACCOUNT_TOKEN:?Add KIBANA_SERVICE_ACCOUNT_TOKEN to the root .env file}"
       ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/http_ca.crt
+      ELASTICSEARCH_SSL_VERIFICATIONMODE: certificate
     ports:
       - "127.0.0.1:5601:5601"
     volumes:
