@@ -142,5 +142,56 @@
         "ignore_missing": true
       }
     }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "message",
+        "value": "(no message)",
+        "if": "ctx.message == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message",
+        "if": "ctx.event?.original == null"
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "linux.auth",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "append": {
+        "field": "tags",
+        "value": [
+          "_parse_failure"
+        ],
+        "allow_duplicates": false
+      }
+    },
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
   ]
 }

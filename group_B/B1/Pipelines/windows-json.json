@@ -134,9 +134,23 @@
     },
     {
       "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
         "field": "event.dataset",
         "copy_from": "Channel",
-        "ignore_empty_value": true
+        "if": "ctx.Channel != null && ctx.Channel != ''"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "windows",
+        "if": "ctx.event?.dataset == null"
       }
     },
     {
@@ -154,7 +168,7 @@
     },
     {
       "set": {
-        "if": "ctx.Message == null && ctx.message == ctx.event.original",
+        "if": "ctx.Message == null && ctx.message == ctx.event?.original",
         "field": "message",
         "value": "Windows event {{event.code}} on {{host.name}} ({{event.dataset}})"
       }
@@ -181,15 +195,134 @@
       }
     },
     {
-      "script": {
-        "lang": "painless",
-        "source": "def code = ctx.event?.code;\ndef ch = ctx.Channel;\nif (code == null) { return; }\ndef m = [:];\nif (ch != null && ch.contains('Sysmon')) {\n  m.put('1','process'); m.put('3','network'); m.put('11','file');\n  m.put('12','registry'); m.put('13','registry'); m.put('14','registry');\n} else {\n  m.put('5145','file'); m.put('4624','authentication'); m.put('4625','authentication'); m.put('4688','process');\n}\ndef c = m.get(code);\nif (c != null) { ctx.event.category = [c]; }"
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '1')",
+        "field": "event.category",
+        "value": [
+          "process"
+        ]
       }
     },
     {
-      "script": {
-        "lang": "painless",
-        "source": "def exe = ctx.process?.executable;\nif (exe == null) { return; }\nint a = exe.lastIndexOf('\\\\');\nint b = exe.lastIndexOf('/');\nint i = a > b ? a : b;\nctx.process.name = exe.substring(i + 1);"
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '3')",
+        "field": "event.category",
+        "value": [
+          "network"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '11')",
+        "field": "event.category",
+        "value": [
+          "file"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Microsoft-Windows-Sysmon/Operational' && (ctx.event?.code == '12' || ctx.event?.code == '13' || ctx.event?.code == '14')",
+        "field": "event.category",
+        "value": [
+          "registry"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '5145')",
+        "field": "event.category",
+        "value": [
+          "file"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '4624' || ctx.event?.code == '4625')",
+        "field": "event.category",
+        "value": [
+          "authentication"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.Channel == 'Security' && (ctx.event?.code == '4688')",
+        "field": "event.category",
+        "value": [
+          "process"
+        ]
+      }
+    },
+    {
+      "grok": {
+        "field": "process.executable",
+        "patterns": [
+          ".*[\\\\/]%{GREEDYDATA:process.name}"
+        ],
+        "if": "ctx.process?.executable != null",
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "field": "process.name",
+        "copy_from": "process.executable",
+        "if": "ctx.process?.executable != null && ctx.process?.name == null"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "message",
+        "value": "(no message)",
+        "if": "ctx.message == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message",
+        "if": "ctx.event?.original == null"
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "windows",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "append": {
+        "field": "tags",
+        "value": [
+          "_parse_failure"
+        ],
+        "allow_duplicates": false
+      }
+    },
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
       }
     }
   ]
