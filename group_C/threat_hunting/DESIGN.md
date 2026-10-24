@@ -1,12 +1,33 @@
-# C2 — Threat-Hunting Agent: Design (Draft v0.2)
+# C2 — Threat-Hunting Agent: Design (Draft v0.3)
 
 | | |
 |---|---|
 | **Owner** | Vu Tuan Dat (C2, Group C) |
 | **Status** | Draft for review. Feedback welcome via PR comments |
-| **Related** | [INTERFACES.md](INTERFACES.md): contracts and requests to other members |
-| **Last updated** | 2026-10-21 |
+| **Related** | [INTERFACES.md](INTERFACES.md): contracts and requests to other members · [README.md](README.md): how to run the code |
+| **Last updated** | 2026-10-24 |
+| **Changes in v0.3** | Implementation status below; the code is a port of the C2 parts of the author's prototype |
 | **Changes in v0.2** | Aligned with the SE6014 project requirements: coverage guarantees (§5), hunt-analytics MCP server (§3, §6), switchable repeatability controls (§9), demo profile (§3.3), decision-risk outputs (§4.2), references (§13), requirements traceability (§14) |
+
+---
+
+## Implementation status (2026-10-24)
+
+The code in this folder is a port of the C2 parts of the author's prototype (`vtdat/se6014-agentic-threat-hunting@d1956af`), adapted to `security-events-*`, `event.dataset` and B1's pipelines. It runs end to end over MCP on synthetic data (see README).
+
+| Design element | Status |
+|---|---|
+| Intake + planner (rules; optional LLM technique selection with guardrail) | Done (`planner.py`) |
+| Playbooks: PB-01 (T1110 + T1078), PB-02 (T1190), PB-03 (T1046, host-scan variant), PB-04 (T1071, count-based), plus T1003.001, T1059.001, T1021.002, T1048 | Done (`playbooks.py`). PB-05 (T1021.004) not yet |
+| Structured filters → DSL, never LLM-written DSL (§2 principle 2) | Done (`query.py`) |
+| Coverage: missing sources, required fields per dataset, hourly gaps (§5.2, §5.4) | Done. The full coverage matrix and ATT&CK variant catalogue (§5.1, §5.3) are not yet built |
+| Evidence handles, rule-based verdict incl. `INSUFFICIENT_DATA`, analyst-review flag (§4) | Done (`hunter.py`, `verdict.py`). `recommended_next_steps` not yet |
+| C2 self-check (§3.1) | Done (`selfcheck.py`) |
+| Hunt-analytics MCP server (§6) | `gap_check`, `lookup_attack`, `check_ioc` done; `burst_detect`, `beacon_score`, `rare_values` planned |
+| Switchable controls (§9.2) | Four controls from the prototype (`--control`); profiles, `--no-playbook`, `--warmup`, `--replay` not yet |
+| C1 ES MCP server | Temporary stand-in in `dev/es_mcp_standin/` until C1 delivers |
+
+Deviations from this design found while porting: the team's firewall log has no ports or byte counts, so beaconing is counted per destination, host scanning counts distinct internal destinations, and exfiltration hunts return `INSUFFICIENT_DATA`; lateral movement is detected from Sysmon EID 3 instead of the firewall.
 
 ---
 

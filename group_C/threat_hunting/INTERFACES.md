@@ -1,10 +1,11 @@
-# C2 — Interface Contracts and Requests to Other Members (Draft v0.2)
+# C2 — Interface Contracts and Requests to Other Members (Draft v0.3)
 
 | | |
 |---|---|
 | **Owner** | Vu Tuan Dat (C2) |
 | **Status** | **Proposal.** Please comment on the PR or propose changes; nothing here is final until agreed |
 | **Companion** | [DESIGN.md](DESIGN.md) |
+| **Changes in v0.3** | Synced with the working port (`threat_hunting/`): §1.2 lists the tools the agent actually calls (implemented by the C1 stand-in `dev/es_mcp_standin/`); §1.6 marks what the analytics server implements; §2.1 follows Group B's `security-events-*` + `event.dataset` convention; new request **R3a** to B1 |
 | **Changes in v0.2** | C2-owned contracts only: hunt-analytics MCP server (§1.6); coverage matrix and decision-risk fields in `HuntResult` (§4.1); profiles, switchable controls and new CLI flags for C4 (§5). No new requests to other members |
 
 This document lists **what the threat-hunting agent (C2) needs from each member**, in a concrete form, and the **cross-cutting considerations** that affect all of our implementations. Until each item is delivered, C2 uses the stand-in shown, so nobody is blocked.
@@ -15,9 +16,10 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 
 | # | From | Request | Priority | Needed by | C2 stand-in until then |
 |---|---|---|---|---|---|
-| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | `LocalESTools` with the same signatures |
+| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | `dev/es_mcp_standin/` (ported read-only prototype server) |
 | R2 | **C1** | Server-side query safety limits (§1.4) | High | M4 | Same limits enforced in C2's compiler |
 | R3 | **Group B (B1)** | Dataset names, index naming, per-dataset field list with ES types (§2) | High | M2/M5 | Assumed ECS mapping below |
+| R3a | **Group B (B1)** | `windows-json` pipeline: set `@timestamp` from `EventTime`/`UtcTime` (today **no** Windows event gets one, so time-bounded hunts never see them) and map `CommandLine`, `ParentImage`, `SourceImage`, `TargetImage`, `GrantedAccess`, `TargetFilename` | High | M5 | `dev/b1_pipelines/windows_ext.json` appended in the test setup |
 | R4 | **Group B (B1/B2)** | Parse-failure marking + custom-field namespace (§2.3) | Medium | M5 | Synthetic data has no failures |
 | R5 | **Group A (A1)** | ES/Kibana version, endpoint, CA cert, read-only API key for C1 (§3) | High | M4 | Own single-node ES in Docker |
 | R6 | **Group A (A2/A3)** | Deterministic `_id`s, timestamp policy for replays, frozen snapshot for experiments (§3) | High | M6 | Own generator with fixed `_id`s |
@@ -36,21 +38,24 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 - **Credentials:** the MCP server holds the ES credentials. **The agent never sees them.**
 - **Server identity:** the agent connects only to the configured URL. It checks the tool list at start-up and refuses unknown tools.
 
-### 1.2 Proposed tools
+### 1.2 Tools the agent calls (implemented today by the stand-in `dev/es_mcp_standin/`)
+
+Filters use a structured language, never raw DSL: `{field, op, value}` with `op` in `eq|neq|in|wildcard|prefix|contains|gte|lte|gt|lt|exists`; `filters` are ANDed, `must_not` excluded, `any_of` needs one match. The server compiles them with `threat_hunting/query.py` (index allowlist `security-events-*`, mandatory time range, size cap 200, no scripts, CIDR only on `ip` fields).
 
 | Tool | Parameters | Returns |
 |---|---|---|
-| `list_indices` | `pattern: str = "logs-*"` | `[{index, docs_count, data_stream?}]` |
-| `get_field_mapping` | `index: str` | Flattened `{ "source.ip": "ip", "user.name": "keyword", ... }` |
-| `get_time_coverage` | `index: str`, `field: str = "@timestamp"` | `{min, max, count}` |
-| `count` | `index`, `query` (ES DSL `bool`), `time_range: {gte, lte}` | `{count}` |
-| `search` | `index`, `query`, `time_range`, `fields: [str]`, `size ≤ 100`, `sort` | `{total, hits: [{_index, _id, fields}]}` |
-| `aggregate` | `index`, `query`, `time_range`, `aggs` (terms / date_histogram / cardinality / stats; ≤ 1 nesting level) | Bucket tree |
-| `get_documents` | `index`, `ids: [str] (≤ 100)` | Documents by `_id`. **Used by C3 to verify evidence** |
+| `describe_data` | `index_pattern = "security-events-*"` | `{sources: [{dataset, docs, first_event, last_event}], fields: ["name:type", ...]}` |
+| `search` | `index, time_from, time_to, filters?, must_not?, any_of?, fields?, size ≤ 200, sort` | `{total, returned, truncated, hits: [{index, event_id, fields}], dsl}` |
+| `count` | `index, time_from, time_to, filters?, must_not?, any_of?` | `{total, dsl}` |
+| `aggregate` | `index, time_from, time_to, agg (terms, rare_terms, cardinality, stats, sum, max, date_histogram), field?, filters?, …, size, interval, sum_field?, distinct_field?` | `{total, result: [{key, count, sum?, distinct?}] or {value…}, dsl}` |
+| `get_event` | `index` (exact), `event_id` | `{event}` including `event.original`. **Used by C3 to verify evidence** |
+| `save_finding`, `get_audit_log` | | Audit helpers |
 
-`time_range` is a **separate, mandatory** parameter. The server adds it to the query as a `range` filter on `@timestamp`, so a query without a time bound is impossible.
+`time_from`/`time_to` are **mandatory** and become a `range` filter on `@timestamp`, so a query without a time bound is impossible. C1 can replace the stand-in with any server that offers these names and shapes; the agent is pointed at it with `HUNT_ES_MCP_CMD`. (The v0.2 proposal of `list_indices` / `get_field_mapping` / raw-DSL `search` is superseded by this list.)
 
 ### 1.3 Response envelope (all tools)
+
+*Today the stand-in returns `{call_id, tool, dsl, total, …}` or `{call_id, tool, error}`, and the agent computes `request_hash` itself (sha256 of tool + canonical arguments) in `runs/<id>/trace.jsonl`. The envelope below remains the target for C1.*
 
 ```json
 {
@@ -96,28 +101,33 @@ Should tools accept validated ES DSL (this proposal, which keeps tools generic) 
 ### 1.6 C2's hunt-analytics MCP server (provided by C2, not a request)
 The project requires *every* capability the hunt needs to be exposed as MCP tools, so C2 exposes its analytics through a second, small MCP server. Its tools are **pure functions**: they take data the agent already obtained from C1's tools, hold no ES credentials, make no network calls, and use the same response envelope as §1.3 (with `request_hash` over the inputs).
 
-| Tool | Input | Output |
-|---|---|---|
-| `gap_check` | Date-histogram buckets, interval, hunt window | `time_coverage_ratio`, gap ranges, expected vs observed buckets |
-| `burst_detect` | Timestamps or histogram per key, threshold, window | Keys exceeding the threshold within any sliding window, with peak counts and times |
-| `beacon_score` | Event timestamps per (source, destination) pair | Inter-arrival mean, coefficient of variation, regularity score, event count |
-| `rare_values` | Term counts for the hunt window and a baseline window | Values first seen in the hunt window or below a rarity threshold |
+| Tool | Status | Input | Output |
+|---|---|---|---|
+| `gap_check` | **implemented** | Date-histogram buckets `[{key, count}]` | `n_buckets`, `empty_buckets`, `coverage_ratio` |
+| `lookup_attack` | **implemented** | Technique id or keyword | Offline ATT&CK subset entries |
+| `check_ioc` | **implemented** | IP or domain | Matches in the local threat-intel list |
+| `burst_detect` | planned | Timestamps or histogram per key, threshold, window | Keys exceeding the threshold within any sliding window, with peak counts and times |
+| `beacon_score` | planned | Event timestamps per (source, destination) pair | Inter-arrival mean, coefficient of variation, regularity score, event count |
+| `rare_values` | planned | Term counts for the hunt window and a baseline window | Values first seen in the hunt window or below a rarity threshold |
 
-C1 is welcome to absorb these tools into the ES MCP server later. The agent addresses tools as `<server>.<tool>`, so this would only change config.
+C1 is welcome to absorb these tools into the ES MCP server later. The agent routes each tool name to the server that offers it (a name offered twice is refused at start-up), so this would only change config.
 
 ---
 
 ## 2. Group B — Normalised Data Contract (R3, R4)
 
 ### 2.1 Naming
-Proposal: Elastic data-stream convention `logs-<event.dataset>-<namespace>`:
+Agreed with Group B (CONTRACTS.md §6): one integrated index pattern **`security-events-*`**, datasets told apart by `event.dataset`. The agent accepts both spellings currently used in the team:
 
-| Log type | `event.dataset` | Index / data stream |
+| Log type | `event.dataset` values the agent accepts | Produced by |
 |---|---|---|
-| Linux auth (sshd, sudo) | `linux.auth` | `logs-linux.auth-default` |
-| Nginx / Apache access | `nginx.access` / `apache.access` | `logs-nginx.access-default` |
-| Firewall / network syslog | `firewall.log` | `logs-firewall.log-default` |
-| Experiment snapshot | — | `logs-<dataset>-eval` (frozen; see §3.3) |
+| Linux auth (sshd, sudo) | `linux.auth` | B1 `linux-auth`, A3 parser |
+| Apache / Nginx access | `apache.access`, `nginx.access` | B1 `apache-access`, A3 parser |
+| Firewall syslog | `firewall`, `firewall.log` | B1 `firewall-syslog` (`firewall`), A3 parser (`firewall.log`) |
+| Windows / Sysmon | `Microsoft-Windows-Sysmon/Operational`, `windows.sysmon` | B1 `windows-json` (copies `Channel`) |
+| Experiment snapshot | as above | a frozen `security-events-<name>` index (see §3.3) |
+
+Please converge on one spelling per dataset; until then the alias list lives in `threat_hunting/playbooks.py` (`DATASETS`).
 
 ### 2.2 Minimum fields C2 relies on (with required ES types)
 

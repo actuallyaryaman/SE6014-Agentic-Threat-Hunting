@@ -1,0 +1,155 @@
+{
+ "T1003.001": {
+  "name": "OS Credential Dumping: LSASS Memory",
+  "tactic": "credential-access",
+  "summary": "Adversaries read the memory of lsass.exe to harvest credentials, e.g. via MiniDump (comsvcs.dll), procdump or custom tools.",
+  "data_sources": [
+   "sysmon"
+  ],
+  "sysmon_events": [
+   "1 (process creation)",
+   "10 (process access)",
+   "11 (file create)"
+  ],
+  "keywords": [
+   "lsass",
+   "credential dump",
+   "credential dumping",
+   "mimikatz",
+   "minidump",
+   "procdump"
+  ]
+ },
+ "T1059.001": {
+  "name": "Command and Scripting Interpreter: PowerShell",
+  "tactic": "execution",
+  "summary": "Abuse of PowerShell to execute commands, often with encoded commands (-enc) or hidden windows, frequently spawned from Office applications.",
+  "data_sources": [
+   "sysmon"
+  ],
+  "sysmon_events": [
+   "1"
+  ],
+  "keywords": [
+   "powershell",
+   "encoded command",
+   "macro"
+  ]
+ },
+ "T1021.002": {
+  "name": "Remote Services: SMB/Windows Admin Shares",
+  "tactic": "lateral-movement",
+  "summary": "Use of SMB (tcp/445), admin shares, and service-based remote execution (PsExec-style PSEXESVC) to move between hosts.",
+  "data_sources": [
+   "sysmon"
+  ],
+  "keywords": [
+   "lateral",
+   "smb",
+   "psexec",
+   "admin share",
+   "move laterally"
+  ]
+ },
+ "T1021.006": {
+  "name": "Remote Services: Windows Remote Management",
+  "tactic": "lateral-movement",
+  "summary": "WinRM (tcp/5985, 5986) used for remote command execution.",
+  "data_sources": [
+   "firewall"
+  ],
+  "keywords": [
+   "winrm",
+   "lateral"
+  ]
+ },
+ "T1190": {
+  "name": "Exploit Public-Facing Application",
+  "tactic": "initial-access",
+  "summary": "Exploitation of web applications, e.g. SQL injection, file upload flaws leading to web shells.",
+  "data_sources": [
+   "web"
+  ],
+  "keywords": [
+   "web",
+   "sql injection",
+   "sqli",
+   "web shell",
+   "webshell",
+   "public-facing",
+   "upload"
+  ]
+ },
+ "T1071": {
+  "name": "Application Layer Protocol (C2)",
+  "tactic": "command-and-control",
+  "summary": "Command-and-control traffic blended into common protocols such as HTTPS; periodic beacons to an external host.",
+  "data_sources": [
+   "sysmon",
+   "firewall"
+  ],
+  "keywords": [
+   "c2",
+   "command and control",
+   "beacon"
+  ]
+ },
+ "T1048": {
+  "name": "Exfiltration Over Alternative Protocol",
+  "tactic": "exfiltration",
+  "summary": "Large or anomalous outbound transfers from internal hosts to external destinations.",
+  "data_sources": [
+   "firewall"
+  ],
+  "keywords": [
+   "exfiltrat",
+   "data theft",
+   "large transfer",
+   "outbound transfer"
+  ]
+ },
+ "T1046": {
+  "name": "Network Service Discovery",
+  "tactic": "discovery",
+  "summary": "Port and service scanning.",
+  "data_sources": [
+   "firewall"
+  ],
+  "keywords": [
+   "port scan",
+   "network scan"
+  ]
+ },
+ "T1110": {
+  "name": "Brute Force",
+  "tactic": "credential-access",
+  "summary": "Repeated authentication attempts against services.",
+  "data_sources": [
+   "auth"
+  ],
+  "keywords": [
+   "brute force",
+   "brute-forc",
+   "brute forc",
+   "password spray",
+   "password guess",
+   "failed login"
+  ]
+ },
+ "T1078": {
+  "name": "Valid Accounts",
+  "tactic": "initial-access",
+  "summary": "Use of a valid account, here: a successful login from a source that just produced a burst of failed logins.",
+  "data_sources": [
+   "auth"
+  ],
+  "keywords": [
+   "logged in",
+   "log in successfully",
+   "logged on",
+   "successful login",
+   "successfully logged",
+   "valid account"
+  ]
+ }
+}
