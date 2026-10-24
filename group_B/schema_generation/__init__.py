@@ -44,6 +44,17 @@ from group_B.schema_generation.signature import (
     SourceSignature,
     build_signature,
 )
+from group_B.schema_generation.generate import (
+    CandidateProvider,
+    GenerationAttempt,
+    GenerationResult,
+    SchemaGenerator,
+    SchemaResolution,
+    SchemaResolver,
+    generate_schema,
+    resolve_or_generate,
+)
+from group_B.schema_generation.llm import OpenRouterCandidateProvider
 from group_B.schema_generation.validate import (
     MAX_VALIDATION_SAMPLES,
     sample_hashes,
@@ -54,6 +65,7 @@ from group_B.schema_generation.validate import (
 
 __all__ = [
     "ALLOWED_PROCESSORS",
+    "CandidateProvider",
     "CsvParser",
     "DEFAULT_MAX_SAMPLE_LINES",
     "DetectionResult",
@@ -61,10 +73,13 @@ __all__ = [
     "FORBIDDEN_PROCESSORS",
     "FieldSpec",
     "FieldType",
+    "GenerationAttempt",
+    "GenerationResult",
     "GrokParser",
     "JsonParser",
     "KvParser",
     "MAX_VALIDATION_SAMPLES",
+    "OpenRouterCandidateProvider",
     "PipelineCompileError",
     "PipelineLayout",
     "PipelineSafetyError",
@@ -74,7 +89,10 @@ __all__ = [
     "RegistryIndex",
     "SIGNATURE_VERSION",
     "SchemaDetector",
+    "SchemaGenerator",
     "SchemaRegistry",
+    "SchemaResolution",
+    "SchemaResolver",
     "SchemaSpec",
     "SignatureIndexEntry",
     "SignatureKind",
@@ -85,6 +103,8 @@ __all__ = [
     "build_signature",
     "compile_pipeline",
     "default_registry_root",
+    "generate_schema",
+    "resolve_or_generate",
     "sample_hashes",
     "simulate_pipeline",
     "validate_pipeline",

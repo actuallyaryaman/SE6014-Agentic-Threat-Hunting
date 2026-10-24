@@ -60,6 +60,38 @@ Parse failures are still indexed with the four required fields, a
 `tags: ["_parse_failure"]` marker, and `error.message`. A schema must parse at
 least one sample successfully before it can be accepted.
 
+## Generation
+
+```python
+from group_B.schema_generation import (
+    generate_schema,
+    resolve_or_generate,
+    OpenRouterCandidateProvider,
+)
+
+# heuristics only; deterministic offline
+report = generate_schema(samples, "unknown.dataset")
+
+# with an OpenRouter candidate provider (offline tests inject the callable)
+provider = OpenRouterCandidateProvider(model="google/gemini-2.0-flash-001")
+report = generate_schema(samples, "unknown.dataset", provider=provider)
+
+# batch-3 entry point used by B3 and the Batch 4 CLI
+resolution = resolve_or_generate(samples, "unknown.dataset", registry=registry)
+if resolution.reused:
+    entry = resolution.entry
+else:
+    result = resolution.generation
+```
+
+The heuristic generators propose candidates for plain JSON objects, CSV with a
+header, and `key=value` records. Anything else needs an injected provider.
+`generate_schema` keeps the first candidate whose validation report is
+accepted; rejected candidates are kept for provenance. The generator never
+touches the network by itself: `OpenRouterCandidateProvider` only calls
+OpenRouter when :meth:`propose` is invoked and an inference callable or API
+key is supplied.
+
 ## Registry layout
 
 ```text
@@ -98,10 +130,11 @@ integration requirement only; B2 does not vendor B1's code.
 
 ## Batch status
 
-- Batch 0: package scaffold only.
+- Batch 0: package scaffold.
 - Batch 1: schema model, signature, registry and detection.
 - Batch 2: pipeline compiler and validator.
-- Batch 3: agentic generation.
+- Batch 3: agentic generation with an optional OpenRouter candidate provider;
+  the heuristic generators stay offline and deterministic.
 - Batch 4: CLI and end-to-end reuse.
 
 See `group_B/CONTRACTS.md` for the interfaces with B1, B3, A2/A3 and C2.
