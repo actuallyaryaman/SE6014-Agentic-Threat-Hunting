@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import json
 import os
+import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -94,6 +96,26 @@ def verify_index(docs):
     print("Verified exact IDs, original records, timestamps, ECS fields, mappings and 25/1 outcomes.")
 
 
+@asynccontextmanager
+async def c1_session(run_id):
+    """Independent MCP connection to the C1 server, as C3 uses it (C2's client routes only the agent's tools)."""
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    params = StdioServerParameters(command=sys.executable, args=["-m", "es_mcp_server.server"], cwd=str(ROOT),
+                                   env={**os.environ, "HUNT_RUN_ID": run_id})
+    async with stdio_client(params) as (reader, writer):
+        async with ClientSession(reader, writer) as session:
+            await session.initialize()
+
+            class Calls:
+                @staticmethod
+                async def call(tool, **args):
+                    result = await session.call_tool(tool, args)
+                    return json.loads(result.content[0].text)
+            yield Calls
+
+
 async def hunt_and_verify(docs):
     # Set exact scope before importing config/playbooks: IDX is bound at import time.
     os.environ["HUNT_INDEX"] = INDEX
@@ -103,7 +125,6 @@ async def hunt_and_verify(docs):
     from threat_hunting import config
     config.HUNT_INDEX = INDEX
     config.ES_MCP_CMD = os.environ["HUNT_ES_MCP_CMD"]
-    from threat_hunting.mcp_client import McpHunt
     from threat_hunting.playbooks import BASE
     from threat_hunting.run import run_hunt
 
@@ -140,7 +161,7 @@ async def hunt_and_verify(docs):
     assert success_record["returned_ids"] == [f"{INDEX}/c1-ssh-positive-26"]
     expected_docs = {f"{INDEX}/{doc['event']['id']}": doc for doc in docs}
     verified_ids = set()
-    async with McpHunt(run_id + "-verification") as mcp:
+    async with c1_session(run_id + "-verification") as mcp:
         for claim in saved["claims"]:
             assert claim["status"] == "self_checked"
             for evidence_id in claim["evidence_ids"]:
@@ -167,7 +188,7 @@ async def hunt_and_verify(docs):
                 if claim["technique"] == "T1078":
                     assert original["event"]["outcome"] == "success"
                     assert original["@timestamp"] > docs[24]["@timestamp"]
-                    assert claim["facts"]["failed_logins"] == "25"
+                    assert claim["facts"] == {"source.ip": SOURCE_IP, "user.name": "admin", "host.name": HOST}
                 verified_ids.add(reference)
     assert verified_ids == set(expected_docs), "Not all fixture documents were cited and independently retrieved"
     summary = {"run_id": run_id, "index": INDEX, "verdict": saved["verdict"],
