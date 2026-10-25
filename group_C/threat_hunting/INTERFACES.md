@@ -1,10 +1,11 @@
-# C2 — Interface Contracts and Requests to Other Members (Draft v0.5)
+# C2 — Interface Contracts and Requests to Other Members (Draft v0.6)
 
 | | |
 |---|---|
 | **Owner** | Vu Tuan Dat (C2) |
 | **Status** | **Proposal.** Please comment on the PR or propose changes; nothing here is final until agreed |
 | **Companion** | [DESIGN.md](DESIGN.md) |
+| **Changes in v0.6** | The agentic workflow (DESIGN §3.2–3.7): `result.json` schema 0.3 adds `claims[].origin`, `verdict.leads`, `intake`, `agent`, `skeptic`, `actions`, `candidates`, `lessons_used`, `lesson_flags` and `manifest.llm` (§4.1); leads, skeptic and lessons in the review rule (§4.3); playbook and lesson formats (§4.4); C2's hunt MCP server (§1.7); four agent controls and new commands (§5); the LLM layer as built (§6). No new requests to other members |
 | **Changes in v0.5** | C1 delivered `es_mcp_server/` (promoted from the stand-in): §1.2 and §1.4 now describe both servers; §4.2 states the fact rule C2 and C3 share; R1 delivered; [RUN_HUNTS.md](RUN_HUNTS.md) gives the Group C commands for the four reference hunts |
 | **Changes in v0.4** | Settles the conflicts from C3's review: §4.1 now documents the real `result.json` (binding for C3), with `queries[]`, `dynamic_steps`, `findings` and `review_reasons`; new §4.3 is the single source of truth for confidence and analyst review; §1.1 tool allowlist, §1.4 limits, §1.5 structured filters, §5 CLI and controls all match the code; `logs-*` examples replaced by `security-events-*` |
 | **Changes in v0.3** | Synced with the working port (`threat_hunting/`): §1.2 lists the tools the agent actually calls (implemented by the C1 stand-in `dev/es_mcp_standin/`); §1.6 marks what the analytics server implements; §2.1 follows Group B's `security-events-*` + `event.dataset` convention; new request **R3a** to B1 |
@@ -28,7 +29,7 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 | R7 | **Group A (A3)** | Ability to replay C2's attack scenarios through the real pipeline (§3) | Medium | M5 | Bulk-load directly into local ES |
 | R8 | **C3** | Agree on the `HuntResult` schema and the split of verification work (§4) | High | M3 | C2 self-check only |
 | R9 | **C4** | Agree on the CLI and run manifest; which fields must match across runs (§5) | Medium | M6 | — |
-| R10 | **Groups B + C** | LLM provider/model decision that meets the requirements in §6 | High | M3 | Provider-agnostic `LLMClient` |
+| R10 | **Groups B + C** | LLM provider/model decision that meets the requirements in §6 | High | M3 | C2 is provider-agnostic (`llm.py`: Anthropic or any OpenAI-compatible API); development used DeepSeek |
 | R11 | **A1 (Repo/CI)** | Branch protection on `main`, `.gitignore` additions, CI for offline tests (§7.6) | Medium | M1 | — |
 
 ---
@@ -116,6 +117,16 @@ The project requires *every* capability the hunt needs to be exposed as MCP tool
 
 C1 is welcome to absorb these tools into the ES MCP server later. The agent routes each tool name to the server that offers it (a name offered twice is refused at start-up), so this would only change config.
 
+### 1.7 C2's hunt MCP server (provided by C2, not a request)
+`python -m hunt_server.server` (FastMCP, stdio, no network listener) lets analyst tools and other agents drive C2 (DESIGN §3.7). Register it in Claude Code with `claude mcp add c2-hunt -- python -m hunt_server.server`, run from `group_C/threat_hunting`.
+
+| Tool | Input | Output |
+|---|---|---|
+| `run_hunt` | `hypothesis`, `max_calls` (10–200) | Summary: `run_id, hypothesis, verdict, confidence, requires_analyst_review, review_reasons, reasons, leads, claims[≤30], detection_drafts, response_proposals, result_file` |
+| `get_hunt` | `run_id` (must exist under `runs/`) | The same summary for an earlier run |
+| `list_hunts` | `limit` (≤ 50) | `{hunts: [{run_id, hypothesis, verdict, confidence}]}`, newest first |
+| `follow_up` | `run_id`, `question` | The summary of a rerun `<run_id>-fu-<n>` with the question given to the investigator, plus `question`, `answer`, `cited[]`, `answer_check`. `answer` is null when no LLM is configured or the answer quoted an IP or number its cited claims lack |
+
 ---
 
 ## 2. Group B — Normalised Data Contract (R3, R4)
@@ -189,6 +200,7 @@ POST /_security/api_key
   }
 }
 ```
+`view_index_metadata` is required, not optional: without it the ES server cannot read the mapping and cannot tell an `ip` field from a keyword one, so filters can silently match nothing. C2 then reports a coverage gap on every technique and never returns `NOT_SUPPORTED` (DESIGN §5.2).
 
 ### 3.3 Data properties needed for correct and repeatable hunts
 - **Deterministic `_id`s** (e.g. a hash of `event.original` + source + offset), so that re-ingesting or replaying the same file does not create duplicates that inflate counts.
@@ -202,33 +214,41 @@ POST /_security/api_key
 ## 4. C3 — `HuntResult` Handoff (R8)
 
 ### 4.1 `result.json` (binding for C3)
-Every run writes `runs/<run_id>/result.json`. This is the contract; field names are taken from a real run. `schema_version` is `"0.2"`.
+Every run writes `runs/<run_id>/result.json`. This is the contract; field names are taken from a real run. `schema_version` is `"0.3"` (0.3 only adds fields; nothing from 0.2 was removed or renamed).
 
 | Field | Content |
 |---|---|
-| `run_id`, `hypothesis` (string), `time_range` `{from, to}` | The hypothesis as given; the window is derived from the data and a date in the hypothesis |
-| `verdict` | `{label, confidence, requires_analyst_review, review_reasons[], reasons[]}`. Labels: `SUPPORTED`, `NOT_SUPPORTED`, `INCONCLUSIVE`, `INSUFFICIENT_DATA`. Rules in §4.3 |
-| `techniques[]` | Per technique: `technique, name, required, sources, usable_sources, accepted_claims, supporting_steps, min_support, supported, any_signal, covered, gaps` |
-| `claims[]` | `claim_id, text, technique, evidence_ids[], facts{}, step_id, kind (events/aggregate/ioc), first_seen, event_ids[] ("<index>/<_id>"), replay{} (for aggregates), context_only, status, verifier_notes`. `status` is `self_checked` or `unsupported` after C2; C3 may set `verified` / `unsupported` / `contradicted` |
+| `run_id`, `hypothesis` (string), `question` (follow-ups only, else null), `time_range` `{from, to}` | The hypothesis as given; the window rules are in §5 |
+| `intake` | `{source (rules/llm), window: {requested, effective, basis}, assumptions[], dropped[] (LLM entities or techniques code refused), users[]}` |
+| `verdict` | `{label, confidence, requires_analyst_review, review_reasons[], reasons[], leads[]}`. Labels: `SUPPORTED`, `NOT_SUPPORTED`, `INCONCLUSIVE`, `INSUFFICIENT_DATA`. `leads` lists the self-checked claims with `origin: "llm"`. Rules in §4.3 |
+| `techniques[]` | Per technique: `technique, name, required, sources, usable_sources, accepted_claims, supporting_steps, min_support, supported, any_signal, leads[], covered, gaps`. `accepted_claims` and `supporting_steps` count playbook claims only |
+| `claims[]` | `claim_id, text, technique, evidence_ids[], facts{}, step_id, kind (events/aggregate/ioc), first_seen, event_ids[] ("<index>/<_id>"), replay{} (for aggregates), context_only, origin, status, verifier_notes`. `origin` is `playbook` or `llm` (an investigator step `AG-nn`: a lead, never proof; the same field as C3's contract). `status` is `self_checked` or `unsupported` after C2; C3 may set `verified` / `unsupported` / `contradicted` |
+| `agent` | Investigator loop: `{enabled, model, draft_mode, steps: [{n, thought, action, technique, purpose, status (ran/error/rejected/stop), step_id?, params?, total?, claims[]?, reason?}], stopped_because}` |
+| `skeptic` | `{enabled, model, alternatives: [{claim_id, explanation, benign_if, step_id?, total?, outcome (supported/ruled_out/not_discriminating/not_tested), reason?, superseded?}], skipped_because?}`. Only `supported` caps confidence |
+| `actions` | `{detections: [{rule_id, from_step, technique, origin, title, level, metadata_by, file, es_query, host_scope_removed, validation: {ok, cited_events or cited_buckets, total_hits/other_hits or matching_buckets/other_buckets}}], response: [{action, target, claim_ids, reason, status}], notes[]}`; files in `runs/<id>/actions/` |
+| `candidates[]` | `{technique, file, steps[]}`: candidate playbooks written from leads (§4.4) |
+| `lessons_used[]`, `lesson_flags{}` | Analyst lessons shown to the LLM roles (`id, label, technique, entities, note`), and claim id → benign lesson ids it matches |
 | `evidence[]` | `evidence_id, call_id, step_id, index, event_ids[], total_hits, excerpt[]` |
 | `findings.prompt_injection` | `{step_id: "guard-injection", checked_fields, markers, call_id, total, findings: [{event_id, @timestamp, dataset, source.ip, host.name, fields, excerpt}]}` |
 | `step_results{}` | Per step id (static and dynamic): `{call_id, status (ok/error/skipped_budget), total, tool, complete?, error?}` |
-| `dynamic_steps[]` | Full definitions (`step_id, technique, tool, params, purpose, role, claim_template, analysis, must_have`) of steps created at run time: drill-downs `<step>-dd-<key>`, pivots `T1021.002-base/b-<host>`, `T1078-first/b-<ip>`. Static steps are in `plan.json` |
-| `queries[]` | **Every MCP call of the run, in order:** `query_id (= call_id), seq, phase (planning/hunt/guardrail), step_id, purpose, server, tool, request, request_hash, dsl, ok, total, error?` |
+| `dynamic_steps[]` | Full definitions (`step_id, technique, tool, params, purpose, role, claim_template, analysis, must_have`) of steps created at run time: drill-downs `<step>-dd-<key>`, pivots `T1021.002-base/b-<host>`, `T1078-first/b-<ip>` (with `@<dataset>` for ECS-matched auth data), investigator steps `AG-nn` (role `context`) and skeptic tests `SK-nn` (role `benign_check`). Static steps are in `plan.json` |
+| `queries[]` | **Every MCP call of the run, in order:** `query_id (= call_id), seq, phase (planning/hunt/guardrail/agent/skeptic/act), step_id, purpose, server, tool, request, request_hash, dsl, ok, total, error?` |
 | `self_check` | `{claims, self_checked, failed: [{claim_id, problems}]}` |
-| `coverage` | `{data_sources, coverage: {<log type>: {total, n_buckets, empty_buckets, coverage_ratio}}, gaps, missing_fields, entity_missing}` |
+| `coverage` | `{data_sources, coverage: {<log type or uncovered dataset>: {total, n_buckets, empty_buckets, coverage_ratio, no_playbook?}}, gaps, missing_fields, entity_missing, unknown_sources: [{dataset, docs, categories, fields, proposed_kind, proposed_by, reason, matched_kind, not_matched_because?}]}` |
 | `limitations[]`, `notes[]` | Plain-text caveats and execution notes (truncation, budget, baseline exclusions) |
-| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, python, temperature, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
+| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, python, temperature, llm {calls, max_calls, tokens_in, tokens_out, trace}, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
+
+`plan.json` `entities` also carries `users` and `requirement_groups` (`[{label, kind: technique/llm, techniques}]`, kind `llm` when only the LLM chose the technique), the field C3 reads. Every LLM call is in `runs/<id>/llm.jsonl`: `seq, role, model, prompt_sha256, system, messages, response, tokens_in, tokens_out, ms`.
 
 Example claim and query (abridged from a real run):
 ```json
-{ "claim_id": "C-002", "technique": "T1078", "status": "self_checked", "kind": "events",
-  "text": "Source 203.0.113.99 logged in successfully as admin on WS-02 after its failed SSH logins began (30 failures from this source in the window)",
+{ "claim_id": "C-002", "technique": "T1078", "status": "self_checked", "kind": "events", "origin": "playbook",
+  "text": "Source 203.0.113.99 logged in successfully as admin on WS-02 after its failed SSH logins began",
   "evidence_ids": ["E-T1078-b-203.0.113.99"], "step_id": "T1078-b-203.0.113.99",
-  "facts": { "source.ip": "203.0.113.99", "user.name": "admin", "host.name": "WS-02", "failed_logins": "30" },
+  "facts": { "source.ip": "203.0.113.99", "user.name": "admin", "host.name": "WS-02" },
   "event_ids": ["security-events-c2test/76ea6af0d7a7b6512f7f"], "first_seen": "2026-10-01T14:03:10.000Z" }
 { "query_id": "pytest-ssh-0007", "seq": 10, "phase": "hunt", "step_id": "T1110-a", "purpose": "Sources with many failed SSH logins",
-  "server": "es", "tool": "aggregate", "request": { "index": "security-events-c2test*", "agg": "terms", "field": "source.ip", "filters": ["…"] },
+  "server": "es", "tool": "aggregate", "request": { "index": "security-events-c2test", "agg": "terms", "field": "source.ip", "filters": ["…"] },
   "request_hash": "f5b7df…", "dsl": { "query": { "bool": { "filter": ["…"] } }, "aggs": { "…": "…" } }, "ok": true, "total": 149 }
 ```
 
@@ -251,6 +271,8 @@ A claim quotes only what it cites. A value from other evidence (for example the 
 
 A technique counts as testable when it has at least one step with role `indicator`, even if that step finds nothing; for T1078 that is `T1078-a` (brute-force candidates), so a hunt with no brute force can be refuted.
 
+Leads (`origin: "llm"`) pass the same checks on both sides. C2 and C3 agree that they never count as support or coverage, that leads on a required technique block `NOT_SUPPORTED`, and that a hunt whose techniques only the LLM chose (`requirement_groups` kind `llm`) is `INCONCLUSIVE`.
+
 ### 4.3 Confidence and analyst review (single source of truth for C2 and C3)
 Implemented in `threat_hunting/verdict.py`; C3 applies the same rule.
 
@@ -262,7 +284,13 @@ Implemented in `threat_hunting/verdict.py`; C3 applies the same rule.
 
 *C3 option, off by default:* a stricter `high` that also needs events from two log sources. When it is on, C3 states in its report that it lowered the agent's confidence and why.
 
-`requires_analyst_review` is true when any of these holds, each listed in `review_reasons` (DESIGN §4.2): the verdict is `SUPPORTED`; confidence is `low`; there is a coverage gap; the window contains prompt-injection-like text (`findings.prompt_injection`); a claim failed the self-check.
+`requires_analyst_review` is true when any of these holds, each listed in `review_reasons` (DESIGN §4.2): the verdict is `SUPPORTED`; confidence is `low`; there is a coverage gap; the window contains prompt-injection-like text (`findings.prompt_injection`); a claim failed the self-check; there are leads; a benign explanation from the skeptic holds; a claim matches a benign analyst lesson.
+
+A benign explanation the skeptic's test supports caps a `SUPPORTED` verdict's confidence at `medium` (DESIGN §3.3). With leads but no vetted test (no playbook matched, or no required technique has usable data), the label is `INCONCLUSIVE` and the reasons name the leads.
+
+### 4.4 Playbook and lesson files
+- **Candidate playbook** `runs/<id>/candidates/<technique>.yml` and **promoted playbook** `knowledge/playbooks/<technique>-<kind>.yml` (`HUNT_PLAYBOOK_DIR`): `technique, name, status (candidate/approved), kind, datasets[], required_fields[], keywords[], steps: [{id, from_step, tool, purpose, params (no index or time), claim_template, analysis, expect[]}], provenance {run_id, hypothesis, window, created_by, created}`; once approved also `approved_by, approved_at, validation {attack_window, benign_window, attack[], benign[]}`. Only `status: approved` files are loaded.
+- **Lesson** (one JSON line in `memory/lessons.jsonl`, `HUNT_MEMORY_FILE`): `id, added, analyst, run_id, claim_id, technique, entities: [{field, value}], label (benign/malicious/useful_pivot), note, status (active/revoked), revoked_by?, revoked_at?`.
 
 Coverage: a log type has a gap when fewer than **95 %** of its hourly buckets in the window have events (DESIGN §5.4). One empty hour in a 10-hour window is therefore a gap, which blocks `NOT_SUPPORTED`.
 
@@ -276,7 +304,7 @@ Coverage: a log type has a gap when fewer than **95 %** of its hourly buckets in
 python -m threat_hunting.run "An external IP brute-forced SSH and then logged in successfully on 2026-10-01." --run-id run1 --max-calls 120 --control canonical_order=off
 ```
 
-The window is not a parameter: it runs from the first to the last event in the data, narrowed to a date written in the hypothesis. It is recorded as `time_range` in `result.json`.
+The window is not a parameter. It spans the data of the datasets the techniques need: a time the intake LLM read from the hypothesis (inside the written date, if any), else the written date, else the last 24 h (`HUNT_DEFAULT_LOOKBACK_H`) before the newest needed event; never more than 31 days. It is recorded as `time_range`, and its basis as `intake.window`.
 
 | Control (`--control NAME=off`) | What it keeps stable |
 |---|---|
@@ -284,17 +312,23 @@ The window is not a parameter: it runs from the first to the last event in the d
 | `coverage_enforcement` | Every planned step runs (re-added if dropped) |
 | `complete_results` | A truncated search is re-asked for every hit (≤ 200) |
 | `canonical_params` | Playbook queries cannot be altered by the planner |
+| `agent_loop` | The investigator LLM runs (off = the rules-only hunt) |
+| `skeptic` | The skeptic tests benign explanations |
+| `act` | Detection drafts and response proposals are written |
+| `deterministic_sampling` | Temperature 0 for every LLM call |
+
+Other commands (DESIGN §3.4–3.7, §5.5): `python -m threat_hunting.promote` (candidate → playbook), `python -m threat_hunting.hunt_queue propose|run`, `python -m threat_hunting.feedback add|list|revoke`, `python -m hunt_server.server`. `HUNT_FORCE_RULES=1` disables every LLM role.
 
 `threat_hunting/perturb.py` injects seeded plan variance for experiments (`run_hunt(..., perturb_seed=N)`); it is not an LLM and must not be reported as one. Safety guardrails (read-only access, query limits, tool allowlist, injection sweep, self-check) cannot be switched off.
 
-*Planned (DESIGN §9): `--profile`, `--no-playbook`, `--warmup`, `--replay` and the other four controls (`pin_model`, `deterministic_sampling`, `absolute_window`, `rule_based_verdict`).*
+*Planned (DESIGN §9): `--profile`, `--no-playbook`, `--warmup`, `--replay` and the controls `pin_model`, `absolute_window`, `rule_based_verdict`.*
 
 **Suggested experiment (C4 decides):** run with all controls off twice, then enable them one at a time, twice each.
 
 **Run manifest:** `result.json` `manifest` (§4.1).
 
 **Fields that should match across two runs:** `verdict.label`, `verdict.confidence`, `verdict.requires_analyst_review`, the ordered `queries[].request_hash`, the sorted `claims[].event_ids`, claim texts, `coverage`.
-**Fields expected to differ:** `run_id`, `call_id`/`query_id`, `seconds`.
+**Fields expected to differ:** `run_id`, `call_id`/`query_id`, `seconds`. With an LLM in the loop also `agent.steps`, the `agent` and `skeptic` phases of `queries[]`, leads, `actions` metadata and `llm.jsonl`: comparing these between runs with the controls on and off is the repeatability experiment for agentic analysis.
 
 ---
 
@@ -308,6 +342,8 @@ Whichever model is chosen should:
 5. Have a predictable cost for the experiment budget (C4 runs everything at least twice).
 
 Proposal: B and C share one thin `LLMClient` interface so the provider can be changed in one place.
+
+**C2 as built (`threat_hunting/llm.py`):** `LLM_PROVIDER` `anthropic` or `openai` (any OpenAI-compatible `/chat/completions` server: OpenAI, DeepSeek, OpenRouter, vLLM, Ollama…), `LLM_BASE_URL`, `LLM_API_KEY`, `HUNT_MODEL` and per-role `LLM_MODEL_<ROLE>` (roles: intake, investigator, skeptic, responder, classifier, queue, chat), `LLM_TEMPERATURE`, `LLM_JSON_MODE=1`. Every role asks for one JSON object and code validates it; native tool calling is not needed. Development and the measured runs used DeepSeek `deepseek-flash` (`LLM_PROVIDER=openai`, `LLM_BASE_URL=https://api.deepseek.com`).
 
 ---
 
@@ -335,5 +371,5 @@ Proposal: B and C share one thin `LLMClient` interface so the provider can be ch
    | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | B, C2 |
    | `KIBANA_URL` | C3 (evidence links) |
 8. **Testing without dependencies:** each component should have offline tests using fixtures (no live ES, no LLM) that run in CI, plus a separate integration suite.
-9. **Agentic components are attack surface:** B2 (schema generation), B3 (source onboarding) and C2 all feed attacker-influenced text to an LLM. Each needs input sanitisation, constrained outputs, deterministic validation of the LLM's output before it is used, and an audit log.
+9. **Agentic components are attack surface:** B2 (schema generation), B3 (source onboarding) and C2 all feed attacker-influenced text to an LLM. Each needs input sanitisation, constrained outputs, deterministic validation of the LLM's output before it is used, and an audit log. C2's version of each is in DESIGN §3.2 and §8 (T1, T11, T12).
 10. **Evidence for the course:** record each agreed contract change, along with its PR link, in the Technical Work & Evidence Log.
