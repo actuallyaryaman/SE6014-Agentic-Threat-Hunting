@@ -42,7 +42,8 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
     return rows
 
 
-def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None) -> list[str]:
+def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None,
+                   doubts: list[dict] | None = None) -> list[str]:
     """DESIGN.md 4.2: when a human must review before anyone acts on the verdict."""
     out = []
     if verdict == "SUPPORTED":
@@ -59,10 +60,13 @@ def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check:
     leads = [c for r in req for c in r.get("leads", [])]
     if leads:
         out.append(f"{len(leads)} lead(s) from LLM-proposed queries ({', '.join(leads)}) need review")
+    for a in doubts or []:
+        out.append(f"benign explanation not ruled out for {a['claim_id']}: {a['explanation']}")
     return out
 
 
-def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None) -> dict:
+def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None,
+           skeptic: dict | None = None) -> dict:
     rows = technique_table(plan, st, notes)
     req = [r for r in rows if r["required"]]
     reasons = []
@@ -103,6 +107,12 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
     n_steps = len({s for r in req for s in r["supporting_steps"]})
     full = bool(req) and all(r["covered"] for r in req)
     conf = "high" if verdict == "SUPPORTED" and full and n_steps >= 2 else "medium" if verdict in ("SUPPORTED", "NOT_SUPPORTED") else "low"
-    review = review_reasons(verdict, conf, req, notes, check, guard)
+    # DESIGN.md 3.3: a benign explanation the data supports caps confidence; the skeptic never raises it or changes the label
+    doubts = [a for a in (skeptic or {}).get("alternatives", []) if a.get("outcome") == "supported"]
+    if doubts and verdict == "SUPPORTED":
+        conf = "medium" if conf == "high" else conf
+        reasons.append(f"A benign explanation the skeptic proposed holds for {', '.join(sorted({a['claim_id'] for a in doubts}))}; "
+                       "confidence is at most medium.")
+    review = review_reasons(verdict, conf, req, notes, check, guard, doubts)
     return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "leads": sorted({c for r in req for c in r.get("leads", [])}),
             "requires_analyst_review": bool(review), "review_reasons": review}
