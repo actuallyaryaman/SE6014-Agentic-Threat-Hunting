@@ -30,8 +30,9 @@ report = onboard(source.model_copy(update={"dry_run": False}), policy,
 print(report.model_dump_json(indent=2))
 ```
 
-B1 must be installed/importable separately. Its implementation is not copied
-into this branch. Missing B1 configuration blocks planning; only an explicit
+B1 is now included from merged `main` at `group_B/B1/`; configure the loader
+as `group_B.B1.recognizer:recognise`. Missing B1 configuration blocks planning;
+only an explicit
 `reason_code="no_match"` invokes B2. Known formats require an operator-approved
 format-to-pipeline mapping consistent with B1's pipeline ID when supplied.
 Their pipelines must already exist in Elasticsearch. New/reused B2 pipelines

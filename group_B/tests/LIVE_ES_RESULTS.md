@@ -97,3 +97,18 @@ not evidence of the shared A2 service working end to end.
 Reproduction uses the same commands above. Execution cases additionally need
 index privileges restricted to `b3test-*`, including cleanup privileges. They
 create only unique test prefixes and clean up their named indices/pipelines.
+
+
+### Baseline after merging current main
+
+After PR #20 merged, Batch 6 was synchronized with `main` at `e3adb7f`.
+A fresh root-level `pytest -q group_B` run, now also collecting B1's tests,
+passed **259 tests and 8 subtests**, with **17 live tests skipped**. The
+working-directory Group B CI configuration selects `tests/` only; the extra
+B1 cases account for the larger root-level total. Fixture checks passed.
+
+A planning smoke check using the real B1 loader selected the approved Apache
+pipeline and routed an unknown JSON source to B2 generation. This checks the
+Python boundary only; it does not replace live B1 pipeline/A2/A1 verification.
+The earlier 258-test live result above predates this merge and is not a fresh
+live run against the combined B1 tree.
