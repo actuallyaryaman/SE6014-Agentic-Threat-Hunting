@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat hunt report benign</title>
+<style>
+:root { --bg:#f6f7f9; --fg:#18202b; --muted:#5d6878; --line:#dde2ea; --card:#fff; --code:#eef1f6;
+        --red:#b42318; --amber:#9a5800; --green:#11734a; --grey:#475467; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0f141b; --fg:#e5e9f0; --muted:#98a4b5; --line:#263142; --card:#161d27; --code:#0b1017;
+        --red:#ff8086; --amber:#f0b457; --green:#52c98f; --grey:#a3adbd; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+main { max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:24px; margin:0 0 6px; } h2 { font-size:19px; margin:34px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+h3 { font-size:16px; margin:18px 0 6px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+.verdict { font-size:26px; font-weight:700; }
+.v-Confirmed { color:var(--red); } .v-Refuted { color:var(--green); } .v-Inconclusive { color:var(--grey); }
+.muted { color:var(--muted); } code, .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; }
+.wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; font-size:13px; }
+th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); }
+pre { background:var(--code); padding:10px; border-radius:8px; overflow-x:auto; font-size:12.5px; }
+.bad { color:var(--red); } .ok { color:var(--green); } .warn { color:var(--amber); }
+.pill { display:inline-block; font-size:12px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); }
+</style>
+</head>
+<body><main>
+<h1>Threat hunt report</h1>
+<p class="muted">Run <span class="mono">benign</span>, verification mcp</p>
+<div class="card"><strong>Hypothesis:</strong> An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25.</div>
+
+<div class="card">
+  <div class="verdict v-Inconclusive">INCONCLUSIVE</div>
+  <div class="muted">confidence low, <span class="warn">analyst review required</span></div>
+<div class="muted">Why: confidence is low; coverage gap for T1078</div><div class="muted">C2 drafted NOT_SUPPORTED (medium confidence). C3 review: downgraded</div>  <p>The hunt could not confirm or refute the hypothesis: T1110 Brute Force: no verified indicator.</p>
+  <strong>Why this verdict</strong><ul><li>T1110 Brute Force: no verified indicator.</li><li>T1078 Valid Accounts: could not be tested over gap-free data.</li><li>  T1078: no selected data can test it</li><li>C2 reported NOT_SUPPORTED (medium), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive.</li></ul>
+  <span class="pill">0/0 claims verified</span>
+  <span class="pill">replay 12/12 identical</span>
+</div>
+
+<h2>Coverage per technique</h2>
+<div class="wrap"><table>
+<tr><th>Technique</th><th>Required</th><th>Sources</th><th>Steps ok</th><th>Verified</th><th>Independent</th><th>Min</th><th>Covered</th><th>Gaps</th></tr>
+<tr><td><span class="mono">T1110</span> Brute Force</td><td>yes</td><td class="mono">auth</td>
+<td>1/1</td><td>0</td><td>0</td><td>1</td>
+<td class="ok">yes</td><td>-</td></tr><tr><td><span class="mono">T1078</span> Valid Accounts</td><td>yes</td><td class="mono">auth</td>
+<td>0/0</td><td>0</td><td>0</td><td>1</td>
+<td class="bad">NO</td><td>no selected data can test it</td></tr></table></div>
+
+<h2>Findings (verified claims)</h2>
+<p class="muted">No verified findings.</p>
+<h2>Claims the verifier rejected</h2>
+<p class="muted">No claim was rejected.</p>
+<h2>Verification, flags and limitations</h2>
+<ul>
+<li>Findings depend on the playbooks used; techniques without a playbook are not tested.</li><li>Baselines are synthetic allowlists and must be tuned per environment.</li><li>NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.</li><li>Claims passed C2&#39;s structural self-check only; independent re-verification against Elasticsearch is C3&#39;s.</li><li>A Refuted verdict means there was no evidence in the covered sources and time window. It does not prove the activity did not happen.</li><li>The verifier checks that cited events exist and contain the quoted values. It cannot check that the playbook read them correctly.</li></ul>
+
+<h2>Every query executed (10)</h2>
+<div class="wrap"><table><tr><th>Call</th><th>Tool</th><th>Index</th><th>Total</th><th>OK</th><th>Hash</th></tr>
+<tr><td class="mono">benign-0001</td><td>describe_data</td><td class="mono">-</td><td>35</td>
+<td class="ok">yes</td><td class="mono">aa6244e314c7bc4f</td></tr><tr><td class="mono">benign-0002</td><td>count</td><td class="mono">security-events-c2test*</td><td>4</td>
+<td class="ok">yes</td><td class="mono">ce62834c935c11de</td></tr><tr><td class="mono">benign-0003</td><td>aggregate</td><td class="mono">security-events-c2test*</td><td>35</td>
+<td class="ok">yes</td><td class="mono">9e4a1cbf40f71ba5</td></tr><tr><td class="mono">benign-0004</td><td>count</td><td class="mono">security-events-c2test*</td><td>35</td>
+<td class="ok">yes</td><td class="mono">aa6244e314c7bc4f</td></tr><tr><td class="mono">benign-0005</td><td>count</td><td class="mono">security-events-c2test*</td><td>35</td>
+<td class="ok">yes</td><td class="mono">aa6244e314c7bc4f</td></tr><tr><td class="mono">benign-0006</td><td>count</td><td class="mono">security-events-c2test*</td><td>35</td>
+<td class="ok">yes</td><td class="mono">aa6244e314c7bc4f</td></tr><tr><td class="mono">benign-0007</td><td>count</td><td class="mono">security-events-c2test*</td><td>35</td>
+<td class="ok">yes</td><td class="mono">aa6244e314c7bc4f</td></tr><tr><td class="mono">benign-0008</td><td>aggregate</td><td class="mono">security-events-c2test*</td><td>3</td>
+<td class="ok">yes</td><td class="mono">9df148e1eacc980c</td></tr><tr><td class="mono">benign-0009</td><td>aggregate</td><td class="mono">security-events-c2test*</td><td>3</td>
+<td class="ok">yes</td><td class="mono">9df148e1eacc980c</td></tr><tr><td class="mono">benign-0010</td><td>search</td><td class="mono">security-events-c2test*</td><td>0</td>
+<td class="ok">yes</td><td class="mono">3e6758e523312177</td></tr></table></div>
+<details><summary>Executed DSL</summary><div class="mono">benign-0002</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;term&#34;: {
+            &#34;host.name&#34;: {
+              &#34;case_insensitive&#34;: true,
+              &#34;value&#34;: &#34;BENIGN-SSH&#34;
+            }
+          }
+        }
+      ]
+    }
+  }
+}</pre><div class="mono">benign-0003</div><pre>{
+  &#34;aggs&#34;: {
+    &#34;a&#34;: {
+      &#34;date_histogram&#34;: {
+        &#34;extended_bounds&#34;: {
+          &#34;max&#34;: &#34;2026-10-25T00:59:59.999Z&#34;,
+          &#34;min&#34;: &#34;2026-10-25T00:00:00.000Z&#34;
+        },
+        &#34;field&#34;: &#34;@timestamp&#34;,
+        &#34;fixed_interval&#34;: &#34;60m&#34;,
+        &#34;min_doc_count&#34;: 0
+      }
+    }
+  },
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  &#34;size&#34;: 0
+}</pre><div class="mono">benign-0004</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;exists&#34;: {
+            &#34;field&#34;: &#34;source.ip&#34;
+          }
+        }
+      ]
+    }
+  }
+}</pre><div class="mono">benign-0005</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;exists&#34;: {
+            &#34;field&#34;: &#34;event.action&#34;
+          }
+        }
+      ]
+    }
+  }
+}</pre><div class="mono">benign-0006</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;exists&#34;: {
+            &#34;field&#34;: &#34;event.outcome&#34;
+          }
+        }
+      ]
+    }
+  }
+}</pre><div class="mono">benign-0007</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;exists&#34;: {
+            &#34;field&#34;: &#34;user.name&#34;
+          }
+        }
+      ]
+    }
+  }
+}</pre><div class="mono">benign-0008</div><pre>{
+  &#34;aggs&#34;: {
+    &#34;a&#34;: {
+      &#34;terms&#34;: {
+        &#34;field&#34;: &#34;source.ip&#34;,
+        &#34;size&#34;: 20
+      }
+    }
+  },
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;term&#34;: {
+            &#34;event.action&#34;: {
+              &#34;case_insensitive&#34;: true,
+              &#34;value&#34;: &#34;ssh_login&#34;
+            }
+          }
+        },
+        {
+          &#34;term&#34;: {
+            &#34;event.outcome&#34;: {
+              &#34;case_insensitive&#34;: true,
+              &#34;value&#34;: &#34;failure&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;host.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;BENIGN-SSH&#34;
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  &#34;size&#34;: 0
+}</pre><div class="mono">benign-0009</div><pre>{
+  &#34;aggs&#34;: {
+    &#34;a&#34;: {
+      &#34;terms&#34;: {
+        &#34;field&#34;: &#34;source.ip&#34;,
+        &#34;size&#34;: 20
+      }
+    }
+  },
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;event.dataset&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;linux.auth&#34;
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          &#34;term&#34;: {
+            &#34;event.action&#34;: {
+              &#34;case_insensitive&#34;: true,
+              &#34;value&#34;: &#34;ssh_login&#34;
+            }
+          }
+        },
+        {
+          &#34;term&#34;: {
+            &#34;event.outcome&#34;: {
+              &#34;case_insensitive&#34;: true,
+              &#34;value&#34;: &#34;failure&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;term&#34;: {
+                  &#34;host.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;BENIGN-SSH&#34;
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  &#34;size&#34;: 0
+}</pre><div class="mono">benign-0010</div><pre>{
+  &#34;query&#34;: {
+    &#34;bool&#34;: {
+      &#34;filter&#34;: [
+        {
+          &#34;range&#34;: {
+            &#34;@timestamp&#34;: {
+              &#34;gte&#34;: &#34;2026-10-25T00:00:00.000Z&#34;,
+              &#34;lt&#34;: &#34;2026-10-25T01:00:00.000Z&#34;
+            }
+          }
+        },
+        {
+          &#34;bool&#34;: {
+            &#34;minimum_should_match&#34;: 1,
+            &#34;should&#34;: [
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user_agent.original&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore all previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user_agent.original&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user_agent.original&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*disregard previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user_agent.original&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore the above*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user_agent.original&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*system prompt*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore all previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*disregard previous instructions*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*ignore the above*&#34;
+                  }
+                }
+              },
+              {
+                &#34;wildcard&#34;: {
+                  &#34;user.name&#34;: {
+                    &#34;case_insensitive&#34;: true,
+                    &#34;value&#34;: &#34;*system prompt*&#34;
+                  }
+                }
+              },
+              {
+                &#34;match_phrase&#34;: {
+                  &#34;message&#34;: &#34;ignore all previous instructions&#34;
+                }
+              },
+              {
+                &#34;match_phrase&#34;: {
+                  &#34;message&#34;: &#34;ignore previous instructions&#34;
+                }
+              },
+              {
+                &#34;match_phrase&#34;: {
+                  &#34;message&#34;: &#34;disregard previous instructions&#34;
+                }
+              },
+              {
+                &#34;match_phrase&#34;: {
+                  &#34;message&#34;: &#34;ignore the above&#34;
+                }
+              },
+              {
+                &#34;match_phrase&#34;: {
+                  &#34;message&#34;: &#34;system prompt&#34;
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  &#34;size&#34;: 50,
+  &#34;sort&#34;: [
+    {
+      &#34;@timestamp&#34;: {
+        &#34;order&#34;: &#34;asc&#34;
+      }
+    },
+    {
+      &#34;event.original&#34;: {
+        &#34;order&#34;: &#34;asc&#34;
+      }
+    }
+  ],
+  &#34;track_total_hits&#34;: true
+}</pre></details>
+<p class="muted">se6014-c3-evidence 1.0.0</p>
+</main></body></html>

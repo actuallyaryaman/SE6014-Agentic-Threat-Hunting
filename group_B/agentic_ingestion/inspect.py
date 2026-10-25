@@ -108,12 +108,14 @@ def validate_url(location: str, policy: InspectionPolicy, *, stream=False):
 
 
 def _read_records(reader, policy: InspectionPolicy, deadline: float | None = None,
-                  before_read=None):
+                  before_read=None, *, max_records=None, max_bytes=None):
+    record_limit = max_records if max_records is not None else policy.max_samples
+    byte_limit = max_bytes if max_bytes is not None else policy.max_bytes
     lines = []
     consumed = 0
     pending = b""
     ended = False
-    while len(lines) < policy.max_samples:
+    while len(lines) < record_limit:
         if deadline is not None and time.monotonic() > deadline:
             raise SourceInspectionError("source inspection exceeded its time limit")
         # HTTPResponse closes its socket as soon as Content-Length is consumed.
@@ -123,9 +125,9 @@ def _read_records(reader, policy: InspectionPolicy, deadline: float | None = Non
         if b"\n" not in pending and not ended:
             if before_read is not None:
                 before_read()
-            chunk = reader.read1(min(4096, policy.max_bytes - consumed + 1))
+            chunk = reader.read1(min(4096, byte_limit - consumed + 1))
             consumed += len(chunk)
-            if consumed > policy.max_bytes:
+            if consumed > byte_limit:
                 raise SourceInspectionError("source sampling exceeded its byte limit")
             pending += chunk
             ended = not chunk
@@ -153,7 +155,7 @@ def _read_records(reader, policy: InspectionPolicy, deadline: float | None = Non
     return lines
 
 
-def _http_samples(location: str, policy: InspectionPolicy):
+def _http_samples(location: str, policy: InspectionPolicy, **limits):
     # Resolve every redirect, pin the validated IP, and keep TLS SNI/Host tied
     # to the original hostname. Environment proxies and DNS rebinding cannot
     # change the peer after validation.
@@ -200,7 +202,7 @@ def _http_samples(location: str, policy: InspectionPolicy):
                 if remaining <= 0:
                     raise SourceInspectionError("HTTP inspection exceeded its time limit")
                 peer.settimeout(remaining)
-            return _read_records(response, policy, deadline, before_read), location
+            return _read_records(response, policy, deadline, before_read, **limits), location
         except SourceInspectionError:
             raise
         except (OSError, ValueError, http.client.HTTPException) as error:
@@ -310,6 +312,11 @@ def inspect_source(source: SourceSpec, policy: InspectionPolicy, *,
         if not lines:
             raise SourceInspectionError("stream has no usable sample records")
         identity = source.location
+    return inspection_from_records(source, lines, identity, policy)
+
+
+def inspection_from_records(source, lines, identity, policy):
+    lines = lines[:policy.max_samples]
     signature = build_signature(lines)
     if source.format_hint != "auto" and source.format_hint != signature.kind.value:
         raise SourceInspectionError("format hint disagrees with inspected records")
@@ -320,3 +327,19 @@ def inspect_source(source: SourceSpec, policy: InspectionPolicy, *,
         sample_limit_reached=len(lines) == policy.max_samples,
         timestamp=_timestamp(lines, signature),
     )
+
+
+def capture_source(source, policy, *, max_records, max_bytes):
+    """Capture one complete bounded snapshot; never execute a truncated sample."""
+    limits = {"max_records": max_records + 1, "max_bytes": max_bytes}
+    if source.kind == "file":
+        stream, identity = _open_file(source.location, policy)
+        with stream:
+            lines = _read_records(stream, policy, **limits)
+    elif source.kind == "http":
+        lines, identity = _http_samples(source.location, policy, **limits)
+    else:
+        raise SourceInspectionError("stream execution is not supported until A3 contract agreement")
+    if len(lines) > max_records:
+        raise SourceInspectionError("source exceeds the execution record limit")
+    return inspection_from_records(source, lines, identity, policy), lines

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
+import fnmatch
 import os
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 from group_B.common.models import RecogniseResult
 from group_B.schema_generation.generate import SchemaResolution
@@ -126,3 +128,64 @@ class IngestionPlan(BaseModel):
     def recognition_summary(self, value):
         # B1 evidence is opaque and may contain source excerpts.
         return value.model_dump(mode="json", exclude={"evidence"})
+
+
+class ExecutionConfig(BaseModel):
+    """Operator configuration, never supplied by source data or an LLM."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    incoming_dir: Path | None = None
+    push_url: str = "http://127.0.0.1:8088"
+    index_prefix: str = Field(default="security-events", pattern=r"^[a-z0-9][a-z0-9_-]{0,100}$")
+    search_pattern: str = Field(default="security-events-*", pattern=r"^[a-z0-9][a-z0-9_*.-]{0,150}$")
+    audit_path: Path = Path(__file__).parent / "runtime" / "audit.jsonl"
+    max_records: int = Field(default=10000, ge=1, le=10000)
+    max_bytes: int = Field(default=16 * 1024 * 1024, ge=1, le=16 * 1024 * 1024)
+    timeout_seconds: float = Field(default=5, gt=0, le=30)
+    verify_attempts: int = Field(default=5, ge=1, le=20)
+    verify_interval: float = Field(default=1, ge=0, le=5)
+
+    @model_validator(mode="after")
+    def check_target_pattern(self):
+        if not fnmatch.fnmatch(self.index_prefix + "-2000.01.01", self.search_pattern):
+            raise ValueError("verification pattern must cover the write index prefix")
+        return self
+
+    @field_validator("push_url")
+    @classmethod
+    def check_push_url(cls, value):
+        parsed = urlsplit(value)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or parsed.fragment or any(ord(c) < 33 for c in value)):
+            raise ValueError("push endpoint must be an HTTP(S) URL without credentials")
+        return value
+
+    @classmethod
+    def from_env(cls):
+        return cls(
+            incoming_dir=os.environ.get("A2_INCOMING_DIR") or None,
+            push_url=os.environ.get("A2_PUSH_URL") or "http://127.0.0.1:8088",
+            index_prefix=os.environ.get("ES_WRITE_INDEX_PREFIX") or "security-events",
+            search_pattern=os.environ.get("ES_SEARCH_INDEX_PATTERN") or "security-events-*",
+            audit_path=os.environ.get("B3_AUDIT_PATH") or cls.model_fields["audit_path"].default,
+        )
+
+
+class ExecutionReport(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    run_id: str
+    source_id: str
+    status: Literal["dry_run", "blocked", "verified", "failed", "unverified"]
+    ingest_mode: IngestMode
+    pipeline_id: str | None = None
+    dataset: str | None = None
+    record_count: int = 0
+    submitted_count: int = 0
+    acknowledged_count: int = 0
+    indexed_count: int = 0
+    reused_count: int = 0
+    parse_failure_count: int = 0
+    dry_run: bool = True
+    error_codes: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()

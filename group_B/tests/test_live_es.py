@@ -109,3 +109,51 @@ def test_generated_schema_live_registration_and_reuse(kind, live_es, tmp_path):
     assert reused.reused
     assert reused.entry.pipeline == generated.pipeline
     assert reused.pipeline_id == entry.pipeline_id
+
+
+@pytest.mark.parametrize("kind", ["json", "csv", "json-with-parse-failure"])
+def test_b3_execution_index_verify_and_replay(kind, live_es, tmp_path):
+    """Install generated pipelines, index full snapshots and verify actual search hits."""
+    import json
+    from uuid import uuid4
+
+    from group_B.agentic_ingestion import ExecutionConfig, InspectionPolicy, SourceSpec, onboard
+    from group_B.common import FakeRecognizer, RecogniseResult
+
+    prefix = "b3test-" + uuid4().hex[:12]
+    path = tmp_path / "source.log"
+    if kind == "csv":
+        lines = ["timestamp,message"] + ["2026-10-24T12:00:00Z,hello"] * 121
+    else:
+        lines = [json.dumps({"timestamp": "2026-10-24T12:00:00Z", "message": "hello"})] * 121
+        if kind == "json-with-parse-failure":
+            lines[-1] = "not a valid JSON record"
+    path.write_text("\n".join(lines))
+    source = SourceSpec(kind="file", location=str(path), dataset_hint=prefix,
+                        ingest_mode="direct_es", dry_run=False)
+    policy = InspectionPolicy(allowed_roots=(tmp_path,))
+    config = ExecutionConfig(index_prefix=prefix, search_pattern=prefix + "-*",
+                             audit_path=tmp_path / "audit.jsonl", verify_attempts=2, verify_interval=0)
+    options = dict(recognizer=FakeRecognizer(RecogniseResult.unknown("unknown")),
+                   registry=SchemaRegistry(tmp_path / "registry"),
+                   read_client=live_es, write_client=live_es)
+    report = None
+    try:
+        report = onboard(source, policy, config, **options)
+        assert report.status == "verified", report.model_dump()
+        assert report.record_count == report.submitted_count == report.indexed_count == 121
+        assert report.parse_failure_count == (1 if kind == "json-with-parse-failure" else 0)
+        assert live_es.count(index=prefix + "-*")["count"] == 121
+        repeated = onboard(source, policy, config, **options)
+        assert repeated.status == "verified", repeated.model_dump()
+        assert repeated.submitted_count == 0 and repeated.reused_count == 121
+        assert live_es.count(index=prefix + "-*")["count"] == 121
+        verified = onboard(source, policy, config, verify_only=True, **options)
+        assert verified.status == "verified" and verified.submitted_count == 0
+        audit = [json.loads(line) for line in config.audit_path.read_text().splitlines()]
+        assert len(audit) == 6 and audit[-1]["status"] == "verified"
+    finally:
+        for index in live_es.indices.get(index=prefix + "-*", allow_no_indices=True):
+            live_es.indices.delete(index=index)
+        if report is not None and report.pipeline_id:
+            live_es.ingest.delete_pipeline(id=report.pipeline_id)

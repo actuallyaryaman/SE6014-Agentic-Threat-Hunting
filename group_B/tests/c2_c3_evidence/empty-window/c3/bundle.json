@@ -1,0 +1,2287 @@
+{
+ "schema_version": "1.0.0",
+ "run_id": "empty-window",
+ "plan": {
+  "hypothesis": "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2030-01-01.",
+  "techniques": [
+   "T1110",
+   "T1078"
+  ],
+  "required_techniques": [
+   "T1110",
+   "T1078"
+  ],
+  "context_techniques": [],
+  "entities": {
+   "hosts": [
+    "DEMO-SSH"
+   ],
+   "ips": [],
+   "technique_names": {
+    "T1110": "Brute Force",
+    "T1078": "Valid Accounts"
+   },
+   "entity_missing": [
+    "DEMO-SSH"
+   ]
+  },
+  "required_sources": [
+   "auth"
+  ],
+  "time_range": {
+   "from": "2030-01-01T00:00:00Z",
+   "to": "2030-01-02T00:00:00Z"
+  },
+  "window_minutes": 60,
+  "steps": [
+   {
+    "step_id": "T1110-a",
+    "technique": "T1110",
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2030-01-01T00:00:00Z",
+     "time_to": "2030-01-02T00:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 20,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "linux.auth"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "ssh_login"
+      },
+      {
+       "field": "event.outcome",
+       "op": "eq",
+       "value": "failure"
+      },
+      {
+       "field": "host.name",
+       "op": "in",
+       "value": [
+        "DEMO-SSH"
+       ]
+      }
+     ]
+    },
+    "purpose": "Sources with many failed SSH logins",
+    "role": "indicator",
+    "claim_template": "Source {bucket_key} produced {count} failed SSH logins",
+    "analysis": {
+     "bucket_min_count": 20,
+     "drilldown": "source.ip"
+    },
+    "must_have": true,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   },
+   {
+    "step_id": "T1078-a",
+    "technique": "T1078",
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2030-01-01T00:00:00Z",
+     "time_to": "2030-01-02T00:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 20,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "linux.auth"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "ssh_login"
+      },
+      {
+       "field": "event.outcome",
+       "op": "eq",
+       "value": "failure"
+      },
+      {
+       "field": "host.name",
+       "op": "in",
+       "value": [
+        "DEMO-SSH"
+       ]
+      }
+     ]
+    },
+    "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+    "role": "context",
+    "claim_template": "",
+    "analysis": {
+     "bucket_min_count": 20
+    },
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   }
+  ],
+  "success_criteria": [
+   "T1110 (Brute Force): at least 1 independent self-checked indicator(s)",
+   "T1078 (Valid Accounts): at least 1 independent self-checked indicator(s)"
+  ],
+  "refutation_criteria": [
+   "T1110: all required sources and fields covered for the full window AND zero indicators",
+   "T1078: all required sources and fields covered for the full window AND zero indicators"
+  ],
+  "planner": "rules"
+ },
+ "evidence": [
+  {
+   "evidence_id": "E-T1110-a",
+   "call_id": "empty-window-0004",
+   "step_id": "T1110-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1078-a",
+   "call_id": "empty-window-0005",
+   "step_id": "T1078-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  }
+ ],
+ "claims": [],
+ "audit": [
+  {
+   "call_id": "empty-window-0001",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "describe_data",
+   "params": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "dsl": null,
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"fields\": [\"@timestamp:date\", \"@version:keyword\", \"destination.ip:ip\", \"destination.port:long\", \"event.action:keyword\", \"event.category:keyword\", \"event.code:keyword\", \"event.dataset:keyword\", \"event.id:keyword\", \"event.original:keyword\", \"event.outcome:keyword\", \"event.type:keyword\", \"event_id:keyword\", \"host.ip:keyword\", \"host.name:keyword\", \"http.method:keyword\", \"http.request.body.bytes:keyword\", \"http.request.mime_type:keyword\", \"http.response.body.bytes:long\", \"http.response.status_code:long\", \"http.version:keyword\", \"labels.ingest_mode:keyword\", \"labels.ingest_pipeline:keyword\", \"labels.run_id:keyword\", \"labels.source_id:keyword\", \"message:text\", \"process.name:keyword\", \"process.pid:long\", \"source.ip:ip\", \"source.port:long\", \"url.domain:keyword\", \"url.path:keyword\", \"url.port:long\", \"user.name:keyword\", \"user_agent.original:keyword\"], \"sources\": [{\"dataset\": \"linux.auth\", \"docs\": 35, \"first_event\": \"2026-10-25T00:10:00.000Z\", \"last_event\": \"2026-10-25T00:11:00.000Z\"}], \"total\": 35}"
+  },
+  {
+   "call_id": "empty-window-0002",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "DEMO-SSH",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 0}"
+  },
+  {
+   "call_id": "empty-window-0003",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "date_histogram",
+    "field": null,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "60m",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "date_histogram": {
+       "field": "@timestamp",
+       "fixed_interval": "60m",
+       "min_doc_count": 0,
+       "extended_bounds": {
+        "min": "2030-01-01T00:00:00.000Z",
+        "max": "2030-01-01T23:59:59.999Z"
+       }
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[{\"count\": 0, \"key\": \"2030-01-01T00:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T01:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T02:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T03:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T04:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T05:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T06:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T07:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T08:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T09:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T10:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T11:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T12:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T13:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T14:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T15:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T16:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T17:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T18:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T19:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T20:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T21:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T22:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T23:00:00.000Z\"}]"
+   ],
+   "result_hash": "2cddd617244d0612",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 0, \"key\": \"2030-01-01T00:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T01:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T02:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T03:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T04:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T05:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T06:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T07:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T08:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T09:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T10:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T11:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T12:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T13:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T14:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T15:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T16:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T17:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T18:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T19:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T20:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T21:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T22:00:00.000Z\"}, {\"count\": 0, \"key\": \"2030-01-01T23:00:00.000Z\"}], \"total\": 0}"
+  },
+  {
+   "call_id": "empty-window-0004",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "1h",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[]"
+   ],
+   "result_hash": "bc3a60a2ff2488b0",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [], \"total\": 0}"
+  },
+  {
+   "call_id": "empty-window-0005",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "1h",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[]"
+   ],
+   "result_hash": "bc3a60a2ff2488b0",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [], \"total\": 0}"
+  },
+  {
+   "call_id": "empty-window-0006",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "filters": null,
+    "must_not": null,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ],
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore all previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "disregard previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore the above"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "system prompt"
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  }
+ ],
+ "step_results": {
+  "T1110-a": {
+   "call_id": "empty-window-0004",
+   "status": "ok",
+   "total": 0,
+   "tool": "aggregate"
+  },
+  "T1078-a": {
+   "call_id": "empty-window-0005",
+   "status": "ok",
+   "total": 0,
+   "tool": "aggregate"
+  }
+ },
+ "dynamic_steps": [],
+ "weak_signals": {},
+ "notes": {
+  "entity_missing": [
+   "DEMO-SSH"
+  ],
+  "untested": {},
+  "coverage": {
+   "auth": {
+    "total": 0,
+    "buckets": [],
+    "empty_buckets": [
+     "2030-01-01T00:00:00.000Z",
+     "2030-01-01T01:00:00.000Z",
+     "2030-01-01T02:00:00.000Z",
+     "2030-01-01T03:00:00.000Z",
+     "2030-01-01T04:00:00.000Z",
+     "2030-01-01T05:00:00.000Z",
+     "2030-01-01T06:00:00.000Z",
+     "2030-01-01T07:00:00.000Z",
+     "2030-01-01T08:00:00.000Z",
+     "2030-01-01T09:00:00.000Z",
+     "2030-01-01T10:00:00.000Z",
+     "2030-01-01T11:00:00.000Z",
+     "2030-01-01T12:00:00.000Z",
+     "2030-01-01T13:00:00.000Z",
+     "2030-01-01T14:00:00.000Z",
+     "2030-01-01T15:00:00.000Z",
+     "2030-01-01T16:00:00.000Z",
+     "2030-01-01T17:00:00.000Z",
+     "2030-01-01T18:00:00.000Z",
+     "2030-01-01T19:00:00.000Z",
+     "2030-01-01T20:00:00.000Z",
+     "2030-01-01T21:00:00.000Z",
+     "2030-01-01T22:00:00.000Z",
+     "2030-01-01T23:00:00.000Z"
+    ],
+    "n_buckets": 24,
+    "coverage_ratio": 0.0,
+    "bucket_minutes": null,
+    "first": null,
+    "last": null
+   }
+  },
+  "coverage_gaps": {
+   "auth": "24/24 buckets have no events"
+  },
+  "gaps": [
+   "auth: 24/24 hourly buckets have no events"
+  ],
+  "dated": true,
+  "data_sources": {
+   "auth": 35
+  },
+  "selected_sources": [],
+  "out_of_scope": null,
+  "in_scope_without_playbook": null,
+  "min_support": {
+   "T1110": 1,
+   "T1078": 1
+  },
+  "technique_sources": {
+   "T1110": [
+    "auth"
+   ],
+   "T1078": [
+    "auth"
+   ]
+  },
+  "missing_fields": {},
+  "info": []
+ },
+ "hunt_notes": [],
+ "baselines": [],
+ "limitations": [
+  "Findings depend on the playbooks used; techniques without a playbook are not tested.",
+  "Baselines are synthetic allowlists and must be tuned per environment.",
+  "NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.",
+  "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's.",
+  "data gap: auth: 24/24 hourly buckets have no events"
+ ],
+ "meta": {
+  "run_id": "empty-window",
+  "backend": "rules (no usable LLM configured)",
+  "planner": "rules",
+  "code_hash": "8e5620d5f9c668fc",
+  "tool_calls": 9,
+  "seconds": 1.8,
+  "python": "3.11.16",
+  "temperature": "provider default",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true,
+   "complete_results": true,
+   "canonical_params": true
+  },
+  "perturb_seed": null,
+  "index": "security-events-c2test*",
+  "mcp_servers": {
+   "es": "python -m dev.es_mcp_standin.server",
+   "analytics": "python -m analytics_server.server"
+  },
+  "ignored_tools": [
+   "es.get_event",
+   "es.save_finding",
+   "es.get_audit_log"
+  ],
+  "audit_files": [
+   "audit/empty-window.jsonl",
+   "audit/empty-window-analytics.jsonl"
+  ]
+ },
+ "c2_verdict": {
+  "label": "INSUFFICIENT_DATA",
+  "confidence": "low",
+  "requires_analyst_review": true,
+  "reasons": [
+   "T1110: no 'auth' events in the hunt window; 'auth' has empty time buckets (24/24)",
+   "T1078: no 'auth' events in the hunt window; 'auth' has empty time buckets (24/24)"
+  ],
+  "review_reasons": [
+   "low confidence",
+   "coverage gaps: 'auth' has empty time buckets (24/24); auth: 24/24 hourly buckets have no events; no 'auth' events in the hunt window"
+  ]
+ },
+ "c2_self_check": {
+  "claims": 0,
+  "self_checked": 0,
+  "failed": []
+ },
+ "trace": [
+  {
+   "seq": 1,
+   "server": "es",
+   "tool": "describe_data",
+   "args": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "request_hash": "3da5dd12e6fa5730ba5dce7d56751b9812238d71bc7f12bc2add19da9d5e3ff9",
+   "call_id": "empty-window-0001",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 2,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "args": {
+    "query": "T1110"
+   },
+   "request_hash": "9e951ff64d0bf170d65c249c6d1fa3220401711a95eb9b36536c60e0bec14ace",
+   "call_id": "empty-window-an0001",
+   "ok": true,
+   "total": 1,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 3,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "args": {
+    "query": "T1078"
+   },
+   "request_hash": "9ec81361250621332723ea8dcc57774e10bb97589dcac8e9e995c5ccc4fea640",
+   "call_id": "empty-window-an0002",
+   "ok": true,
+   "total": 1,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 4,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ]
+   },
+   "request_hash": "e15783f3462d960d5f3be45841d649c9d84746926f81890f7a90233196b76b19",
+   "call_id": "empty-window-0002",
+   "ok": true,
+   "total": 0,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 5,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "date_histogram",
+    "interval": "60m",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ]
+   },
+   "request_hash": "7fab3d9f084f1a82a9891cdc6b8ac1deec035df168883f4df5605226c3f73cbc",
+   "call_id": "empty-window-0003",
+   "ok": true,
+   "total": 0,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 6,
+   "server": "analytics",
+   "tool": "gap_check",
+   "args": {
+    "buckets": [
+     {
+      "key": "2030-01-01T00:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T01:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T02:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T03:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T04:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T05:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T06:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T07:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T08:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T09:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T10:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T11:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T12:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T13:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T14:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T15:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T16:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T17:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T18:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T19:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T20:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T21:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T22:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T23:00:00.000Z",
+      "count": 0
+     }
+    ]
+   },
+   "request_hash": "496cb82b2c767b2ee2d51e237a979f53422aa067d3ada903a222828eee38ee0a",
+   "call_id": "empty-window-an0003",
+   "ok": true,
+   "total": 0,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 7,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "239de5c335aa78a7c356ac4a65a7b99e9285ee72d912c51f3117843951df43a6",
+   "call_id": "empty-window-0004",
+   "ok": true,
+   "total": 0,
+   "phase": "hunt",
+   "step_id": "T1110-a",
+   "purpose": "Sources with many failed SSH logins"
+  },
+  {
+   "seq": 8,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "239de5c335aa78a7c356ac4a65a7b99e9285ee72d912c51f3117843951df43a6",
+   "call_id": "empty-window-0005",
+   "ok": true,
+   "total": 0,
+   "phase": "hunt",
+   "step_id": "T1078-a",
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter"
+  },
+  {
+   "seq": 9,
+   "server": "es",
+   "tool": "search",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "size": 50,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ]
+   },
+   "request_hash": "15f92a3e2cf4a156fac5692caa9789422d0d8ec38df78dc279ea20e8fec9ff32",
+   "call_id": "empty-window-0006",
+   "ok": true,
+   "total": 0,
+   "phase": "guardrail",
+   "step_id": "guard-injection",
+   "purpose": "Prompt-injection sweep over the hunt window"
+  }
+ ],
+ "analytics_audit": [
+  {
+   "call_id": "empty-window-an0001",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "lookup_attack",
+   "params": {
+    "query": "T1110"
+   },
+   "dsl": null,
+   "total": 1,
+   "returned_ids": [],
+   "result_hash": "b5c5ebfe9f4ed77f",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  },
+  {
+   "call_id": "empty-window-an0002",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "lookup_attack",
+   "params": {
+    "query": "T1078"
+   },
+   "dsl": null,
+   "total": 1,
+   "returned_ids": [],
+   "result_hash": "ead4af3ebdcb9c3e",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  },
+  {
+   "call_id": "empty-window-an0003",
+   "ts": "2026-10-25T09:41:19Z",
+   "tool": "gap_check",
+   "params": {
+    "buckets": [
+     {
+      "key": "2030-01-01T00:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T01:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T02:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T03:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T04:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T05:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T06:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T07:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T08:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T09:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T10:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T11:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T12:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T13:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T14:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T15:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T16:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T17:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T18:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T19:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T20:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T21:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T22:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T23:00:00.000Z",
+      "count": 0
+     }
+    ]
+   },
+   "dsl": null,
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "673253a524fe576d",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  }
+ ],
+ "queries": [
+  {
+   "query_id": "empty-window-0001",
+   "seq": 1,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "describe_data",
+   "request": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "request_hash": "3da5dd12e6fa5730ba5dce7d56751b9812238d71bc7f12bc2add19da9d5e3ff9",
+   "dsl": null,
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "empty-window-an0001",
+   "seq": 2,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1110"
+   },
+   "request_hash": "9e951ff64d0bf170d65c249c6d1fa3220401711a95eb9b36536c60e0bec14ace",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "empty-window-an0002",
+   "seq": 3,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1078"
+   },
+   "request_hash": "9ec81361250621332723ea8dcc57774e10bb97589dcac8e9e995c5ccc4fea640",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "empty-window-0002",
+   "seq": 4,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ]
+   },
+   "request_hash": "e15783f3462d960d5f3be45841d649c9d84746926f81890f7a90233196b76b19",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "DEMO-SSH",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 0
+  },
+  {
+   "query_id": "empty-window-0003",
+   "seq": 5,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "date_histogram",
+    "interval": "60m",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ]
+   },
+   "request_hash": "7fab3d9f084f1a82a9891cdc6b8ac1deec035df168883f4df5605226c3f73cbc",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "date_histogram": {
+       "field": "@timestamp",
+       "fixed_interval": "60m",
+       "min_doc_count": 0,
+       "extended_bounds": {
+        "min": "2030-01-01T00:00:00.000Z",
+        "max": "2030-01-01T23:59:59.999Z"
+       }
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 0
+  },
+  {
+   "query_id": "empty-window-an0003",
+   "seq": 6,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "gap_check",
+   "request": {
+    "buckets": [
+     {
+      "key": "2030-01-01T00:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T01:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T02:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T03:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T04:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T05:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T06:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T07:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T08:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T09:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T10:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T11:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T12:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T13:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T14:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T15:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T16:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T17:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T18:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T19:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T20:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T21:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T22:00:00.000Z",
+      "count": 0
+     },
+     {
+      "key": "2030-01-01T23:00:00.000Z",
+      "count": 0
+     }
+    ]
+   },
+   "request_hash": "496cb82b2c767b2ee2d51e237a979f53422aa067d3ada903a222828eee38ee0a",
+   "dsl": null,
+   "ok": true,
+   "total": 0
+  },
+  {
+   "query_id": "empty-window-0004",
+   "seq": 7,
+   "phase": "hunt",
+   "step_id": "T1110-a",
+   "purpose": "Sources with many failed SSH logins",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "239de5c335aa78a7c356ac4a65a7b99e9285ee72d912c51f3117843951df43a6",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 0
+  },
+  {
+   "query_id": "empty-window-0005",
+   "seq": 8,
+   "phase": "hunt",
+   "step_id": "T1078-a",
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "239de5c335aa78a7c356ac4a65a7b99e9285ee72d912c51f3117843951df43a6",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 0
+  },
+  {
+   "query_id": "empty-window-0006",
+   "seq": 9,
+   "phase": "guardrail",
+   "step_id": "guard-injection",
+   "purpose": "Prompt-injection sweep over the hunt window",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2030-01-01T00:00:00Z",
+    "time_to": "2030-01-02T00:00:00Z",
+    "size": 50,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ]
+   },
+   "request_hash": "15f92a3e2cf4a156fac5692caa9789422d0d8ec38df78dc279ea20e8fec9ff32",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2030-01-01T00:00:00.000Z",
+          "lt": "2030-01-02T00:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore all previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "disregard previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore the above"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "system prompt"
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 0
+  }
+ ],
+ "c2_findings": {
+  "prompt_injection": {
+   "step_id": "guard-injection",
+   "checked_fields": [
+    "user_agent.original",
+    "user.name",
+    "message"
+   ],
+   "markers": [
+    "ignore all previous instructions",
+    "ignore previous instructions",
+    "disregard previous instructions",
+    "ignore the above",
+    "system prompt"
+   ],
+   "call_id": "empty-window-0006",
+   "total": 0,
+   "findings": []
+  }
+ }
+}

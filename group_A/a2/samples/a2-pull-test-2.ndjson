@@ -1,0 +1,2 @@
+
+{"@timestamp":"2026-10-21T00:05:00Z","event_id":"A2-PULL-002","event_type":"process_creation","source_type":"sysmon","host":{"name":"a2-lab-pc"},"process":{"name":"powershell.exe"},"message":"A2 second automatic pull ingestion test"}

@@ -1,0 +1,805 @@
+{
+  "started_at": "2026-10-25T09:40:12.345820+00:00",
+  "a2_ref": "8b86c10eb5ee5248f087aa6c8273c8fadb82758c",
+  "cases": [
+    {
+      "name": "authenticated_https",
+      "status": "passed"
+    },
+    {
+      "name": "unauthenticated_rejected",
+      "status": "passed"
+    },
+    {
+      "name": "untrusted_ca_rejected",
+      "status": "passed"
+    },
+    {
+      "name": "read_key_cannot_install_pipeline",
+      "status": "passed"
+    },
+    {
+      "name": "write_key_cannot_search",
+      "status": "passed"
+    },
+    {
+      "name": "real_b1_pipelines_installed",
+      "status": "passed"
+    },
+    {
+      "name": "c2_test_template_installed",
+      "status": "passed"
+    },
+    {
+      "name": "isolated_c2_snapshot_and_readonly_key",
+      "status": "passed"
+    },
+    {
+      "name": "a2_and_hunt_index_namespace_aligned",
+      "status": "passed"
+    },
+    {
+      "name": "push_listener_ready",
+      "status": "passed",
+      "host_refusals": 0,
+      "container_refusals": 2
+    },
+    {
+      "name": "b3_a2_real_b1_https_ingestion",
+      "status": "passed",
+      "indexed": 35,
+      "replay_submitted": 0
+    },
+    {
+      "name": "ground_truth_31_attack_events",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_attack",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "attack_supported_exact_ground_truth",
+      "status": "passed",
+      "cited": 31,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    {
+      "name": "c3_live_mcp_report_benign",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "benign_not_supported",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_missing-host",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "missing_host_inconclusive",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_empty-window",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "empty_window_insufficient_data",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_attack-repeat",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "hunt_repeatability",
+      "status": "passed"
+    }
+  ],
+  "scope": "isolated B3/A2/ES/MCP/C2 demo; C1 development stand-in; no live LLM; optional C3",
+  "pipeline_sha256": {
+    "group_A/logstash/pipeline/logstash.conf": "46a57a53f78d6de86544ad508f414de9eec9b84f34357d2716e65e42f9aabef2",
+    "group_A/a2/pipeline/pull.conf": "d44d140ff5a59e078bb23d7f9aabe9cabcb65a17acb1f09a89e709adaec513d2",
+    "group_A/a2/push-pipeline/push.conf": "06187687e04f6d040e3b5c30cd42ae4ff9b9af91c8ed8f5d9f702188bd8176de"
+  },
+  "code_head": "b01b6cc4c5bb845c668d68fb43cce9be463404d7",
+  "harness_sha256": "84ee7d1a6fb07e3b9aceeeea5dc145fd25d7bd16b7c8f8cf74cb809d510cfcd8",
+  "images": {
+    "docker.elastic.co/elasticsearch/elasticsearch:8.19.23": [
+      "docker.elastic.co/elasticsearch/elasticsearch@sha256:4d0724bb8d78d7a2330693623e26ca4d621079d062ecc8a30b3e1fc180ec14c1"
+    ],
+    "docker.elastic.co/logstash/logstash:8.19.23": [
+      "docker.elastic.co/logstash/logstash@sha256:a77c29e406ddc6311b302703889f0953b5620dd5aa2445b0cdbcf7f88e285766"
+    ]
+  },
+  "demo_sha256": "e41101dc00286a55a4f55d6f6c0c9f010be46f23f4825c4e3d41781b1f82903c",
+  "c3_commit": "e98599eb3b5309c4655124cc25265fe6a9d9f230",
+  "c2_tree": "5eab86ccfe411000c7520ef666803e0726e98e6a",
+  "c2_dependencies": {
+    "mcp": "1.30.0",
+    "elasticsearch": "8.19.3",
+    "pydantic": "2.13.5",
+    "PyYAML": "6.0.3"
+  },
+  "onboarding": {
+    "run_id": "b1ccf080-f780-4c43-9cd9-d25e3a7030d0",
+    "source_id": "b3-0479ab1d4f5c67d3c02ffe58",
+    "status": "verified",
+    "ingest_mode": "push",
+    "pipeline_id": "linux-auth",
+    "dataset": "linux.auth",
+    "record_count": 35,
+    "submitted_count": 35,
+    "acknowledged_count": 35,
+    "indexed_count": 35,
+    "reused_count": 0,
+    "parse_failure_count": 0,
+    "dry_run": false,
+    "error_codes": [],
+    "warnings": []
+  },
+  "hunts": [
+    {
+      "run_id": "attack",
+      "verdict": "SUPPORTED",
+      "claims": 2,
+      "cited_events": 31,
+      "tool_calls": 16,
+      "self_check": {
+        "claims": 2,
+        "self_checked": 2,
+        "failed": []
+      },
+      "independently_checked_ids": 31
+    },
+    {
+      "run_id": "benign",
+      "verdict": "NOT_SUPPORTED",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 13,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0
+    },
+    {
+      "run_id": "missing-host",
+      "verdict": "INCONCLUSIVE",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 13,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0
+    },
+    {
+      "run_id": "empty-window",
+      "verdict": "INSUFFICIENT_DATA",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 9,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0
+    },
+    {
+      "run_id": "attack-repeat",
+      "verdict": "SUPPORTED",
+      "claims": 2,
+      "cited_events": 31,
+      "tool_calls": 16,
+      "self_check": {
+        "claims": 2,
+        "self_checked": 2,
+        "failed": []
+      },
+      "independently_checked_ids": 31
+    }
+  ],
+  "c3_reports": [
+    {
+      "run_id": "attack",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "SUPPORTED",
+          "c2_verdict": "Confirmed",
+          "c2_confidence": "high",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "downgraded",
+          "note": "C2 reported SUPPORTED (high), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1110-a"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "T1078 Valid Accounts: no verified indicator.",
+          "C2 reported SUPPORTED (high), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        ],
+        "next_steps": [],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "1 claim(s) failed verification (C-002)"
+        ]
+      },
+      "verification": {
+        "claims": 2,
+        "verified": 1,
+        "unsupported": 0,
+        "contradicted": 1,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 15,
+          "identical": 15,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "benign",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "NOT_SUPPORTED",
+          "c2_verdict": "Refuted",
+          "c2_confidence": "medium",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "downgraded",
+          "note": "C2 reported NOT_SUPPORTED (medium), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": false,
+            "covered": false,
+            "gaps": [
+              "no selected data can test it"
+            ],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [
+              "T1078"
+            ],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "T1110 Brute Force: no verified indicator.",
+          "T1078 Valid Accounts: could not be tested over gap-free data.",
+          "  T1078: no selected data can test it",
+          "C2 reported NOT_SUPPORTED (medium), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        ],
+        "next_steps": [],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "coverage gap for T1078"
+        ]
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 12,
+          "identical": 12,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "missing-host",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "INCONCLUSIVE",
+          "c2_verdict": "Inconclusive",
+          "c2_confidence": "low",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "agrees",
+          "note": "C2 reported INCONCLUSIVE (low); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": false,
+            "covered": false,
+            "gaps": [
+              "no selected data can test it"
+            ],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [
+              "T1078"
+            ],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "No telemetry exists for named entities ['NO-SUCH-HOST']; absence of events cannot be interpreted.",
+          "C2 reported INCONCLUSIVE (low); C3's re-verification agrees."
+        ],
+        "next_steps": [
+          "Check the host name spelling or ingest logs from NO-SUCH-HOST."
+        ],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "coverage gap for T1078"
+        ]
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 12,
+          "identical": 12,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "empty-window",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "INSUFFICIENT_DATA",
+          "c2_verdict": "Inconclusive",
+          "c2_confidence": "low",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "agrees",
+          "note": "C2 reported INSUFFICIENT_DATA (low); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": false,
+            "gaps": [
+              "auth: 24/24 buckets have no events"
+            ],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": false,
+            "covered": false,
+            "gaps": [
+              "no selected data can test it",
+              "auth: 24/24 buckets have no events"
+            ],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [
+              "T1078"
+            ],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "No telemetry exists for named entities ['DEMO-SSH']; absence of events cannot be interpreted.",
+          "C2 reported INSUFFICIENT_DATA (low); C3's re-verification agrees."
+        ],
+        "next_steps": [
+          "Check the host name spelling or ingest logs from DEMO-SSH."
+        ],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "coverage gap for T1110, T1078"
+        ]
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 8,
+          "identical": 8,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "attack-repeat",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "SUPPORTED",
+          "c2_verdict": "Confirmed",
+          "c2_confidence": "high",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "downgraded",
+          "note": "C2 reported SUPPORTED (high), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1110-a"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": null,
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "T1078 Valid Accounts: no verified indicator.",
+          "C2 reported SUPPORTED (high), but C3 could not confirm it from the log store; the verdict is downgraded to Inconclusive."
+        ],
+        "next_steps": [],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "1 claim(s) failed verification (C-002)"
+        ]
+      },
+      "verification": {
+        "claims": 2,
+        "verified": 1,
+        "unsupported": 0,
+        "contradicted": 1,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 15,
+          "identical": 15,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    }
+  ],
+  "status": "passed",
+  "cleanup": "owned containers, network, data, credentials and certificates removed",
+  "completed_at": "2026-10-25T09:41:26.202516+00:00"
+}

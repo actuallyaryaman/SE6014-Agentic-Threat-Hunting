@@ -1,0 +1,4047 @@
+{
+ "schema_version": "1.0.0",
+ "run_id": "attack",
+ "plan": {
+  "hypothesis": "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25.",
+  "techniques": [
+   "T1110",
+   "T1078"
+  ],
+  "required_techniques": [
+   "T1110",
+   "T1078"
+  ],
+  "context_techniques": [],
+  "entities": {
+   "hosts": [
+    "DEMO-SSH"
+   ],
+   "ips": [],
+   "technique_names": {
+    "T1110": "Brute Force",
+    "T1078": "Valid Accounts"
+   },
+   "entity_missing": []
+  },
+  "required_sources": [
+   "auth"
+  ],
+  "time_range": {
+   "from": "2026-10-25T00:00:00Z",
+   "to": "2026-10-25T01:00:00Z"
+  },
+  "window_minutes": 60,
+  "steps": [
+   {
+    "step_id": "T1110-a",
+    "technique": "T1110",
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2026-10-25T00:00:00Z",
+     "time_to": "2026-10-25T01:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 20,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "linux.auth"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "ssh_login"
+      },
+      {
+       "field": "event.outcome",
+       "op": "eq",
+       "value": "failure"
+      },
+      {
+       "field": "host.name",
+       "op": "in",
+       "value": [
+        "DEMO-SSH"
+       ]
+      }
+     ]
+    },
+    "purpose": "Sources with many failed SSH logins",
+    "role": "indicator",
+    "claim_template": "Source {bucket_key} produced {count} failed SSH logins",
+    "analysis": {
+     "bucket_min_count": 20,
+     "drilldown": "source.ip"
+    },
+    "must_have": true,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   },
+   {
+    "step_id": "T1078-a",
+    "technique": "T1078",
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2026-10-25T00:00:00Z",
+     "time_to": "2026-10-25T01:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 20,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "linux.auth"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "ssh_login"
+      },
+      {
+       "field": "event.outcome",
+       "op": "eq",
+       "value": "failure"
+      },
+      {
+       "field": "host.name",
+       "op": "in",
+       "value": [
+        "DEMO-SSH"
+       ]
+      }
+     ]
+    },
+    "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+    "role": "context",
+    "claim_template": "",
+    "analysis": {
+     "bucket_min_count": 20
+    },
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   }
+  ],
+  "success_criteria": [
+   "T1110 (Brute Force): at least 1 independent self-checked indicator(s)",
+   "T1078 (Valid Accounts): at least 1 independent self-checked indicator(s)"
+  ],
+  "refutation_criteria": [
+   "T1110: all required sources and fields covered for the full window AND zero indicators",
+   "T1078: all required sources and fields covered for the full window AND zero indicators"
+  ],
+  "planner": "rules"
+ },
+ "evidence": [
+  {
+   "evidence_id": "E-T1110-a",
+   "call_id": "attack-0008",
+   "step_id": "T1110-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 30,
+   "excerpt": [
+    {
+     "key": "203.0.113.99",
+     "count": 30
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1110-a-dd-203.0.113.99",
+   "call_id": "attack-0009",
+   "step_id": "T1110-a-dd-203.0.113.99",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test-2026.10.25/0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303",
+    "security-events-c2test-2026.10.25/45f4a11017b3168415e00ed7465afd6a5634cac272f96362475b11937f8b32e9",
+    "security-events-c2test-2026.10.25/9268783196b70b1bb397fbb54d08a189a6a953d66d9d990f2a8afed4b95edb09",
+    "security-events-c2test-2026.10.25/06be1c9bf55c980f8f5c564e22f24fa401306d86993d79894beaa994bfa6b80b",
+    "security-events-c2test-2026.10.25/3be1f9b5c88da3f304b4789a3a39649f43e1866196c1a4d754cd73e29aa3bf24",
+    "security-events-c2test-2026.10.25/13c8429dc7c1415279b12aca62cb3b79da5178a66003397e38f3bb972a381eff",
+    "security-events-c2test-2026.10.25/5d51071a9a6f77eb9c388bcfb95fa9a8febcb2e052245ed191ab33f70c557964",
+    "security-events-c2test-2026.10.25/fbef6a83edbe195bc9503b36c0d1e2886baf4fb4fdfc0c38c0bf7ec2acfcf483",
+    "security-events-c2test-2026.10.25/4398a464983687d69f820996c399a9edefa2aa51bdd01522e5701d70a44cb8d9",
+    "security-events-c2test-2026.10.25/44fe298ae569bd4e4ec52a317e6d43c8c1b36663f3412aca083760f47d6d0af6",
+    "security-events-c2test-2026.10.25/9e5403aa3a943439e3e2b9d6b4129a0bf4f597d9cb1346e6b66801028be022bd",
+    "security-events-c2test-2026.10.25/60b62d8bbb296e4b92c7ed966b034516e8f9d3518f5a77f2d54c4a9ab8ca19f8",
+    "security-events-c2test-2026.10.25/aba46b895126f1bc3df91def81a6e7a649e9bf49ce8e18717047f45556c3d2a4",
+    "security-events-c2test-2026.10.25/a45a5f2d4beeae88a55b3006e02d7a47238768a7e79bb6f1b1a96ff89b446e43",
+    "security-events-c2test-2026.10.25/42424094211a627e201a2be8e4d5189e2b171632c5e3a2270d93de9644ee4c03",
+    "security-events-c2test-2026.10.25/6174b55989306bab825520f7bf7dc05d7e737aab81beed3fa56f0a154acc5442",
+    "security-events-c2test-2026.10.25/5c55d2fc95654ace45f5e9064f153a39352053280d5a0c7e4c72daa392497e10",
+    "security-events-c2test-2026.10.25/34d7191bac6943a9e6bb97ae571f6e8b7f413a035584edc420f8958a73e03dc0",
+    "security-events-c2test-2026.10.25/18fc7dbf28ad8e4daad605d25e77698d3b85121346f2166fdfbd18df1d621f4c",
+    "security-events-c2test-2026.10.25/d3247ef78afc23e864ce6da7d392eb854a1a0ee93e3472559e6c27aae0160af9",
+    "security-events-c2test-2026.10.25/0b3fe869943d9875b330dbfe3adb061e6251d607d5132e0729f73e266659a7d8",
+    "security-events-c2test-2026.10.25/897a07c5e67bd1f98c48d8a526d08e6e0c845cab02914afaf3048a59e6bfc86c",
+    "security-events-c2test-2026.10.25/a84ea4a1447dc4a45913f68dc4e3d99dc842bb9dfcd087252744cbc795c7ab3e",
+    "security-events-c2test-2026.10.25/52eff962aa9ad4987e0881c5db776edc48a5132ba9e97fdf0bcca4d78f536af2",
+    "security-events-c2test-2026.10.25/1cbf74f3bf412dd704fb765ec95aceb1152d75fb898ad936c41bd0e61d35e262",
+    "security-events-c2test-2026.10.25/811a24a9d6645f3a00cb648bbdab81b4ca8c306335960ae174429cb8e1b7ec2a",
+    "security-events-c2test-2026.10.25/941b10712597031f09c6b52bca79e0b7e06d8da01a14392ce19fb59ce3f6f8ef",
+    "security-events-c2test-2026.10.25/5a9aac624289e9c14e1a401da14851fd637eb4745c56c1821be95bd6518b2663",
+    "security-events-c2test-2026.10.25/047c19a925b8b864e9e701f0cf87ac532c8fde889864d7ce5f8aeea589eb383b",
+    "security-events-c2test-2026.10.25/8188c7e6797783a91380065f630f11d2aa8515e6c3b4444d4858d4710751ed4b"
+   ],
+   "total_hits": 30,
+   "excerpt": [
+    {
+     "source.ip": "203.0.113.99",
+     "@timestamp": "2026-10-25T00:10:00.000Z"
+    },
+    {
+     "source.ip": "203.0.113.99",
+     "@timestamp": "2026-10-25T00:10:01.000Z"
+    },
+    {
+     "source.ip": "203.0.113.99",
+     "@timestamp": "2026-10-25T00:10:02.000Z"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1078-a",
+   "call_id": "attack-0010",
+   "step_id": "T1078-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 30,
+   "excerpt": [
+    {
+     "key": "203.0.113.99",
+     "count": 30
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1078-first-203.0.113.99",
+   "call_id": "attack-0011",
+   "step_id": "T1078-first-203.0.113.99",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test-2026.10.25/0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303"
+   ],
+   "total_hits": 30,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-25T00:10:00.000Z"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1078-b-203.0.113.99",
+   "call_id": "attack-0012",
+   "step_id": "T1078-b-203.0.113.99",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test-2026.10.25/28a4bc9e0910bf2a7e0a008a25f5ac37a8a8230e6cb5674b55a32c342bfb7d6f"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "source.ip": "203.0.113.99",
+     "@timestamp": "2026-10-25T00:11:00.000Z",
+     "host.name": "DEMO-SSH",
+     "user.name": "demo"
+    }
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "claim_id": "C-001",
+   "text": "Source 203.0.113.99 produced 30 failed SSH logins",
+   "technique": "T1110",
+   "evidence_ids": [
+    "E-T1110-a",
+    "E-T1110-a-dd-203.0.113.99"
+   ],
+   "facts": {
+    "bucket_key": "203.0.113.99",
+    "count": "30"
+   },
+   "confidence": "medium",
+   "step_id": "T1110-a",
+   "kind": "aggregate",
+   "first_seen": "2026-10-25T00:10:00.000Z",
+   "event_ids": [
+    "security-events-c2test-2026.10.25/0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303",
+    "security-events-c2test-2026.10.25/45f4a11017b3168415e00ed7465afd6a5634cac272f96362475b11937f8b32e9",
+    "security-events-c2test-2026.10.25/9268783196b70b1bb397fbb54d08a189a6a953d66d9d990f2a8afed4b95edb09",
+    "security-events-c2test-2026.10.25/06be1c9bf55c980f8f5c564e22f24fa401306d86993d79894beaa994bfa6b80b",
+    "security-events-c2test-2026.10.25/3be1f9b5c88da3f304b4789a3a39649f43e1866196c1a4d754cd73e29aa3bf24",
+    "security-events-c2test-2026.10.25/13c8429dc7c1415279b12aca62cb3b79da5178a66003397e38f3bb972a381eff",
+    "security-events-c2test-2026.10.25/5d51071a9a6f77eb9c388bcfb95fa9a8febcb2e052245ed191ab33f70c557964",
+    "security-events-c2test-2026.10.25/fbef6a83edbe195bc9503b36c0d1e2886baf4fb4fdfc0c38c0bf7ec2acfcf483",
+    "security-events-c2test-2026.10.25/4398a464983687d69f820996c399a9edefa2aa51bdd01522e5701d70a44cb8d9",
+    "security-events-c2test-2026.10.25/44fe298ae569bd4e4ec52a317e6d43c8c1b36663f3412aca083760f47d6d0af6",
+    "security-events-c2test-2026.10.25/9e5403aa3a943439e3e2b9d6b4129a0bf4f597d9cb1346e6b66801028be022bd",
+    "security-events-c2test-2026.10.25/60b62d8bbb296e4b92c7ed966b034516e8f9d3518f5a77f2d54c4a9ab8ca19f8",
+    "security-events-c2test-2026.10.25/aba46b895126f1bc3df91def81a6e7a649e9bf49ce8e18717047f45556c3d2a4",
+    "security-events-c2test-2026.10.25/a45a5f2d4beeae88a55b3006e02d7a47238768a7e79bb6f1b1a96ff89b446e43",
+    "security-events-c2test-2026.10.25/42424094211a627e201a2be8e4d5189e2b171632c5e3a2270d93de9644ee4c03",
+    "security-events-c2test-2026.10.25/6174b55989306bab825520f7bf7dc05d7e737aab81beed3fa56f0a154acc5442",
+    "security-events-c2test-2026.10.25/5c55d2fc95654ace45f5e9064f153a39352053280d5a0c7e4c72daa392497e10",
+    "security-events-c2test-2026.10.25/34d7191bac6943a9e6bb97ae571f6e8b7f413a035584edc420f8958a73e03dc0",
+    "security-events-c2test-2026.10.25/18fc7dbf28ad8e4daad605d25e77698d3b85121346f2166fdfbd18df1d621f4c",
+    "security-events-c2test-2026.10.25/d3247ef78afc23e864ce6da7d392eb854a1a0ee93e3472559e6c27aae0160af9",
+    "security-events-c2test-2026.10.25/0b3fe869943d9875b330dbfe3adb061e6251d607d5132e0729f73e266659a7d8",
+    "security-events-c2test-2026.10.25/897a07c5e67bd1f98c48d8a526d08e6e0c845cab02914afaf3048a59e6bfc86c",
+    "security-events-c2test-2026.10.25/a84ea4a1447dc4a45913f68dc4e3d99dc842bb9dfcd087252744cbc795c7ab3e",
+    "security-events-c2test-2026.10.25/52eff962aa9ad4987e0881c5db776edc48a5132ba9e97fdf0bcca4d78f536af2",
+    "security-events-c2test-2026.10.25/1cbf74f3bf412dd704fb765ec95aceb1152d75fb898ad936c41bd0e61d35e262",
+    "security-events-c2test-2026.10.25/811a24a9d6645f3a00cb648bbdab81b4ca8c306335960ae174429cb8e1b7ec2a",
+    "security-events-c2test-2026.10.25/941b10712597031f09c6b52bca79e0b7e06d8da01a14392ce19fb59ce3f6f8ef",
+    "security-events-c2test-2026.10.25/5a9aac624289e9c14e1a401da14851fd637eb4745c56c1821be95bd6518b2663",
+    "security-events-c2test-2026.10.25/047c19a925b8b864e9e701f0cf87ac532c8fde889864d7ce5f8aeea589eb383b",
+    "security-events-c2test-2026.10.25/8188c7e6797783a91380065f630f11d2aa8515e6c3b4444d4858d4710751ed4b"
+   ],
+   "replay": {
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2026-10-25T00:00:00Z",
+     "time_to": "2026-10-25T01:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 20,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "linux.auth"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "ssh_login"
+      },
+      {
+       "field": "event.outcome",
+       "op": "eq",
+       "value": "failure"
+      },
+      {
+       "field": "host.name",
+       "op": "in",
+       "value": [
+        "DEMO-SSH"
+       ]
+      }
+     ]
+    },
+    "bucket_key": "203.0.113.99",
+    "count": 30,
+    "sum": null,
+    "distinct": null,
+    "event_field": "source.ip"
+   },
+   "context_only": false,
+   "origin": "playbook",
+   "status": "self_checked",
+   "c2_status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-002",
+   "text": "Source 203.0.113.99 logged in successfully as demo on DEMO-SSH after its failed SSH logins began (30 failures from this source in the window)",
+   "technique": "T1078",
+   "evidence_ids": [
+    "E-T1078-b-203.0.113.99"
+   ],
+   "facts": {
+    "source.ip": "203.0.113.99",
+    "user.name": "demo",
+    "host.name": "DEMO-SSH",
+    "failed_logins": "30"
+   },
+   "confidence": "medium",
+   "step_id": "T1078-b-203.0.113.99",
+   "kind": "events",
+   "first_seen": "2026-10-25T00:11:00.000Z",
+   "event_ids": [
+    "security-events-c2test-2026.10.25/28a4bc9e0910bf2a7e0a008a25f5ac37a8a8230e6cb5674b55a32c342bfb7d6f"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "self_checked",
+   "c2_status": "self_checked",
+   "verifier_notes": ""
+  }
+ ],
+ "audit": [
+  {
+   "call_id": "attack-0001",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "describe_data",
+   "params": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "dsl": null,
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"fields\": [\"@timestamp:date\", \"@version:keyword\", \"destination.ip:ip\", \"destination.port:long\", \"event.action:keyword\", \"event.category:keyword\", \"event.code:keyword\", \"event.dataset:keyword\", \"event.id:keyword\", \"event.original:keyword\", \"event.outcome:keyword\", \"event.type:keyword\", \"event_id:keyword\", \"host.ip:keyword\", \"host.name:keyword\", \"http.method:keyword\", \"http.request.body.bytes:keyword\", \"http.request.mime_type:keyword\", \"http.response.body.bytes:long\", \"http.response.status_code:long\", \"http.version:keyword\", \"labels.ingest_mode:keyword\", \"labels.ingest_pipeline:keyword\", \"labels.run_id:keyword\", \"labels.source_id:keyword\", \"message:text\", \"process.name:keyword\", \"process.pid:long\", \"source.ip:ip\", \"source.port:long\", \"url.domain:keyword\", \"url.path:keyword\", \"url.port:long\", \"user.name:keyword\", \"user_agent.original:keyword\"], \"sources\": [{\"dataset\": \"linux.auth\", \"docs\": 35, \"first_event\": \"2026-10-25T00:10:00.000Z\", \"last_event\": \"2026-10-25T00:11:00.000Z\"}], \"total\": 35}"
+  },
+  {
+   "call_id": "attack-0002",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "DEMO-SSH",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 31,
+   "returned_ids": [],
+   "result_hash": "b22db16bd5e8ddc3",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 31}"
+  },
+  {
+   "call_id": "attack-0003",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "date_histogram",
+    "field": null,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "60m",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "date_histogram": {
+       "field": "@timestamp",
+       "fixed_interval": "60m",
+       "min_doc_count": 0,
+       "extended_bounds": {
+        "min": "2026-10-25T00:00:00.000Z",
+        "max": "2026-10-25T00:59:59.999Z"
+       }
+      }
+     }
+    }
+   },
+   "total": 35,
+   "returned_ids": [
+    "[{\"count\": 35, \"key\": \"2026-10-25T00:00:00.000Z\"}]"
+   ],
+   "result_hash": "9e4a1cbf40f71ba5",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 35, \"key\": \"2026-10-25T00:00:00.000Z\"}], \"total\": 35}"
+  },
+  {
+   "call_id": "attack-0004",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "exists"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "source.ip"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 35}"
+  },
+  {
+   "call_id": "attack-0005",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "exists"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.action"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 35}"
+  },
+  {
+   "call_id": "attack-0006",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "exists"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.outcome"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 35}"
+  },
+  {
+   "call_id": "attack-0007",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "count",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "user.name",
+      "op": "exists"
+     }
+    ],
+    "must_not": null,
+    "any_of": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "user.name"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "aa6244e314c7bc4f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"total\": 35}"
+  },
+  {
+   "call_id": "attack-0008",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "1h",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 30,
+   "returned_ids": [
+    "[{\"count\": 30, \"key\": \"203.0.113.99\"}]"
+   ],
+   "result_hash": "29777b1343d94f20",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 30, \"key\": \"203.0.113.99\"}], \"total\": 30}"
+  },
+  {
+   "call_id": "attack-0009",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": [
+     "@timestamp",
+     "source.ip"
+    ],
+    "size": 100,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       }
+      ]
+     }
+    },
+    "size": 100,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 30,
+   "returned_ids": [
+    "security-events-c2test-2026.10.25/0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303",
+    "security-events-c2test-2026.10.25/45f4a11017b3168415e00ed7465afd6a5634cac272f96362475b11937f8b32e9",
+    "security-events-c2test-2026.10.25/9268783196b70b1bb397fbb54d08a189a6a953d66d9d990f2a8afed4b95edb09",
+    "security-events-c2test-2026.10.25/06be1c9bf55c980f8f5c564e22f24fa401306d86993d79894beaa994bfa6b80b",
+    "security-events-c2test-2026.10.25/3be1f9b5c88da3f304b4789a3a39649f43e1866196c1a4d754cd73e29aa3bf24",
+    "security-events-c2test-2026.10.25/13c8429dc7c1415279b12aca62cb3b79da5178a66003397e38f3bb972a381eff",
+    "security-events-c2test-2026.10.25/5d51071a9a6f77eb9c388bcfb95fa9a8febcb2e052245ed191ab33f70c557964",
+    "security-events-c2test-2026.10.25/fbef6a83edbe195bc9503b36c0d1e2886baf4fb4fdfc0c38c0bf7ec2acfcf483",
+    "security-events-c2test-2026.10.25/4398a464983687d69f820996c399a9edefa2aa51bdd01522e5701d70a44cb8d9",
+    "security-events-c2test-2026.10.25/44fe298ae569bd4e4ec52a317e6d43c8c1b36663f3412aca083760f47d6d0af6",
+    "security-events-c2test-2026.10.25/9e5403aa3a943439e3e2b9d6b4129a0bf4f597d9cb1346e6b66801028be022bd",
+    "security-events-c2test-2026.10.25/60b62d8bbb296e4b92c7ed966b034516e8f9d3518f5a77f2d54c4a9ab8ca19f8",
+    "security-events-c2test-2026.10.25/aba46b895126f1bc3df91def81a6e7a649e9bf49ce8e18717047f45556c3d2a4",
+    "security-events-c2test-2026.10.25/a45a5f2d4beeae88a55b3006e02d7a47238768a7e79bb6f1b1a96ff89b446e43",
+    "security-events-c2test-2026.10.25/42424094211a627e201a2be8e4d5189e2b171632c5e3a2270d93de9644ee4c03",
+    "security-events-c2test-2026.10.25/6174b55989306bab825520f7bf7dc05d7e737aab81beed3fa56f0a154acc5442",
+    "security-events-c2test-2026.10.25/5c55d2fc95654ace45f5e9064f153a39352053280d5a0c7e4c72daa392497e10",
+    "security-events-c2test-2026.10.25/34d7191bac6943a9e6bb97ae571f6e8b7f413a035584edc420f8958a73e03dc0",
+    "security-events-c2test-2026.10.25/18fc7dbf28ad8e4daad605d25e77698d3b85121346f2166fdfbd18df1d621f4c",
+    "security-events-c2test-2026.10.25/d3247ef78afc23e864ce6da7d392eb854a1a0ee93e3472559e6c27aae0160af9",
+    "security-events-c2test-2026.10.25/0b3fe869943d9875b330dbfe3adb061e6251d607d5132e0729f73e266659a7d8",
+    "security-events-c2test-2026.10.25/897a07c5e67bd1f98c48d8a526d08e6e0c845cab02914afaf3048a59e6bfc86c",
+    "security-events-c2test-2026.10.25/a84ea4a1447dc4a45913f68dc4e3d99dc842bb9dfcd087252744cbc795c7ab3e",
+    "security-events-c2test-2026.10.25/52eff962aa9ad4987e0881c5db776edc48a5132ba9e97fdf0bcca4d78f536af2",
+    "security-events-c2test-2026.10.25/1cbf74f3bf412dd704fb765ec95aceb1152d75fb898ad936c41bd0e61d35e262",
+    "security-events-c2test-2026.10.25/811a24a9d6645f3a00cb648bbdab81b4ca8c306335960ae174429cb8e1b7ec2a",
+    "security-events-c2test-2026.10.25/941b10712597031f09c6b52bca79e0b7e06d8da01a14392ce19fb59ce3f6f8ef",
+    "security-events-c2test-2026.10.25/5a9aac624289e9c14e1a401da14851fd637eb4745c56c1821be95bd6518b2663",
+    "security-events-c2test-2026.10.25/047c19a925b8b864e9e701f0cf87ac532c8fde889864d7ce5f8aeea589eb383b",
+    "security-events-c2test-2026.10.25/8188c7e6797783a91380065f630f11d2aa8515e6c3b4444d4858d4710751ed4b"
+   ],
+   "result_hash": "1adb80242af6d627",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:00.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"45f4a11017b3168415e00ed7465afd6a5634cac272f96362475b11937f8b32e9\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:01.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"9268783196b70b1bb397fbb54d08a189a6a953d66d9d990f2a8afed4b95edb09\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:02.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"06be1c9bf55c980f8f5c564e22f24fa401306d86993d79894beaa994bfa6b80b\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:03.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"3be1f9b5c88da3f304b4789a3a39649f43e1866196c1a4d754cd73e29aa3bf24\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:04.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"13c8429dc7c1415279b12aca62cb3b79da5178a66003397e38f3bb972a381eff\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:05.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"5d51071a9a6f77eb9c388bcfb95fa9a8febcb2e052245ed191ab33f70c557964\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:06.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"fbef6a83edbe195bc9503b36c0d1e2886baf4fb4fdfc0c38c0bf7ec2acfcf483\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:07.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"4398a464983687d69f820996c399a9edefa2aa51bdd01522e5701d70a44cb8d9\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:08.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"44fe298ae569bd4e4ec52a317e6d43c8c1b36663f3412aca083760f47d6d0af6\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:09.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"9e5403aa3a943439e3e2b9d6b4129a0bf4f597d9cb1346e6b66801028be022bd\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:10.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"60b62d8bbb296e4b92c7ed966b034516e8f9d3518f5a77f2d54c4a9ab8ca19f8\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:11.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"aba46b895126f1bc3df91def81a6e7a649e9bf49ce8e18717047f45556c3d2a4\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:12.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"a45a5f2d4beeae88a55b3006e02d7a47238768a7e79bb6f1b1a96ff89b446e43\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:13.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"42424094211a627e201a2be8e4d5189e2b171632c5e3a2270d93de9644ee4c03\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:14.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"6174b55989306bab825520f7bf7dc05d7e737aab81beed3fa56f0a154acc5442\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:15.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"5c55d2fc95654ace45f5e9064f153a39352053280d5a0c7e4c72daa392497e10\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:16.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"34d7191bac6943a9e6bb97ae571f6e8b7f413a035584edc420f8958a73e03dc0\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:17.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"18fc7dbf28ad8e4daad605d25e77698d3b85121346f2166fdfbd18df1d621f4c\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:18.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"d3247ef78afc23e864ce6da7d392eb854a1a0ee93e3472559e6c27aae0160af9\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:19.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"0b3fe869943d9875b330dbfe3adb061e6251d607d5132e0729f73e266659a7d8\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:20.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"897a07c5e67bd1f98c48d8a526d08e6e0c845cab02914afaf3048a59e6bfc86c\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:21.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"a84ea4a1447dc4a45913f68dc4e3d99dc842bb9dfcd087252744cbc795c7ab3e\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:22.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"52eff962aa9ad4987e0881c5db776edc48a5132ba9e97fdf0bcca4d78f536af2\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:23.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"1cbf74f3bf412dd704fb765ec95aceb1152d75fb898ad936c41bd0e61d35e262\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:24.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"811a24a9d6645f3a00cb648bbdab81b4ca8c306335960ae174429cb8e1b7ec2a\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:25.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"941b10712597031f09c6b52bca79e0b7e06d8da01a14392ce19fb59ce3f6f8ef\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:26.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"5a9aac624289e9c14e1a401da14851fd637eb4745c56c1821be95bd6518b2663\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:27.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"047c19a925b8b864e9e701f0cf87ac532c8fde889864d7ce5f8aeea589eb383b\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:28.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}, {\"event_id\": \"8188c7e6797783a91380065f630f11d2aa8515e6c3b4444d4858d4710751ed4b\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:29.000Z\", \"source.ip\": \"203.0.113.99\"}, \"index\": \"security-events-c2test-2026.10.25\"}], \"returned\": 30, \"total\": 30, \"truncated\": false}"
+  },
+  {
+   "call_id": "attack-0010",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "interval": "1h",
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 30,
+   "returned_ids": [
+    "[{\"count\": 30, \"key\": \"203.0.113.99\"}]"
+   ],
+   "result_hash": "29777b1343d94f20",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 30, \"key\": \"203.0.113.99\"}], \"total\": 30}"
+  },
+  {
+   "call_id": "attack-0011",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": [
+     "@timestamp"
+    ],
+    "size": 1,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 1,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 30,
+   "returned_ids": [
+    "security-events-c2test-2026.10.25/0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303"
+   ],
+   "result_hash": "6be3efdfc1f46fd9",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"0fc5b18a49f88fc9808f0f8e06d1b3af53da7ddcbd2f3f69e10f1bdad372d303\", \"fields\": {\"@timestamp\": \"2026-10-25T00:10:00.000Z\"}, \"index\": \"security-events-c2test-2026.10.25\"}], \"returned\": 1, \"total\": 30, \"truncated\": true}"
+  },
+  {
+   "call_id": "attack-0012",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:10:00.000Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "success"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "user.name",
+     "host.name"
+    ],
+    "size": 100,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:10:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "success",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 100,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "security-events-c2test-2026.10.25/28a4bc9e0910bf2a7e0a008a25f5ac37a8a8230e6cb5674b55a32c342bfb7d6f"
+   ],
+   "result_hash": "bccf55cb0f7a3b52",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"28a4bc9e0910bf2a7e0a008a25f5ac37a8a8230e6cb5674b55a32c342bfb7d6f\", \"fields\": {\"@timestamp\": \"2026-10-25T00:11:00.000Z\", \"host.name\": \"DEMO-SSH\", \"source.ip\": \"203.0.113.99\", \"user.name\": \"demo\"}, \"index\": \"security-events-c2test-2026.10.25\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "attack-0013",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": null,
+    "must_not": null,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ],
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore all previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "disregard previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore the above"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "system prompt"
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  }
+ ],
+ "step_results": {
+  "T1110-a": {
+   "call_id": "attack-0008",
+   "status": "ok",
+   "total": 30,
+   "tool": "aggregate"
+  },
+  "T1110-a-dd-203.0.113.99": {
+   "call_id": "attack-0009",
+   "status": "ok",
+   "total": 30,
+   "tool": "search",
+   "complete": true
+  },
+  "T1078-a": {
+   "call_id": "attack-0010",
+   "status": "ok",
+   "total": 30,
+   "tool": "aggregate"
+  },
+  "T1078-first-203.0.113.99": {
+   "call_id": "attack-0011",
+   "status": "ok",
+   "total": 30,
+   "tool": "search",
+   "complete": false
+  },
+  "T1078-b-203.0.113.99": {
+   "call_id": "attack-0012",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  }
+ },
+ "dynamic_steps": [
+  {
+   "step_id": "T1110-a-dd-203.0.113.99",
+   "technique": "T1110",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     }
+    ],
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip"
+    ]
+   },
+   "purpose": "Events behind aggregate bucket 203.0.113.99",
+   "role": "context",
+   "claim_template": "",
+   "analysis": {},
+   "must_have": false,
+   "requires": [],
+   "event_types": [],
+   "need": ""
+  },
+  {
+   "step_id": "T1078-first-203.0.113.99",
+   "technique": "T1078",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 1,
+    "fields": [
+     "@timestamp"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ]
+   },
+   "purpose": "First failed SSH login from 203.0.113.99",
+   "role": "context",
+   "claim_template": "",
+   "analysis": {
+    "sample_ok": true
+   },
+   "must_have": false,
+   "requires": [],
+   "event_types": [],
+   "need": ""
+  },
+  {
+   "step_id": "T1078-b-203.0.113.99",
+   "technique": "T1078",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:10:00.000Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "user.name",
+     "host.name"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "success"
+     }
+    ]
+   },
+   "purpose": "Successful SSH logins from 203.0.113.99 after its first failed login (2026-10-25T00:10:00.000Z)",
+   "role": "indicator",
+   "claim_template": "Source {source.ip} logged in successfully as {user.name} on {host.name} after its failed SSH logins began ({failed_logins} failures from this source in the window)",
+   "analysis": {
+    "group_by": [
+     "source.ip",
+     "user.name",
+     "host.name"
+    ]
+   },
+   "must_have": true,
+   "requires": [],
+   "event_types": [],
+   "need": ""
+  }
+ ],
+ "weak_signals": {},
+ "notes": {
+  "entity_missing": [],
+  "untested": {},
+  "coverage": {
+   "auth": {
+    "total": 35,
+    "buckets": [],
+    "empty_buckets": [],
+    "n_buckets": 1,
+    "coverage_ratio": 1.0,
+    "bucket_minutes": null,
+    "first": null,
+    "last": null
+   }
+  },
+  "coverage_gaps": {},
+  "gaps": [],
+  "dated": true,
+  "data_sources": {
+   "auth": 35
+  },
+  "selected_sources": [],
+  "out_of_scope": null,
+  "in_scope_without_playbook": null,
+  "min_support": {
+   "T1110": 1,
+   "T1078": 1
+  },
+  "technique_sources": {
+   "T1110": [
+    "auth"
+   ],
+   "T1078": [
+    "auth"
+   ]
+  },
+  "missing_fields": {},
+  "info": []
+ },
+ "hunt_notes": [],
+ "baselines": [],
+ "limitations": [
+  "Findings depend on the playbooks used; techniques without a playbook are not tested.",
+  "Baselines are synthetic allowlists and must be tuned per environment.",
+  "NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.",
+  "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."
+ ],
+ "meta": {
+  "run_id": "attack",
+  "backend": "rules (no usable LLM configured)",
+  "planner": "rules",
+  "code_hash": "8e5620d5f9c668fc",
+  "tool_calls": 16,
+  "seconds": 1.2,
+  "python": "3.11.16",
+  "temperature": "provider default",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true,
+   "complete_results": true,
+   "canonical_params": true
+  },
+  "perturb_seed": null,
+  "index": "security-events-c2test*",
+  "mcp_servers": {
+   "es": "python -m dev.es_mcp_standin.server",
+   "analytics": "python -m analytics_server.server"
+  },
+  "ignored_tools": [
+   "es.get_event",
+   "es.save_finding",
+   "es.get_audit_log"
+  ],
+  "audit_files": [
+   "audit/attack.jsonl",
+   "audit/attack-analytics.jsonl"
+  ]
+ },
+ "c2_verdict": {
+  "label": "SUPPORTED",
+  "confidence": "high",
+  "requires_analyst_review": true,
+  "reasons": [
+   "Every required technique has at least the minimum number of independent self-checked indicators."
+  ],
+  "review_reasons": [
+   "SUPPORTED verdicts always require analyst review"
+  ]
+ },
+ "c2_self_check": {
+  "claims": 2,
+  "self_checked": 2,
+  "failed": []
+ },
+ "trace": [
+  {
+   "seq": 1,
+   "server": "es",
+   "tool": "describe_data",
+   "args": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "request_hash": "3da5dd12e6fa5730ba5dce7d56751b9812238d71bc7f12bc2add19da9d5e3ff9",
+   "call_id": "attack-0001",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 2,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "args": {
+    "query": "T1110"
+   },
+   "request_hash": "9e951ff64d0bf170d65c249c6d1fa3220401711a95eb9b36536c60e0bec14ace",
+   "call_id": "attack-an0001",
+   "ok": true,
+   "total": 1,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 3,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "args": {
+    "query": "T1078"
+   },
+   "request_hash": "9ec81361250621332723ea8dcc57774e10bb97589dcac8e9e995c5ccc4fea640",
+   "call_id": "attack-an0002",
+   "ok": true,
+   "total": 1,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 4,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ]
+   },
+   "request_hash": "42de196d9ce57ea24fd625fb7fad417ae00d2fcb4e6cb0dd20181479cc392353",
+   "call_id": "attack-0002",
+   "ok": true,
+   "total": 31,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 5,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "date_histogram",
+    "interval": "60m",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ]
+   },
+   "request_hash": "a9ee9019a5ef94681b1655e9f379019d04b6c16a0117e9580ac4628d25b20acd",
+   "call_id": "attack-0003",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 6,
+   "server": "analytics",
+   "tool": "gap_check",
+   "args": {
+    "buckets": [
+     {
+      "key": "2026-10-25T00:00:00.000Z",
+      "count": 35
+     }
+    ]
+   },
+   "request_hash": "1a34acfc5b5ea2cf09b09ccb729c4ff87601c15e2cee694aae04ad252085d7a0",
+   "call_id": "attack-an0003",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 7,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "114da3fa7999757efee8de318807682803313e18f953f403c7bd3215b5b2d360",
+   "call_id": "attack-0004",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 8,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "53791da02d80b35037d79b10e35f42a7e9fa8983face87e91c4db3e5335b3518",
+   "call_id": "attack-0005",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 9,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "0a06864a978b1a122959394377378a13275c9f145b3464e0cce72c94d305bf12",
+   "call_id": "attack-0006",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 10,
+   "server": "es",
+   "tool": "count",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "user.name",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "91187b295f13270973aa6186881f3897a871226f98d231ad1d13538ba85c759e",
+   "call_id": "attack-0007",
+   "ok": true,
+   "total": 35,
+   "phase": "planning",
+   "step_id": "",
+   "purpose": ""
+  },
+  {
+   "seq": 11,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "27716358e6505ebc4b3903861a02d19df8cd80126573a98339cde7aa6511ad3a",
+   "call_id": "attack-0008",
+   "ok": true,
+   "total": 30,
+   "phase": "hunt",
+   "step_id": "T1110-a",
+   "purpose": "Sources with many failed SSH logins"
+  },
+  {
+   "seq": 12,
+   "server": "es",
+   "tool": "search",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     }
+    ],
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip"
+    ]
+   },
+   "request_hash": "94209cbc91bbef72071a24f237c6487532319e83ab6dbec5217359cff9265ed8",
+   "call_id": "attack-0009",
+   "ok": true,
+   "total": 30,
+   "phase": "hunt",
+   "step_id": "T1110-a-dd-203.0.113.99",
+   "purpose": "Events behind aggregate bucket 203.0.113.99"
+  },
+  {
+   "seq": 13,
+   "server": "es",
+   "tool": "aggregate",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "27716358e6505ebc4b3903861a02d19df8cd80126573a98339cde7aa6511ad3a",
+   "call_id": "attack-0010",
+   "ok": true,
+   "total": 30,
+   "phase": "hunt",
+   "step_id": "T1078-a",
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter"
+  },
+  {
+   "seq": 14,
+   "server": "es",
+   "tool": "search",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 1,
+    "fields": [
+     "@timestamp"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ]
+   },
+   "request_hash": "51906b2ca5fb21f7d9bab1f7dd27988bc0cdb97a969bc5d8b3c7e1381b414323",
+   "call_id": "attack-0011",
+   "ok": true,
+   "total": 30,
+   "phase": "hunt",
+   "step_id": "T1078-first-203.0.113.99",
+   "purpose": "First failed SSH login from 203.0.113.99"
+  },
+  {
+   "seq": 15,
+   "server": "es",
+   "tool": "search",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:10:00.000Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "user.name",
+     "host.name"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "success"
+     }
+    ]
+   },
+   "request_hash": "55d06769db48e1ebe140ca9e7250163ef62d211dae8c729054280af8bd5b5843",
+   "call_id": "attack-0012",
+   "ok": true,
+   "total": 1,
+   "phase": "hunt",
+   "step_id": "T1078-b-203.0.113.99",
+   "purpose": "Successful SSH logins from 203.0.113.99 after its first failed login (2026-10-25T00:10:00.000Z)"
+  },
+  {
+   "seq": 16,
+   "server": "es",
+   "tool": "search",
+   "args": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 50,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ]
+   },
+   "request_hash": "0ceb5d78e159f3203e634e2c5953c3c25e3158fb6ae086fbbf0e731fbdc811c2",
+   "call_id": "attack-0013",
+   "ok": true,
+   "total": 0,
+   "phase": "guardrail",
+   "step_id": "guard-injection",
+   "purpose": "Prompt-injection sweep over the hunt window"
+  }
+ ],
+ "analytics_audit": [
+  {
+   "call_id": "attack-an0001",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "lookup_attack",
+   "params": {
+    "query": "T1110"
+   },
+   "dsl": null,
+   "total": 1,
+   "returned_ids": [],
+   "result_hash": "b5c5ebfe9f4ed77f",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  },
+  {
+   "call_id": "attack-an0002",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "lookup_attack",
+   "params": {
+    "query": "T1078"
+   },
+   "dsl": null,
+   "total": 1,
+   "returned_ids": [],
+   "result_hash": "ead4af3ebdcb9c3e",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  },
+  {
+   "call_id": "attack-an0003",
+   "ts": "2026-10-25T09:41:07Z",
+   "tool": "gap_check",
+   "params": {
+    "buckets": [
+     {
+      "key": "2026-10-25T00:00:00.000Z",
+      "count": 35
+     }
+    ]
+   },
+   "dsl": null,
+   "total": 35,
+   "returned_ids": [],
+   "result_hash": "ddf9000b30c663f4",
+   "ok": true,
+   "error": "",
+   "digest": ""
+  }
+ ],
+ "queries": [
+  {
+   "query_id": "attack-0001",
+   "seq": 1,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "describe_data",
+   "request": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "request_hash": "3da5dd12e6fa5730ba5dce7d56751b9812238d71bc7f12bc2add19da9d5e3ff9",
+   "dsl": null,
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-an0001",
+   "seq": 2,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1110"
+   },
+   "request_hash": "9e951ff64d0bf170d65c249c6d1fa3220401711a95eb9b36536c60e0bec14ace",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "attack-an0002",
+   "seq": 3,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1078"
+   },
+   "request_hash": "9ec81361250621332723ea8dcc57774e10bb97589dcac8e9e995c5ccc4fea640",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "attack-0002",
+   "seq": 4,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "DEMO-SSH"
+     }
+    ]
+   },
+   "request_hash": "42de196d9ce57ea24fd625fb7fad417ae00d2fcb4e6cb0dd20181479cc392353",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "DEMO-SSH",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 31
+  },
+  {
+   "query_id": "attack-0003",
+   "seq": 5,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "date_histogram",
+    "interval": "60m",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ]
+   },
+   "request_hash": "a9ee9019a5ef94681b1655e9f379019d04b6c16a0117e9580ac4628d25b20acd",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "date_histogram": {
+       "field": "@timestamp",
+       "fixed_interval": "60m",
+       "min_doc_count": 0,
+       "extended_bounds": {
+        "min": "2026-10-25T00:00:00.000Z",
+        "max": "2026-10-25T00:59:59.999Z"
+       }
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-an0003",
+   "seq": 6,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "gap_check",
+   "request": {
+    "buckets": [
+     {
+      "key": "2026-10-25T00:00:00.000Z",
+      "count": 35
+     }
+    ]
+   },
+   "request_hash": "1a34acfc5b5ea2cf09b09ccb729c4ff87601c15e2cee694aae04ad252085d7a0",
+   "dsl": null,
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-0004",
+   "seq": 7,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "114da3fa7999757efee8de318807682803313e18f953f403c7bd3215b5b2d360",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "source.ip"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-0005",
+   "seq": 8,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "53791da02d80b35037d79b10e35f42a7e9fa8983face87e91c4db3e5335b3518",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.action"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-0006",
+   "seq": 9,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "0a06864a978b1a122959394377378a13275c9f145b3464e0cce72c94d305bf12",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.outcome"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-0007",
+   "seq": 10,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "user.name",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "91187b295f13270973aa6186881f3897a871226f98d231ad1d13538ba85c759e",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "user.name"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "attack-0008",
+   "seq": 11,
+   "phase": "hunt",
+   "step_id": "T1110-a",
+   "purpose": "Sources with many failed SSH logins",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "27716358e6505ebc4b3903861a02d19df8cd80126573a98339cde7aa6511ad3a",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 30
+  },
+  {
+   "query_id": "attack-0009",
+   "seq": 12,
+   "phase": "hunt",
+   "step_id": "T1110-a-dd-203.0.113.99",
+   "purpose": "Events behind aggregate bucket 203.0.113.99",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     }
+    ],
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip"
+    ]
+   },
+   "request_hash": "94209cbc91bbef72071a24f237c6487532319e83ab6dbec5217359cff9265ed8",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       }
+      ]
+     }
+    },
+    "size": 100,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 30
+  },
+  {
+   "query_id": "attack-0010",
+   "seq": 13,
+   "phase": "hunt",
+   "step_id": "T1078-a",
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "27716358e6505ebc4b3903861a02d19df8cd80126573a98339cde7aa6511ad3a",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 30
+  },
+  {
+   "query_id": "attack-0011",
+   "seq": 14,
+   "phase": "hunt",
+   "step_id": "T1078-first-203.0.113.99",
+   "purpose": "First failed SSH login from 203.0.113.99",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 1,
+    "fields": [
+     "@timestamp"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ]
+   },
+   "request_hash": "51906b2ca5fb21f7d9bab1f7dd27988bc0cdb97a969bc5d8b3c7e1381b414323",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 1,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 30
+  },
+  {
+   "query_id": "attack-0012",
+   "seq": 15,
+   "phase": "hunt",
+   "step_id": "T1078-b-203.0.113.99",
+   "purpose": "Successful SSH logins from 203.0.113.99 after its first failed login (2026-10-25T00:10:00.000Z)",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:10:00.000Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "user.name",
+     "host.name"
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "203.0.113.99"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "DEMO-SSH"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "success"
+     }
+    ]
+   },
+   "request_hash": "55d06769db48e1ebe140ca9e7250163ef62d211dae8c729054280af8bd5b5843",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:10:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": "203.0.113.99"
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "DEMO-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "success",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 100,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "attack-0013",
+   "seq": 16,
+   "phase": "guardrail",
+   "step_id": "guard-injection",
+   "purpose": "Prompt-injection sweep over the hunt window",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 50,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ]
+   },
+   "request_hash": "0ceb5d78e159f3203e634e2c5953c3c25e3158fb6ae086fbbf0e731fbdc811c2",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore all previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "disregard previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore the above"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "system prompt"
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 0
+  }
+ ],
+ "c2_findings": {
+  "prompt_injection": {
+   "step_id": "guard-injection",
+   "checked_fields": [
+    "user_agent.original",
+    "user.name",
+    "message"
+   ],
+   "markers": [
+    "ignore all previous instructions",
+    "ignore previous instructions",
+    "disregard previous instructions",
+    "ignore the above",
+    "system prompt"
+   ],
+   "call_id": "attack-0013",
+   "total": 0,
+   "findings": []
+  }
+ }
+}
