@@ -42,11 +42,26 @@ def _parse(ts) -> datetime | None:
         return None
 
 
+def keyword_techniques(hypothesis: str, kb: dict) -> list[str]:
+    """The techniques with a playbook whose catalogue keywords occur in the hypothesis (the rules part of intake)."""
+    h = hypothesis.lower()
+    return [tid for tid, v in kb.items() if tid in playbooks.SOURCES and any(k in h for k in v["keywords"])]
+
+
+def catalogue() -> dict:
+    """The ATT&CK subset plus the techniques and keywords of promoted playbooks."""
+    kb = json.loads((config.KNOWLEDGE_DIR / "attack_subset.json").read_text())
+    for t, pbs in playbooks.refresh().items():
+        e = kb.setdefault(t, {"name": pbs[0].get("name", t), "summary": pbs[0].get("summary", ""), "keywords": []})
+        e["keywords"] = sorted(set(e["keywords"]) | {k for pb in pbs for k in pb.get("keywords", [])})
+    return kb
+
+
 async def intake(hypothesis: str, kb: dict, now: str, notes: dict) -> dict:
     """Hypothesis -> techniques, entities and time window. The regex and keyword rules always run; the intake LLM may add what
     they miss. Code keeps an LLM entity only if the hypothesis text contains it, and a technique only if it is in the catalogue."""
     h = hypothesis.lower()
-    rules = [tid for tid, v in kb.items() if tid in playbooks.SOURCES and any(k in h for k in v["keywords"])]
+    rules = keyword_techniques(hypothesis, kb)
     out = {"rules": rules, "required": rules, "context": [], "planner": "rules", "hosts": sorted(set(HOST_RX.findall(hypothesis))),
            "ips": sorted(set(IP_RX.findall(hypothesis))), "users": [], "window": None, "assumptions": [], "dropped": []}
     cat = {tid: {"name": v["name"], "summary": v["summary"]} for tid, v in kb.items() if tid in playbooks.SOURCES}
@@ -182,10 +197,7 @@ async def match_unknown(mcp, unknown: list[dict], notes: dict) -> dict[str, list
 
 async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     notes: dict = {"gaps": [], "entity_missing": [], "missing_fields": {}, "llm_notes": [], "unknown_sources": []}
-    kb = json.loads((config.KNOWLEDGE_DIR / "attack_subset.json").read_text())
-    for t, pbs in playbooks.refresh().items():                 # promoted playbooks add their technique and keywords to the catalogue
-        e = kb.setdefault(t, {"name": pbs[0].get("name", t), "summary": pbs[0].get("summary", ""), "keywords": []})
-        e["keywords"] = sorted(set(e["keywords"]) | {k for pb in pbs for k in pb.get("keywords", [])})
+    kb = catalogue()
     dd = await mcp.call("describe_data", index_pattern=config.HUNT_INDEX)
     all_sources = dd.get("sources", [])
     if not all_sources:
