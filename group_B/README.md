@@ -101,3 +101,12 @@ and replay evidence. The unchanged A1/A2 configurations now also pass an
 isolated authenticated HTTPS integration run; see
 [the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Access to the
 shared deployment, A3 agreement and the complete hunting demo remain.
+
+
+## Independent local hunt demo
+
+The [demo runbook](DEMO_RUNBOOK.md) exercises B3 → actual A2 → HTTPS ES →
+C2's existing development MCP servers → a rules-based SSH hunt. It needs no
+shared credentials or live LLM. The [recorded results](tests/ONBOARDING_HUNT_RESULTS.md)
+include positive/negative cases, exact planted-event evidence and repeatability.
+The final C1/C3 services and A3 agreement remain separate integration work.
