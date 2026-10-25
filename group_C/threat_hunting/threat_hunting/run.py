@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
 from . import config, guardrails, planner, hunter, selfcheck, verdict
-from .llm import get_llm
+from .llm import get_llm, start_trace
 from .mcp_client import McpHunt
 
-DEFAULT_CONTROLS = {"canonical_order": True, "coverage_enforcement": True, "complete_results": True, "canonical_params": True}
+# consistency controls (C4 switches them off to measure their effect); the agent ones act only when an LLM is configured
+DEFAULT_CONTROLS = {"canonical_order": True, "coverage_enforcement": True, "complete_results": True, "canonical_params": True,
+                    "agent_loop": True, "skeptic": True, "act": True, "deterministic_sampling": True}
 
 
 def _hash_files(paths) -> str:
@@ -44,6 +46,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     (run_dir / "trace.jsonl").unlink(missing_ok=True)
     (config.AUDIT_DIR / f"{run_id}.jsonl").unlink(missing_ok=True)
     (config.AUDIT_DIR / f"{run_id}-analytics.jsonl").unlink(missing_ok=True)
+    ltrace = start_trace(run_dir / "llm.jsonl", temperature=0.0 if controls["deterministic_sampling"] else None)
     t0 = time.time()
     async with McpHunt(run_id) as mcp:
         plan, notes = await planner.plan_hunt(mcp, hypothesis)
@@ -75,7 +78,10 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
             "code_hash": _hash_files(src_files), "tool_calls": tool_calls, "seconds": round(time.time() - t0, 1),
-            "python": platform.python_version(), "temperature": os.environ.get("LLM_TEMPERATURE") or "provider default",
+            "python": platform.python_version(),
+            "temperature": ltrace.temperature if ltrace.temperature is not None else os.environ.get("LLM_TEMPERATURE") or "provider default",
+            "llm": {"calls": ltrace.seq, "max_calls": ltrace.max_calls, "tokens_in": ltrace.tokens_in, "tokens_out": ltrace.tokens_out,
+                    "trace": f"runs/{run_id}/llm.jsonl" if ltrace.seq else None},
             "controls": controls, "perturb_seed": perturb_seed, "index": config.HUNT_INDEX,
             "mcp_servers": {"es": config.ES_MCP_CMD, "analytics": config.ANALYTICS_MCP_CMD}, "ignored_tools": ignored_tools,
             "audit_files": [f"audit/{run_id}.jsonl", f"audit/{run_id}-analytics.jsonl"]}

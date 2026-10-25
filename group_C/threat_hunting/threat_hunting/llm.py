@@ -8,21 +8,78 @@
                     with a custom base URL may run without a key.
   LLM_AUTH_TOKEN    anthropic only: bearer token instead of x-api-key (ANTHROPIC_AUTH_TOKEN also works)
   HUNT_MODEL        default model for every role (default for anthropic: claude-sonnet-5-5; REQUIRED for openai)
-  LLM_MODEL_<ROLE>  per-role override; the only role here is PLANNER
+  LLM_MODEL_<ROLE>  per-role override, e.g. LLM_MODEL_SKEPTIC (roles: see ROLES)
   LLM_EXTRA_HEADERS JSON object of extra HTTP headers   LLM_TIMEOUT_S request timeout (default 120)
   LLM_TEMPERATURE   optional; sent only when set (some models reject sampling parameters)
+  LLM_JSON_MODE=1   openai only: ask the server for a JSON object (response_format), if it supports it
   HUNT_FORCE_RULES=1 disables the LLM entirely (used by the tests)
 
 If the chosen provider is not usable, get_llm() returns None and every agent falls back to its rule implementation.
+Every call of a run goes to runs/<run_id>/llm.jsonl (start_trace) and counts against HUNT_LLM_MAX_CALLS.
 """
 from __future__ import annotations
-import json, os, re
+import asyncio, hashlib, json, os, re, time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import urlparse
 from . import config  # noqa: F401  (loads .env)
 
-ROLES = ("planner",)
+ROLES = ("planner", "intake", "investigator", "skeptic", "responder", "classifier", "queue", "chat")
 DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5"}
+
+
+class LLMBudgetExceeded(RuntimeError):
+    pass
+
+
+@dataclass
+class RunTrace:
+    """Per-run LLM log and call budget. Kept in a ContextVar, so hunts running concurrently in one process stay apart."""
+    path: Path | None
+    max_calls: int
+    temperature: float | None = None      # deterministic_sampling sets 0
+    seq: int = 0
+    tokens_in: int = 0
+    tokens_out: int = 0
+
+
+_TRACE: ContextVar[RunTrace | None] = ContextVar("llm_trace", default=None)
+_OVERRIDE = None                           # tests install a scripted LLM here (tests/fake_llm.py)
+
+
+def start_trace(path: Path | None, max_calls: int | None = None, temperature: float | None = None) -> RunTrace:
+    t = RunTrace(path, max_calls or config.LLM_MAX_CALLS, temperature)
+    if path:
+        path.unlink(missing_ok=True)
+    _TRACE.set(t)
+    return t
+
+
+def current_trace() -> RunTrace | None:
+    return _TRACE.get()
+
+
+def check_budget():
+    t = _TRACE.get()
+    if t and t.seq >= t.max_calls:
+        raise LLMBudgetExceeded(f"LLM call budget ({t.max_calls}) exhausted")
+
+
+def record(role: str | None, model: str, system: str, msgs: list[dict], text: str, tin, tout, ms: int):
+    """Append one LLM call to the run's llm.jsonl: full messages and response, plus a prompt hash to compare runs."""
+    t = _TRACE.get()
+    if not t:
+        return
+    t.seq += 1
+    t.tokens_in += tin or 0
+    t.tokens_out += tout or 0
+    prompt = json.dumps({"system": system, "messages": msgs}, sort_keys=True)
+    if t.path:
+        with open(t.path, "a") as f:
+            f.write(json.dumps({"seq": t.seq, "role": role, "model": model, "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                                "system": system, "messages": msgs, "response": text, "tokens_in": tin, "tokens_out": tout,
+                                "ms": ms}) + "\n")
 
 
 def _env(*names: str) -> str:
@@ -43,6 +100,7 @@ class LLMSettings:
     headers: dict = field(default_factory=dict)
     timeout: float = 120.0
     temperature: float | None = None
+    json_mode: bool = False
 
     @classmethod
     def from_env(cls) -> "LLMSettings":
@@ -65,6 +123,7 @@ class LLMSettings:
             s.timeout = float(_env("LLM_TIMEOUT_S"))
         if _env("LLM_TEMPERATURE"):
             s.temperature = float(_env("LLM_TEMPERATURE"))
+        s.json_mode = _env("LLM_JSON_MODE") == "1"
         return s
 
     def usable(self) -> bool:
@@ -114,9 +173,15 @@ class LLM:
             h["Authorization"] = f"Bearer {self.s.api_key}"
         return httpx.Client(base_url=self.s.base_url.rstrip("/"), headers=h, timeout=self.s.timeout, transport=getattr(self, "_transport", None))
 
+    def _temperature(self) -> float | None:
+        t = _TRACE.get()
+        return t.temperature if t and t.temperature is not None else self.s.temperature
+
     def _openai_post(self, body: dict) -> dict:
-        if self.s.temperature is not None:
-            body["temperature"] = self.s.temperature
+        if self._temperature() is not None:
+            body["temperature"] = self._temperature()
+        if self.s.json_mode:
+            body["response_format"] = {"type": "json_object"}
         with self._http() as c:
             r = c.post("/chat/completions", json=body)
         if r.status_code >= 400:
@@ -125,11 +190,15 @@ class LLM:
 
     # ---- single JSON answer
     def _text(self, system: str, msgs: list[dict], max_tokens: int, model: str) -> str:
+        check_budget()
+        t0 = time.time()
         if self.s.provider == "anthropic":
-            kw = {"temperature": self.s.temperature} if self.s.temperature is not None else {}
+            kw = {"temperature": self._temperature()} if self._temperature() is not None else {}
             r = self.client.messages.create(model=model, max_tokens=max_tokens, system=system, messages=msgs, **kw)
             self.calls.append({"model": model, "in": r.usage.input_tokens, "out": r.usage.output_tokens})
-            return "".join(b.text for b in r.content if b.type == "text")
+            text = "".join(b.text for b in r.content if b.type == "text")
+            record(self.role, model, system, msgs, text, r.usage.input_tokens, r.usage.output_tokens, int((time.time() - t0) * 1000))
+            return text
         mt = max_tokens
         for _ in range(3):
             j = self._openai_post({"model": model, "max_tokens": mt, "messages": [{"role": "system", "content": system}] + msgs})
@@ -137,10 +206,12 @@ class LLM:
             self.calls.append({"model": model, "in": u.get("prompt_tokens"), "out": u.get("completion_tokens")})
             ch = j["choices"][0]
             text = ch["message"].get("content") or ""
+            record(self.role, model, system, msgs, text, u.get("prompt_tokens"), u.get("completion_tokens"), int((time.time() - t0) * 1000))
             # reasoning models spend the budget on hidden thinking and can return empty content with finish_reason=length
             if text.strip() or ch.get("finish_reason") != "length" or mt >= 32000:
                 return text
             mt = min(mt * 4, 32000)
+            check_budget()
         return text
 
     def complete_json(self, system: str, user: str, max_tokens: int = 2000, model: str | None = None) -> dict:
@@ -157,8 +228,16 @@ class LLM:
         raise ValueError("LLM did not return valid JSON")
 
 
+def set_override(fake) -> None:
+    """Tests only: get_llm() returns fake.bind(role) instead of a real client (None restores normal behaviour)."""
+    global _OVERRIDE
+    _OVERRIDE = fake
+
+
 def get_llm(role: str | None = None, **kw) -> LLM | None:
     """Return a configured LLM or None (=> rule backend). `role` selects LLM_MODEL_<ROLE> if set."""
+    if _OVERRIDE is not None:
+        return _OVERRIDE.bind(role)
     if os.environ.get("HUNT_FORCE_RULES") == "1":
         return None
     try:
@@ -166,6 +245,23 @@ def get_llm(role: str | None = None, **kw) -> LLM | None:
     except Exception:
         return None
     return LLM(s, role=role, **kw) if s.usable() else None
+
+
+async def ask_json(role: str, system: str, user: str, notes: list[str], max_tokens: int = 2000) -> dict | None:
+    """One JSON answer from the role's LLM, or None when no LLM is configured or the call fails (the caller then uses rules).
+    Failures are written to `notes`; the blocking HTTP call runs in a thread so MCP sessions stay responsive."""
+    llm = get_llm(role)
+    if llm is None:
+        return None
+    try:
+        r = await asyncio.to_thread(llm.complete_json, system, user, max_tokens)
+    except Exception as e:
+        notes.append(f"LLM {role} call failed, rules used instead: {type(e).__name__}: {str(e)[:160]}")
+        return None
+    if not isinstance(r, dict):
+        notes.append(f"LLM {role} returned {type(r).__name__}, not an object; rules used instead")
+        return None
+    return r
 
 
 if __name__ == "__main__":   # python -m threat_hunting.llm   -> show effective configuration and make one test call
