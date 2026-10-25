@@ -35,6 +35,7 @@ ANALYTICS_MCP_CMD = os.environ.get("HUNT_ANALYTICS_MCP_CMD", "python -m analytic
 
 KNOWLEDGE_DIR = ROOT / "threat_hunting" / "knowledge"
 PLAYBOOK_DIR = Path(os.environ.get("HUNT_PLAYBOOK_DIR") or KNOWLEDGE_DIR / "playbooks")   # promoted playbooks (promote.py)
+MEMORY_FILE = Path(os.environ.get("HUNT_MEMORY_FILE") or ROOT / "memory" / "lessons.jsonl")   # analyst lessons (feedback.py)
 AUDIT_DIR = ROOT / "audit"
 RUNS_DIR = ROOT / "runs"
 SCENARIO_DIR = ROOT / "scenarios"

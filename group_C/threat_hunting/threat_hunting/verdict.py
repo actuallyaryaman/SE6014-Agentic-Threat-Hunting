@@ -43,7 +43,7 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
 
 
 def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None,
-                   doubts: list[dict] | None = None, leads: list[str] | None = None) -> list[str]:
+                   doubts: list[dict] | None = None, leads: list[str] | None = None, lesson_flags: dict | None = None) -> list[str]:
     """DESIGN.md 4.2: when a human must review before anyone acts on the verdict."""
     out = []
     if verdict == "SUPPORTED":
@@ -62,11 +62,13 @@ def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check:
         out.append(f"{len(leads)} lead(s) from LLM-proposed queries ({', '.join(leads)}) need review")
     for a in doubts or []:
         out.append(f"benign explanation not ruled out for {a['claim_id']}: {a['explanation']}")
+    for cid, ids in sorted((lesson_flags or {}).items()):
+        out.append(f"{cid} matches analyst lesson(s) {', '.join(ids)} labelled benign: check before acting")
     return out
 
 
 def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None,
-           skeptic: dict | None = None) -> dict:
+           skeptic: dict | None = None, lesson_flags: dict | None = None) -> dict:
     rows = technique_table(plan, st, notes)
     req = [r for r in rows if r["required"]]
     reasons = []
@@ -121,6 +123,6 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
         conf = "medium" if conf == "high" else conf
         reasons.append(f"A benign explanation the skeptic proposed holds for {', '.join(sorted({a['claim_id'] for a in doubts}))}; "
                        "confidence is at most medium.")
-    review = review_reasons(verdict, conf, req, notes, check, guard, doubts, leads)
+    review = review_reasons(verdict, conf, req, notes, check, guard, doubts, leads, lesson_flags)
     return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "leads": leads,
             "requires_analyst_review": bool(review), "review_reasons": review}

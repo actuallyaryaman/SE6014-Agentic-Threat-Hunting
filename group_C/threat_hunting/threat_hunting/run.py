@@ -5,7 +5,7 @@ Ported from the prototype's src/hunt/run.py (the verifier and reporter stay with
 from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
-from . import act, agent, config, guardrails, planner, hunter, promote, selfcheck, skeptic, verdict
+from . import act, agent, config, feedback, guardrails, planner, hunter, promote, selfcheck, skeptic, verdict
 from .llm import get_llm, start_trace
 from .mcp_client import McpHunt
 
@@ -68,19 +68,22 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
             order = {s.step_id: i for i, s in enumerate(canonical)}
             plan.steps.sort(key=lambda s: order[s.step_id])
         (run_dir / "plan.json").write_text(plan.model_dump_json(indent=1))
+        lessons = feedback.relevant(plan)               # analyst memory: context for the LLM roles, flags on matching findings
+        shown = feedback.for_prompt(lessons)
         n_plan = mcp.calls
         st = await hunter.execute(mcp, plan, max_calls, controls["complete_results"])
         n_hunt = mcp.calls
         guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
         n_guard = mcp.calls
-        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False)) if controls["agent_loop"]
+        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False), lessons=shown) if controls["agent_loop"]
                      else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
         n_agent = mcp.calls
         check = selfcheck.check(st)
-        sk = (await skeptic.challenge(mcp, plan, st, notes, guard) if controls["skeptic"]
+        sk = (await skeptic.challenge(mcp, plan, st, notes, guard, shown) if controls["skeptic"]
               else {"enabled": False, "alternatives": [], "skipped_because": "control skeptic is off"})
         n_skeptic = mcp.calls
-        d = verdict.decide(plan, st, notes, check, guard, sk)
+        flags = feedback.benign_matches(lessons, [c for c in st.claims if c.status in ("self_checked", "verified")])
+        d = verdict.decide(plan, st, notes, check, guard, sk, flags)
         actions = (await act.draft(mcp, plan, st, notes, guard, run_dir, d) if controls["act"]
                    else {"detections": [], "response": [], "notes": ["control act is off"]})
         n_act = mcp.calls
@@ -111,7 +114,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                           "review_reasons": d["review_reasons"], "reasons": d["reasons"], "leads": d["leads"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],
               "findings": {"prompt_injection": guard}, "agent": agent_out, "skeptic": sk, "actions": actions,
-              "candidates": candidates,
+              "candidates": candidates, "lessons_used": shown, "lesson_flags": flags,
               "step_results": st.step_results, "dynamic_steps": [s.model_dump() for s in st.dynamic_steps], "queries": queries,
               "self_check": check,
               "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing", "unknown_sources")},
