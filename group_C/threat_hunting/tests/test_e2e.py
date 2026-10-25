@@ -44,6 +44,33 @@ def test_prompt_injection_in_logs_does_not_change_claims_or_verdict(primary):
     assert label(primary) == "SUPPORTED"
 
 
+def test_prompt_injection_is_reported_as_a_finding_and_forces_review(primary):
+    f = primary["findings"]["prompt_injection"]
+    assert [x["source.ip"] for x in f["findings"]] == ["192.0.2.77"] and "user_agent.original" in f["findings"][0]["fields"]
+    assert "1 event(s) in the window contain prompt-injection-like text" in primary["verdict"]["review_reasons"]
+
+
+def test_result_lists_every_query_and_dynamic_step(primary):
+    trace = (config.RUNS_DIR / primary["run_id"] / "trace.jsonl").read_text().splitlines()
+    q = primary["queries"]
+    assert len(q) == len(trace) == primary["manifest"]["tool_calls"]
+    assert {x["phase"] for x in q} == {"planning", "hunt", "guardrail"}
+    hunt = [x for x in q if x["phase"] == "hunt"]
+    assert all(x["step_id"] for x in hunt) and all(x["dsl"] for x in hunt if x["server"] == "es")
+    dyn = {s["step_id"] for s in primary["dynamic_steps"]}
+    assert "T1021.002-b-WS-01" in dyn and any("-dd-" in s for s in dyn)
+    cited = {e for c in primary["claims"] for e in c["evidence_ids"]}
+    known = {e["evidence_id"] for e in primary["evidence"]}
+    assert cited <= known
+
+
+def test_analytics_calls_are_audited(primary):
+    audit = (config.AUDIT_DIR / f"{primary['run_id']}-analytics.jsonl").read_text().splitlines()
+    calls = [x for x in primary["queries"] if x["server"] == "analytics"]
+    assert len(audit) == len(calls) > 0
+    assert {json.loads(l)["call_id"] for l in audit} == {x["query_id"] for x in calls}
+
+
 def test_ssh_bruteforce_then_login_is_supported():
     r = run(H["ssh"], "ssh")
     assert label(r) == "SUPPORTED", r["verdict"]

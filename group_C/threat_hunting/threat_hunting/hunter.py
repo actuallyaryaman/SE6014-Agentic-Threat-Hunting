@@ -17,6 +17,7 @@ class HuntState:
         self.plan, self.max_calls, self.complete_results = plan, max_calls, complete_results
         self.step_results: dict[str, dict] = {}
         self.raw: dict[str, dict] = {}            # full tool result per step (the self-check reads it)
+        self.call_steps: dict[str, str] = {}      # call_id -> step_id, for every call a step made (incl. re-queries)
         self.evidence: list[Evidence] = []
         self.claims: list[Claim] = []
         self.dynamic_steps: list[PlanStep] = []
@@ -44,6 +45,7 @@ async def run_step(mcp, st: HuntState, step: PlanStep, dynamic=False) -> dict | 
         return None
     st.calls += 1
     res = await mcp.call(step.tool, **step.params)
+    st.call_steps[res.get("call_id")] = step.step_id
     # completeness control: a truncated sample is never accepted silently; re-ask for every hit (within the tool cap)
     if st.complete_results and step.tool == "search" and not step.analysis.get("sample_ok") and "hits" in res \
             and res["total"] > len(res["hits"]) and res["total"] <= 200:
@@ -51,6 +53,7 @@ async def run_step(mcp, st: HuntState, step: PlanStep, dynamic=False) -> dict | 
         step.params["size"] = res["total"]
         st.calls += 1
         res = await mcp.call(step.tool, **step.params)
+        st.call_steps[res.get("call_id")] = step.step_id
     if dynamic:
         st.dynamic_steps.append(step)
     info = {"call_id": res.get("call_id"), "status": "error" if "error" in res else "ok", "total": res.get("total", 0), "tool": step.tool}
@@ -122,6 +125,7 @@ async def enrich_iocs(mcp, st: HuntState, step: PlanStep):
         key = c.facts["bucket_key"]
         r = await mcp.call("check_ioc", value=key)
         st.calls += 1
+        st.call_steps[r.get("call_id")] = step.step_id + "-ioc"
         if r.get("total"):
             ev = Evidence(evidence_id=f"E-{step.step_id}-ioc-{key}", call_id=r["call_id"], step_id=step.step_id + "-ioc", total_hits=r["total"],
                           excerpt=r["matches"])

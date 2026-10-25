@@ -5,3 +5,4 @@ runs/
 audit/
 scenarios/raw/
 scenarios/ground_truth.yml
+*.zip

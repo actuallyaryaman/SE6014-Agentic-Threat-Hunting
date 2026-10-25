@@ -2,20 +2,28 @@
 server: no Elasticsearch credentials, no network access.   python -m analytics_server.server
 lookup_attack / check_ioc and the gap logic of coverage_check are ported from the prototype's src/mcp_server/hunt_tools.py."""
 from __future__ import annotations
-import json, os
+import hashlib, json, os, time
 from pathlib import Path
 import yaml
 from mcp.server.fastmcp import FastMCP
 
 KNOWLEDGE = Path(__file__).resolve().parents[1] / "threat_hunting" / "knowledge"
+AUDIT_DIR = Path(__file__).resolve().parents[1] / "audit"     # own file per run: audit/<run_id>-analytics.jsonl
 RUN_ID = os.environ.get("HUNT_RUN_ID", "adhoc")
 _seq = 0
 
 
-def _out(tool: str, body: dict) -> dict:
+def _out(tool: str, params: dict, body: dict) -> dict:
+    """Record the call (params, total, result hash) in this server's audit file and return the result with its call_id."""
     global _seq
     _seq += 1
-    return {"call_id": f"{RUN_ID}-an{_seq:04d}", "tool": tool, **body}
+    call_id = f"{RUN_ID}-an{_seq:04d}"
+    rec = {"call_id": call_id, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "tool": tool, "params": params,
+           "total": body.get("total"), "result_hash": hashlib.sha256(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()[:16], "ok": True}
+    AUDIT_DIR.mkdir(exist_ok=True)
+    with open(AUDIT_DIR / f"{RUN_ID}-analytics.jsonl", "a") as f:
+        f.write(json.dumps(rec, default=str) + "\n")
+    return {"call_id": call_id, "tool": tool, **body}
 
 
 def gap_check(buckets: list[dict]) -> dict:
@@ -45,17 +53,17 @@ def build() -> FastMCP:
     @mcp.tool(name="gap_check")
     def _gap_check(buckets: list[dict]) -> dict:
         """Data-gap check over date-histogram buckets [{key, count}]: number of buckets, empty bucket keys, coverage ratio."""
-        return _out("gap_check", gap_check(buckets))
+        return _out("gap_check", {"buckets": buckets}, gap_check(buckets))
 
     @mcp.tool(name="lookup_attack")
     def _lookup_attack(query: str) -> dict:
         """Offline MITRE ATT&CK subset lookup by technique id (T1003.001) or keyword."""
-        return _out("lookup_attack", lookup_attack(query))
+        return _out("lookup_attack", {"query": query}, lookup_attack(query))
 
     @mcp.tool(name="check_ioc")
     def _check_ioc(value: str) -> dict:
         """Check an IP/domain against the local threat-intel list (offline)."""
-        return _out("check_ioc", check_ioc(value))
+        return _out("check_ioc", {"value": value}, check_ioc(value))
 
     return mcp
 

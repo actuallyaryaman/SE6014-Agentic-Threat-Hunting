@@ -15,7 +15,7 @@ CONTEXT = ["T1059.001", "T1071", "T1190"]
 CHAIN = {"T1003.001", "T1021.002", "T1059.001"}
 ORDER = ["T1003.001", "T1059.001", "T1190", "T1071", "T1021.002", "T1048", "T1110", "T1078", "T1046"]
 MIN_SUPPORT = {"T1003.001": 2, "T1021.002": 2}
-GAP_THRESHOLD = 0.1      # more than 10% empty hourly buckets = data gap
+GAP_THRESHOLD = 0.05     # DESIGN.md 5.4: full coverage needs >= 95% non-empty hourly buckets
 
 
 def iso(d: datetime) -> str:
@@ -61,6 +61,7 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     sources = [s for s in dd.get("sources", []) if playbooks.log_type_of(s["dataset"])]
     if not sources:
         raise RuntimeError(f"no known datasets in {config.HUNT_INDEX}: {dd.get('error') or [s['dataset'] for s in dd.get('sources', [])]}")
+    notes["index_fields"] = sorted(f.rsplit(":", 1)[0] for f in dd.get("fields", []))
     by_type: dict[str, list[dict]] = {}
     for s in sources:
         by_type.setdefault(playbooks.log_type_of(s["dataset"]), []).append(s)

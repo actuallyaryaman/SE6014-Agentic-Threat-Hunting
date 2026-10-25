@@ -60,6 +60,12 @@ def test_contains_on_keyword_is_a_substring_wildcard():
     assert q["bool"]["filter"][1] == {"match_phrase": {"message": "MiniDump"}}
 
 
+def test_interval_parsing():
+    assert query.interval_seconds("60m") == 3600 and query.interval_seconds("1d") == 86400
+    for bad in ("", "1w", "0h", "h1"):
+        with pytest.raises(ToolError): query.interval_seconds(bad)
+
+
 def test_tiebreak_sort_field():
     assert query.tiebreak_field({"event.original": "keyword"}) == "event.original"
     assert query.tiebreak_field({"event.original": "text", "event.original.keyword": "keyword"}) == "event.original.keyword"
