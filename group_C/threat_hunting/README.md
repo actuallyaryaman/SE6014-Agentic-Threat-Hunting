@@ -8,7 +8,6 @@ Takes a plain-language hypothesis, plans a hunt from vetted playbooks, queries E
 |---|---|
 | `threat_hunting/` | The agent (an MCP client): `planner`, `playbooks`, `hunter`, `verdict`, `selfcheck`, `query` (filter → DSL compiler), `llm`, `mcp_client`, `run` |
 | `analytics_server/` | C2's MCP server: `gap_check`, `lookup_attack`, `check_ioc` (pure functions, no ES credentials) |
-| `es_mcp_server/` | C1's maintained Elasticsearch MCP server; [install, configure and validate](es_mcp_server/README.md) |
 | `dev/es_mcp_standin/` | **Temporary** read-only ES MCP server standing in for C1's |
 | `dev/b1_pipelines/` | B1's pipelines vendored from PR #12 (`fee53b1`) + `windows_ext.json` (request R3a) |
 | `dev/setup_test_es.py`, `dev/index_template.json` | Isolated test setup (`c2test-*` pipelines, `security-events-c2test` index, read-only key) |
@@ -37,7 +36,7 @@ python -m threat_hunting.run "An attacker on WS-01 dumped credentials from LSASS
 
 Each run writes `runs/<run_id>/{plan.json,result.json,trace.jsonl}`. Use `python -m dev.setup_test_es --teardown` to remove the test artifacts.
 
-To use C1's server instead of the stand-in, set `HUNT_ES_MCP_CMD=python -m es_mcp_server.server` (same tools as INTERFACES.md §1.2). The stand-in remains the default. See [C1 setup and tests](es_mcp_server/README.md). Without an LLM configured, the planner uses its rules; `HUNT_FORCE_RULES=1` forces that.
+To use C1's server instead of the stand-in, set `HUNT_ES_MCP_CMD` (it must offer the tools in INTERFACES.md §1.2). Without an LLM configured, the planner uses its rules; `HUNT_FORCE_RULES=1` forces that.
 
 ## Test results (2026-10-24, Elastic 8.17 single node, 15,190 synthetic events through B1's pipelines)
 
