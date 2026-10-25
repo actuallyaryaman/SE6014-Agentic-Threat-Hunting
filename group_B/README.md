@@ -97,4 +97,7 @@ audit evidence. The CLI adds `onboard` (dry-run by default, `--execute` for
 writes) and `verify`. Stream execution remains blocked pending A3 agreement.
 See [the B3 README](agentic_ingestion/README.md) for configuration and failure
 semantics, and [live ES results](tests/LIVE_ES_RESULTS.md) for isolated indexing
-and replay evidence. Shared A1/A2/A3 integration remains Batch 7 work.
+and replay evidence. The unchanged A1/A2 configurations now also pass an
+isolated authenticated HTTPS integration run; see
+[the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Access to the
+shared deployment, A3 agreement and the complete hunting demo remain.

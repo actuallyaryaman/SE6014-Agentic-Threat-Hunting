@@ -191,5 +191,7 @@ no paid/live OpenRouter result is claimed.
 
 The isolated ES 8.19.23 suite covers real simulation, installation, indexing,
 verification and replay. See `group_B/tests/LIVE_ES_RESULTS.md` for evidence.
-Shared A1 HTTPS/credentials, actual A2 pull/push, the A3 boundary, live LLM
-behavior and the complete team demo remain Batch 7 integration work.
+The unchanged A1/A2 configurations also passed with actual Logstash pull/push
+over authenticated HTTPS in an isolated environment; see
+`group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. The actual shared deployment,
+the A3 boundary, live LLM behavior and the complete team demo remain.
