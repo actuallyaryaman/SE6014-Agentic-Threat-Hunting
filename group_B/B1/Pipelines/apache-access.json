@@ -1,0 +1,130 @@
+{
+  "description": "B1 Apache access log -> ECS",
+  "processors": [
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message"
+      }
+    },
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{IPORHOST:source.ip} %{USER:apache.ident} %{USER:apache.auth} \\[%{HTTPDATE:apache.timestamp}\\] \"%{WORD:http.request.method} %{DATA:url.original} HTTP/%{NUMBER:http.version}\" %{NUMBER:http.response.status_code:int} (?:%{NUMBER:http.response.body.bytes:long}|-) \"%{DATA:http.request.referrer}\" \"%{DATA:user_agent.original}\"(?: %{NUMBER:apache.response_time:long})?"
+        ]
+      }
+    },
+    {
+      "grok": {
+        "field": "url.original",
+        "patterns": [
+          "%{DATA:url.path}(?:\\?%{GREEDYDATA:url.query})?$"
+        ],
+        "ignore_failure": true
+      }
+    },
+    {
+      "date": {
+        "field": "apache.timestamp",
+        "formats": [
+          "dd/MMM/yyyy:HH:mm:ss Z"
+        ],
+        "target_field": "@timestamp"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "apache.access"
+      }
+    },
+    {
+      "set": {
+        "field": "event.category",
+        "value": [
+          "web"
+        ]
+      }
+    },
+    {
+      "set": {
+        "field": "event.type",
+        "value": [
+          "access"
+        ]
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code < 400",
+        "field": "event.outcome",
+        "value": "success"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.http?.response?.status_code != null && ctx.http.response.status_code >= 400",
+        "field": "event.outcome",
+        "value": "failure"
+      }
+    },
+    {
+      "remove": {
+        "field": "apache.timestamp",
+        "ignore_missing": true
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "message",
+        "value": "(no message)",
+        "if": "ctx.message == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.original",
+        "copy_from": "message",
+        "if": "ctx.event?.original == null"
+      }
+    },
+    {
+      "set": {
+        "field": "@timestamp",
+        "value": "{{{_ingest.timestamp}}}",
+        "if": "ctx['@timestamp'] == null"
+      }
+    },
+    {
+      "set": {
+        "field": "event.dataset",
+        "value": "apache.access",
+        "if": "ctx.event?.dataset == null"
+      }
+    },
+    {
+      "append": {
+        "field": "tags",
+        "value": [
+          "_parse_failure"
+        ],
+        "allow_duplicates": false
+      }
+    },
+    {
+      "set": {
+        "field": "error.message",
+        "value": "{{{_ingest.on_failure_message}}}"
+      }
+    },
+    {
+      "remove": {
+        "field": "tmp",
+        "ignore_missing": true
+      }
+    }
+  ]
+}

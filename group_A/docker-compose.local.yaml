@@ -1,0 +1,38 @@
+﻿services:
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.23
+    container_name: logstash-a1
+    env_file:
+      - ../.env
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "127.0.0.1:9600:9600"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./sample-data:/usr/share/logstash/ingest_data:ro
+      - ../certs/http_ca.crt:/usr/share/logstash/config/certs/http_ca.crt:ro
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.23
+    container_name: kibana-a1
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      ELASTICSEARCH_HOSTS: '["${ELASTICSEARCH_URL:?Set ELASTICSEARCH_URL in root .env}"]'
+      ELASTICSEARCH_SERVICEACCOUNTTOKEN: "${KIBANA_SERVICE_ACCOUNT_TOKEN:?Add KIBANA_SERVICE_ACCOUNT_TOKEN to the root .env file}"
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: /usr/share/kibana/config/certs/http_ca.crt
+      ELASTICSEARCH_SSL_VERIFICATIONMODE: certificate
+    ports:
+      - "127.0.0.1:5601:5601"
+    volumes:
+      - ../certs/http_ca.crt:/usr/share/kibana/config/certs/http_ca.crt:ro
+    networks:
+      - elastic
+
+networks:
+  elastic:
+    external: true
+    name: elastic

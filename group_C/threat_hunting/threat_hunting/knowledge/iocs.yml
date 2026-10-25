@@ -1,0 +1,3 @@
+# Local threat-intel snapshot used by the check_ioc tool (offline by design)
+- {type: ip, value: 198.51.100.77, source: "internal-ti-feed", note: "known C2 infrastructure"}
+- {type: domain, value: evil-update.example, source: "internal-ti-feed", note: "malware staging"}

@@ -1,0 +1,15 @@
+# Environment baselines used as benign filters by the playbooks. Tune per customer; every entry is shown in the hunt report.
+lsass_access_allowlist:            # processes that legitimately open lsass.exe on a stock Windows host
+  - 'C:\Program Files\Windows Defender\MsMpEng.exe'
+  - 'C:\Windows\System32\svchost.exe'
+  - 'C:\Windows\System32\wininit.exe'
+  - 'C:\Windows\System32\csrss.exe'
+  - 'C:\Windows\System32\services.exe'
+  - 'C:\Windows\System32\lsm.exe'
+internal_ranges: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
+lateral_ports: [445, 135, 139, 5985, 5986, 3389]
+beacon_min_connections: 5
+scan_min_errors: 20
+exfil_default_bytes: 104857600      # 100 MB
+bruteforce_min_failures: 20         # failed SSH logins from one source in the window (benign noise: a few per source)
+scan_min_distinct: 20               # distinct destinations contacted by one source in the window

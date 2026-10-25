@@ -1,0 +1,26 @@
+{
+  "index_patterns": ["security-events-c2test*"],
+  "priority": 500,
+  "_meta": {"description": "C2 test template; also the proposed ECS typing for security-events-* (request R3 to Group A/B)"},
+  "template": {
+    "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    "mappings": {
+      "dynamic_templates": [
+        {"strings_as_keyword": {"match_mapping_type": "string", "mapping": {"type": "keyword", "ignore_above": 8191}}}
+      ],
+      "properties": {
+        "@timestamp": {"type": "date"},
+        "message": {"type": "text"},
+        "event": {"properties": {
+          "original": {"type": "keyword", "ignore_above": 8191},
+          "dataset": {"type": "keyword"}, "code": {"type": "keyword"}, "action": {"type": "keyword"},
+          "outcome": {"type": "keyword"}, "category": {"type": "keyword"}, "type": {"type": "keyword"}}},
+        "source": {"properties": {"ip": {"type": "ip"}, "port": {"type": "long"}}},
+        "destination": {"properties": {"ip": {"type": "ip"}, "port": {"type": "long"}}},
+        "http": {"properties": {"response": {"properties": {"status_code": {"type": "long"},
+                                                             "body": {"properties": {"bytes": {"type": "long"}}}}}}},
+        "process": {"properties": {"pid": {"type": "long"}}}
+      }
+    }
+  }
+}
