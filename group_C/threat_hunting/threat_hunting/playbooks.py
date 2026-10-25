@@ -2,12 +2,12 @@
 The LLM (when present) chooses which playbooks apply; it does not invent query DSL.
 Ported from the prototype's src/hunt/playbooks.py, adapted to the team index (security-events-*), event.dataset and B1's ECS fields."""
 from __future__ import annotations
+from contextvars import ContextVar
 import yaml
 from . import config
 from .models import PlanStep
 
 BASE = yaml.safe_load((config.KNOWLEDGE_DIR / "baselines.yml").read_text())
-IDX = config.HUNT_INDEX
 
 # log type -> event.dataset values (both spellings used by the team's pipelines and parsers)
 DATASETS = {
@@ -33,26 +33,108 @@ REQUIRED_FIELDS = {
 INTERNAL_DST = [{"field": "destination.ip", "op": "eq", "value": r} for r in BASE["internal_ranges"]]
 INTERNAL_SRC = [{"field": "source.ip", "op": "eq", "value": r} for r in BASE["internal_ranges"]]
 EID = lambda n: {"field": "event.code", "op": "eq", "value": str(n)}
+# What each known kind's events must look like for an unknown dataset to join it (DESIGN.md 5.5): its event.category, and
+# fields it must have. Firewall is left out: its playbooks depend on B1's event.action values.
+KIND_CATEGORY = {"auth": "authentication", "web": "web", "sysmon": "process"}
+KIND_FIELDS = {"auth": ["source.ip", "event.outcome", "user.name"], "web": ["source.ip", "url.path", "http.response.status_code"],
+               "sysmon": ["event.code", "host.name", "process.name"]}
+# datasets matched to a kind during this run (planner.match_unknown); a ContextVar, so concurrent hunts stay apart
+_EXTRA: ContextVar[dict] = ContextVar("dataset_matches", default={})
+
+
+def set_matches(matches: dict[str, list[str]]):
+    _EXTRA.set({k: list(v) for k, v in matches.items()})
+
+
+def matched(log_type: str) -> list[str]:
+    return _EXTRA.get().get(log_type, [])
 
 
 def ds(log_type: str) -> dict:
+    return {"field": "event.dataset", "op": "in", "value": DATASETS[log_type] + matched(log_type)}
+
+
+def native(log_type: str) -> dict:
+    """Only the dataset names the playbook was written for (their event.action values are known)."""
     return {"field": "event.dataset", "op": "in", "value": DATASETS[log_type]}
 
 
 def log_type_of(dataset: str) -> str | None:
-    return next((t for t, v in DATASETS.items() if dataset in v), None)
+    return next((t for t, v in DATASETS.items() if dataset in v + matched(t)), None)
 
 
 def _s(tid, technique, tool, params, purpose, role="indicator", claim="", analysis=None, must=False):
-    return PlanStep(step_id=tid, technique=technique, tool=tool, params={"index": IDX, **params}, purpose=purpose, role=role,
-                    claim_template=claim, analysis=analysis or {}, must_have=must)
+    return PlanStep(step_id=tid, technique=technique, tool=tool, params={"index": config.HUNT_INDEX, **params}, purpose=purpose,
+                    role=role, claim_template=claim, analysis=analysis or {}, must_have=must)
+
+
+# ---- playbooks promoted from LLM drafts (python -m threat_hunting.promote); loaded at plan time. A promoted playbook either
+# covers a technique no built-in playbook has, or adds a data source to one that has (e.g. DNS for exfiltration).
+YAML: dict[str, list[dict]] = {}
+
+
+def refresh() -> dict[str, list[dict]]:
+    """Load knowledge/playbooks/*.yml (HUNT_PLAYBOOK_DIR) into SOURCES, REQUIRED_FIELDS and DATASETS. Returns them by technique."""
+    for table, builtin in ((DATASETS, _BUILTIN_DATASETS), (SOURCES, _BUILTIN_SOURCES), (REQUIRED_FIELDS, _BUILTIN_FIELDS)):
+        table.clear()                                   # start from the built-in tables, so a removed file stops applying
+        table.update({k: (list(v) if isinstance(v, list) else dict(v)) for k, v in builtin.items()})
+    YAML.clear()
+    d = config.PLAYBOOK_DIR
+    for f in sorted(d.glob("*.yml")) if d.exists() else []:
+        pb = yaml.safe_load(f.read_text())
+        if not isinstance(pb, dict) or pb.get("status") != "approved":
+            continue
+        t, kind = pb["technique"], pb["kind"]
+        DATASETS[kind] = sorted(set(DATASETS.get(kind, [])) | set(pb["datasets"]))
+        SOURCES[t] = SOURCES.get(t, []) + ([kind] if kind not in SOURCES.get(t, []) else [])
+        REQUIRED_FIELDS.setdefault(t, {})[kind] = pb.get("required_fields", [])
+        YAML.setdefault(t, []).append({**pb, "file": f.name})
+    return YAML
+
+
+def builtin_datasets(technique: str) -> set[str]:
+    """The datasets the built-in playbook of a technique already hunts (empty if it has none)."""
+    return {d for k in _BUILTIN_SOURCES.get(technique, []) for d in _BUILTIN_DATASETS.get(k, []) + matched(k)}
+
+
+def steps_from_yaml(pb: dict, tf: str, tt: str) -> list[PlanStep]:
+    """A promoted (or candidate) playbook's steps over a window, scoped to its own datasets."""
+    scope = {"field": "event.dataset", "op": "in", "value": pb["datasets"]}
+    return [_s(st["id"], pb["technique"], st["tool"], {"time_from": tf, "time_to": tt, **st["params"],
+                                                        "filters": [scope] + st["params"].get("filters", [])},
+               st["purpose"], claim=st.get("claim_template", ""), analysis=st.get("analysis", {}), must=True)
+            for st in pb["steps"]]
+
+
+def _auth_variants(technique: str, T: dict, host: list) -> list[PlanStep]:
+    """Auth datasets matched by their ECS fields: generic filters (event.category/outcome) instead of SSH's event.action."""
+    out = []
+    for d in matched("auth"):
+        fail = [{"field": "event.dataset", "op": "eq", "value": d}, {"field": "event.category", "op": "eq", "value": "authentication"},
+                {"field": "event.outcome", "op": "eq", "value": "failure"}]
+        if technique == "T1110":
+            out.append(_s(f"T1110-a@{d}", technique, "aggregate", {**T, "agg": "terms", "field": "source.ip", "size": 20, "filters": fail + host},
+                          f"Sources with many failed logins in {d} (dataset matched to auth by its ECS fields)",
+                          claim=f"Source {{bucket_key}} produced {{count}} failed logins in {d}",
+                          analysis={"bucket_min_count": BASE["bruteforce_min_failures"], "drilldown": "source.ip"}, must=True))
+        if technique == "T1078":
+            out.append(_s(f"T1078-a@{d}", technique, "aggregate", {**T, "agg": "terms", "field": "source.ip", "size": 20, "filters": fail + host},
+                          f"Brute-force candidates in {d}; the Hunter then searches for successful logins after them",
+                          analysis={"bucket_min_count": BASE["bruteforce_min_failures"]}))
+    return out
 
 
 def steps_for(technique: str, tf: str, tt: str, scope: dict) -> list[PlanStep]:
+    """The built-in steps of a technique (if any), then the steps of its promoted playbooks."""
+    promoted = [s for pb in YAML.get(technique, []) for s in steps_from_yaml(pb, tf, tt)]
+    return (_builtin_steps(technique, tf, tt, scope) if technique in _BUILTIN_SOURCES else []) + promoted
+
+
+def _builtin_steps(technique: str, tf: str, tt: str, scope: dict) -> list[PlanStep]:
     """scope: {'hosts': [...]} narrows host-scoped steps when the hypothesis names a host."""
     T = {"time_from": tf, "time_to": tt}
     host = [{"field": "host.name", "op": "in", "value": scope["hosts"]}] if scope.get("hosts") else []
-    SYS, WEB, FW, AUTH = ds("sysmon"), ds("web"), ds("firewall"), ds("auth")
+    SYS, WEB, FW = ds("sysmon"), ds("web"), ds("firewall")
     if technique == "T1003.001":
         lsass = {"field": "winlog.event_data.TargetImage", "op": "wildcard", "value": "*\\lsass.exe"}
         return [
@@ -151,21 +233,21 @@ def steps_for(technique: str, tf: str, tt: str, scope: dict) -> list[PlanStep]:
                claim="External destination {bucket_key} received {sum} bytes over {count} connections",
                analysis={"bucket_min_sum": thr, "drilldown": "destination.ip"}, must=True),
         ]
-    fail = [AUTH, {"field": "event.action", "op": "eq", "value": "ssh_login"}, {"field": "event.outcome", "op": "eq", "value": "failure"}]
+    fail = [native("auth"), {"field": "event.action", "op": "eq", "value": "ssh_login"}, {"field": "event.outcome", "op": "eq", "value": "failure"}]
     if technique == "T1110":
         return [
             _s("T1110-a", technique, "aggregate", {**T, "agg": "terms", "field": "source.ip", "size": 20, "filters": fail + host},
                "Sources with many failed SSH logins",
                claim="Source {bucket_key} produced {count} failed SSH logins",
                analysis={"bucket_min_count": BASE["bruteforce_min_failures"], "drilldown": "source.ip"}, must=True),
-        ]
+        ] + _auth_variants(technique, T, host)
     if technique == "T1078":
         return [
             _s("T1078-a", technique, "aggregate", {**T, "agg": "terms", "field": "source.ip", "size": 20, "filters": fail + host},
                "Brute-force candidates (sources with many failed SSH logins). The Hunter then searches for successful logins after them; "
                "no candidate means no login after a brute force can exist, so this step is what tests T1078 when nothing is found",
                analysis={"bucket_min_count": BASE["bruteforce_min_failures"]}),
-        ]
+        ] + _auth_variants(technique, T, host)
     if technique == "T1046":
         return [
             # internal destinations only: ordinary browsing reaches hundreds of distinct external addresses
@@ -176,3 +258,8 @@ def steps_for(technique: str, tf: str, tt: str, scope: dict) -> list[PlanStep]:
                analysis={"bucket_min_distinct": BASE["scan_min_distinct"], "drilldown": "source.ip"}, must=True),
         ]
     raise KeyError(technique)
+
+
+_BUILTIN_DATASETS = {k: list(v) for k, v in DATASETS.items()}
+_BUILTIN_SOURCES = {k: list(v) for k, v in SOURCES.items()}
+_BUILTIN_FIELDS = {k: {kk: list(vv) for kk, vv in v.items()} for k, v in REQUIRED_FIELDS.items()}

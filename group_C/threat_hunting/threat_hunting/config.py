@@ -34,6 +34,7 @@ ES_MCP_CMD = os.environ.get("HUNT_ES_MCP_CMD", "python -m dev.es_mcp_standin.ser
 ANALYTICS_MCP_CMD = os.environ.get("HUNT_ANALYTICS_MCP_CMD", "python -m analytics_server.server")
 
 KNOWLEDGE_DIR = ROOT / "threat_hunting" / "knowledge"
+PLAYBOOK_DIR = Path(os.environ.get("HUNT_PLAYBOOK_DIR") or KNOWLEDGE_DIR / "playbooks")   # promoted playbooks (promote.py)
 AUDIT_DIR = ROOT / "audit"
 RUNS_DIR = ROOT / "runs"
 SCENARIO_DIR = ROOT / "scenarios"

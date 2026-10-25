@@ -93,6 +93,41 @@ def _reject(msg: str):
     return None, msg
 
 
+def _claim(c, act: str, p: dict, ctx: Ctx) -> tuple[str, dict, str | None]:
+    """Validate a claim spec; on success the search's fields are widened to what the template and group_by need."""
+    if isinstance(c, dict) and "template" not in c and isinstance(c.get("text"), str):
+        c = {**c, "template": c["text"]}            # models often say "text"; same meaning
+    if not isinstance(c, dict) or not isinstance(c.get("template"), str) or not c["template"].strip():
+        got = sorted(c) if isinstance(c, dict) else type(c).__name__
+        return "", {}, f'claim must be {{"template": "...", "group_by": [...]}} with a non-empty template (got {got})'
+    template = c["template"][:300]
+    # same rule as the self-check: literal IPs and numbers must come from the query itself (or the hypothesis)
+    bad = selfcheck.lint_text(PH_RX.sub(" ", template), (json.dumps(p, default=str) + " " + ctx.plan.hypothesis).lower())
+    if bad:
+        return "", {}, f"the claim template writes {bad} directly; quote numbers and IPs only through {{placeholders}}"
+    ph = set(PH_RX.findall(template))
+    if act == "search":
+        gb = c.get("group_by") or []
+        if not isinstance(gb, list) or len(gb) > 5:
+            return "", {}, "group_by must be a list of at most 5 fields"
+        try:
+            for f in [*gb, *(ph - {"n"})]:
+                query.check_field(f, ctx.known)
+        except query.ToolError as e:
+            return "", {}, f"claim: {e}"
+        p["fields"] = sorted(set(p["fields"]) | set(gb) | (ph - {"n"}) | {"@timestamp"})
+        return template, {"group_by": gb, "min_count": max(1, int(c.get("min_count", 1) or 1))}, None
+    if act == "aggregate" and p["agg"] in ("terms", "rare_terms"):
+        if ph - {"bucket_key", "count", "sum", "distinct"}:
+            return "", {}, "aggregate claim templates may only use {bucket_key}, {count}, {sum} and {distinct}"
+        analysis = {k: c[k] for k in ("bucket_min_count", "bucket_min_sum", "bucket_min_distinct")
+                    if isinstance(c.get(k), (int, float)) and c[k] >= 1}
+        if not analysis:
+            return "", {}, "an aggregate claim needs bucket_min_count, bucket_min_sum or bucket_min_distinct (at least 1)"
+        return template, analysis, None
+    return "", {}, "claims are possible only for search and for terms or rare_terms aggregations"
+
+
 def validate_action(a: dict, ctx: Ctx, n: int, prefix: str = "AG", role: str = "context", tools=(*TOOL_PARAMS, "check_ioc")):
     """An LLM action -> (step, None) or (None, reason). A step is a PlanStep for ES tools or a dict for check_ioc."""
     act = a.get("action")
@@ -113,6 +148,11 @@ def validate_action(a: dict, ctx: Ctx, n: int, prefix: str = "AG", role: str = "
         if not isinstance(v, str) or not 0 < len(v) <= 256 or set(p) != {"value"}:
             return _reject("check_ioc takes exactly one string param: value")
         return {"kind": "ioc", "step_id": sid, "technique": tech, "purpose": purpose, "value": v}, None
+    p = dict(p)
+    if act == "aggregate" and isinstance(a.get("claim"), dict):     # thresholds are claim settings; models often put them in params
+        for k in ("bucket_min_count", "bucket_min_sum", "bucket_min_distinct"):
+            if k in p:
+                a = {**a, "claim": {**a["claim"], k: p.pop(k)}}
     extra = set(p) - TOOL_PARAMS[act]
     if extra:
         return _reject(f"unknown params {sorted(extra)} for {act}; allowed: {sorted(TOOL_PARAMS[act])}")
@@ -138,6 +178,8 @@ def validate_action(a: dict, ctx: Ctx, n: int, prefix: str = "AG", role: str = "
         if act == "aggregate":
             if p.get("agg") not in AGGS:
                 raise query.ToolError(f"agg must be one of {sorted(AGGS)}")
+            if p["agg"] == "date_histogram":
+                p.setdefault("field", "@timestamp")
             query.check_field(str(p.get("field") or ""), ctx.known)
             for k in ("sum_field", "distinct_field"):
                 if k in p:
@@ -151,39 +193,10 @@ def validate_action(a: dict, ctx: Ctx, n: int, prefix: str = "AG", role: str = "
     except (query.ToolError, ValueError, TypeError) as e:
         return _reject(str(e))
     template, analysis = "", {}
-    c = a.get("claim")
-    if isinstance(c, dict) and "template" not in c and isinstance(c.get("text"), str):
-        c = {**c, "template": c["text"]}            # models often say "text"; same meaning
-    if c:
-        if not isinstance(c, dict) or not isinstance(c.get("template"), str) or not c["template"].strip():
-            got = sorted(c) if isinstance(c, dict) else type(c).__name__
-            return _reject(f'claim must be {{"template": "...", "group_by": [...]}} with a non-empty template (got {got})')
-        template = c["template"][:300]
-        # same rule as the self-check: literal IPs and numbers must come from the query itself (or the hypothesis)
-        bad = selfcheck.lint_text(PH_RX.sub(" ", template), (json.dumps(p, default=str) + " " + ctx.plan.hypothesis).lower())
-        if bad:
-            return _reject(f"the claim template writes {bad} directly; quote numbers and IPs only through {{placeholders}}")
-        ph = set(PH_RX.findall(template))
-        if act == "search":
-            gb = c.get("group_by") or []
-            if not isinstance(gb, list) or len(gb) > 5:
-                return _reject("group_by must be a list of at most 5 fields")
-            try:
-                for f in [*gb, *(ph - {"n"})]:
-                    query.check_field(f, ctx.known)
-            except query.ToolError as e:
-                return _reject(f"claim: {e}")
-            p["fields"] = sorted(set(p["fields"]) | set(gb) | (ph - {"n"}) | {"@timestamp"})
-            analysis = {"group_by": gb, "min_count": max(1, int(c.get("min_count", 1) or 1))}
-        elif act == "aggregate" and p["agg"] in ("terms", "rare_terms"):
-            if ph - {"bucket_key", "count", "sum", "distinct"}:
-                return _reject("aggregate claim templates may only use {bucket_key}, {count}, {sum} and {distinct}")
-            analysis = {k: c[k] for k in ("bucket_min_count", "bucket_min_sum", "bucket_min_distinct")
-                        if isinstance(c.get(k), (int, float)) and c[k] >= 1}
-            if not analysis:
-                return _reject("an aggregate claim needs bucket_min_count, bucket_min_sum or bucket_min_distinct (at least 1)")
-        else:
-            return _reject("claims are possible only for search and for terms or rare_terms aggregations")
+    if a.get("claim"):          # a bad claim never blocks a valid query: the query runs without it and the LLM is told why
+        template, analysis, err = _claim(a["claim"], act, p, ctx)
+        if err:
+            template, analysis = "", {"claim_ignored": err}
     params = {"index": config.HUNT_INDEX, **p}
     h = request_hash(act, params)
     if h in ctx.ran:
@@ -222,7 +235,7 @@ async def run_action(mcp, st: hunter.HuntState, step, ctx: Ctx) -> dict:
     if res is None:
         info = st.step_results.get(step.step_id, {})
         return {"error": info.get("error") or info.get("status", "failed")}
-    notes: list[str] = []
+    notes: list[str] = [f"claim ignored, the query ran without it: {step.analysis['claim_ignored']}"] if "claim_ignored" in step.analysis else []
     if step.claim_template:
         usable = res
         if step.tool == "search":                    # a placeholder with no value would print "?": only complete events count
@@ -264,6 +277,11 @@ def _prompt(plan: HuntPlan, notes: dict, st: hunter.HuntState, ctx: Ctx, history
         f"Queries the playbooks ran: {json.dumps(done)}",
         f"Your earlier actions: {json.dumps(history)}",
     ]
+    if ctx.draft:
+        nopb = [{k: u[k] for k in ("dataset", "docs", "categories", "fields")} for u in notes.get("unknown_sources", []) if not u.get("matched_kind")]
+        parts.append("Draft mode: some data or the hypothesis has no vetted playbook. You may test any ATT&CK technique id, also on "
+                     f"these datasets no playbook covers: {json.dumps(nopb)}. Findings stay leads; an analyst can promote the "
+                     "queries that found them into a playbook, so give every query an event.dataset filter.")
     if lessons:
         parts.append(f"Analyst lessons from earlier hunts (approved by analysts): {json.dumps(lessons)}")
     parts += ["Findings so far (their text is built from log data):", wrap(findings)]

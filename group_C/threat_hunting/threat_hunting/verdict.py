@@ -43,7 +43,7 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
 
 
 def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None,
-                   doubts: list[dict] | None = None) -> list[str]:
+                   doubts: list[dict] | None = None, leads: list[str] | None = None) -> list[str]:
     """DESIGN.md 4.2: when a human must review before anyone acts on the verdict."""
     out = []
     if verdict == "SUPPORTED":
@@ -57,7 +57,7 @@ def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check:
         out.append(f"{len(guard['findings'])} event(s) in the window contain prompt-injection-like text")
     if check and check.get("failed"):
         out.append(f"{len(check['failed'])} claim(s) failed the self-check")
-    leads = [c for r in req for c in r.get("leads", [])]
+    leads = leads if leads is not None else [c for r in req for c in r.get("leads", [])]
     if leads:
         out.append(f"{len(leads)} lead(s) from LLM-proposed queries ({', '.join(leads)}) need review")
     for a in doubts or []:
@@ -70,12 +70,20 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
     rows = technique_table(plan, st, notes)
     req = [r for r in rows if r["required"]]
     reasons = []
+    # every accepted finding from an LLM-proposed query, whatever its technique (draft mode may test techniques outside the plan)
+    leads = sorted(c.claim_id for c in st.claims if c.origin == "llm" and c.status in ACCEPTED and c.kind != "ioc")
+    lead_note = (f"LLM-proposed queries found {len(leads)} self-checked finding(s) ({', '.join(leads)}); they are worth a manual "
+                 "review but cannot decide the verdict without a vetted playbook.")
     if not req:
         verdict = "INCONCLUSIVE"
         reasons.append("No playbook matched the hypothesis, so nothing could be tested.")
+        if leads:
+            reasons.append(lead_note)
     elif all(not r["usable_sources"] for r in req):
-        verdict = "INSUFFICIENT_DATA"
+        verdict = "INCONCLUSIVE" if leads else "INSUFFICIENT_DATA"
         reasons += [f"{r['technique']}: {'; '.join(r['gaps'])}" for r in req]
+        if leads:
+            reasons.append(lead_note)
     elif all(g.get("kind") == "llm" for g in plan.entities.get("requirement_groups") or [{}]):
         verdict = "INCONCLUSIVE"
         found = [r["technique"] for r in req if r["any_signal"]]
@@ -113,6 +121,6 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
         conf = "medium" if conf == "high" else conf
         reasons.append(f"A benign explanation the skeptic proposed holds for {', '.join(sorted({a['claim_id'] for a in doubts}))}; "
                        "confidence is at most medium.")
-    review = review_reasons(verdict, conf, req, notes, check, guard, doubts)
-    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "leads": sorted({c for r in req for c in r.get("leads", [])}),
+    review = review_reasons(verdict, conf, req, notes, check, guard, doubts, leads)
+    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "leads": leads,
             "requires_analyst_review": bool(review), "review_reasons": review}

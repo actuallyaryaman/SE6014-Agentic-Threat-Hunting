@@ -60,3 +60,11 @@ def test_long_windows_are_cut_to_31_days_and_empty_days_kept_as_requested():
     tf, tt, w = planner.hunt_window("this year", SRC, year)
     assert (tf, tt) == ("2026-09-24T18:00:00Z", "2026-10-25T18:00:00Z") and "31 days" in w["basis"]
     assert planner.hunt_window("on 2030-01-01", SRC, None)[:2] == ("2030-01-01T00:00:00Z", "2030-01-02T00:00:00Z")
+
+
+def test_check_kind_needs_the_category_and_the_fields():
+    vpn = {"categories": ["authentication"], "fields": ["source.ip", "event.outcome", "user.name", "host.name"]}
+    assert planner.check_kind("auth", vpn) is None
+    assert "do not include 'web'" in planner.check_kind("web", vpn)
+    assert "lack ['user.name']" in planner.check_kind("auth", {**vpn, "fields": ["source.ip", "event.outcome"]})
+    assert "not one of the kinds" in planner.check_kind("firewall", vpn)

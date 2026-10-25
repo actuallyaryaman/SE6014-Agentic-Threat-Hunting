@@ -40,11 +40,6 @@ def search(**kw):
     (search(filters=[{"field": "src.ip", "op": "eq", "value": "1.2.3.4"}]), "unknown field 'src.ip'"),
     (search(filters=[{"field": "user.name", "op": "eq", "value": "10.0.0.0/8"}]), "needs an ip-typed field"),
     (search(time_from="2026-08-01T00:00:00Z"), "time range must lie between"),
-    ({**search(), "claim": {"template": "203.0.113.99 logged in as {user.name}", "group_by": ["user.name"]}}, "writes ['203.0.113.99']"),
-    ({**search(filters=[{"field": "host.name", "op": "eq", "value": "FS-01"}]), "claim": {"template": "{user.name} logged in to FS-01 42 times",
-      "group_by": ["user.name"]}}, "writes ['42']"),
-    ({"action": "aggregate", "technique": "T1110", "purpose": "x", "params": {"agg": "terms", "field": "source.ip"},
-      "claim": {"template": "{bucket_key} failed {count} times"}}, "needs bucket_min_count"),
     ({"action": "aggregate", "technique": "T1110", "purpose": "x", "params": {"agg": "date_histogram", "field": "@timestamp",
       "interval": "1m"}}, "more than 1000 buckets"),
 ])
@@ -59,6 +54,20 @@ def test_validator_accepts_a_claiming_search_and_forces_the_index():
     step, err = agent.validate_action(a, ctx(), 3)
     assert err is None and step.step_id == "AG-03" and step.params["index"] == config.HUNT_INDEX and step.params["size"] == 100
     assert {"@timestamp", "source.ip", "user.name"} <= set(step.params["fields"]) and step.analysis["group_by"] == ["source.ip", "user.name"]
+
+
+@pytest.mark.parametrize("action, note", [
+    ({**search(), "claim": {"template": "203.0.113.99 logged in as {user.name}", "group_by": ["user.name"]}}, "writes ['203.0.113.99']"),
+    ({**search(filters=[{"field": "host.name", "op": "eq", "value": "FS-01"}]), "claim": {"template": "{user.name} logged in to FS-01 42 times",
+      "group_by": ["user.name"]}}, "writes ['42']"),
+    ({"action": "aggregate", "technique": "T1110", "purpose": "x", "params": {"agg": "terms", "field": "source.ip"},
+      "claim": {"template": "{bucket_key} failed {count} times"}}, "needs bucket_min_count"),
+    ({"action": "aggregate", "technique": "T1110", "purpose": "x", "params": {"agg": "date_histogram", "interval": "1h"},
+      "claim": {"template": "{bucket_key}"}}, "only for search and for terms"),
+])
+def test_a_bad_claim_runs_the_query_without_it(action, note):
+    step, err = agent.validate_action(action, ctx(), 1)
+    assert err is None and step.claim_template == "" and note in step.analysis["claim_ignored"]
 
 
 def test_validator_rejects_a_query_that_already_ran():

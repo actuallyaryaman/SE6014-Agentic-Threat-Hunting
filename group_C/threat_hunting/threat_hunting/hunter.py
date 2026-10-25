@@ -6,7 +6,8 @@ import re
 from datetime import datetime, timedelta
 from collections import defaultdict
 from .models import Claim, Evidence, HuntPlan, PlanStep
-from .playbooks import BASE, EID, IDX, INTERNAL_DST, ds
+from . import config
+from .playbooks import BASE, EID, INTERNAL_DST, ds, native
 
 MAX_PIVOT_HOSTS = 5
 PIVOT_WINDOW_H = 2
@@ -173,7 +174,7 @@ async def network_pivot(mcp, st: HuntState):
     if not seeds and not plan.entities.get("hosts"):
         step = PlanStep(step_id="T1021.002-fanout", technique="T1021.002", tool="aggregate", role="context",
                         purpose="No seed host: rank hosts by lateral-port connections to internal destinations",
-                        params={"index": IDX, "time_from": tf, "time_to": tt, "agg": "terms", "field": "host.name", "size": 5,
+                        params={"index": config.HUNT_INDEX, "time_from": tf, "time_to": tt, "agg": "terms", "field": "host.name", "size": 5,
                                 "filters": lateral, "any_of": INTERNAL_DST})
         r = await run_step(mcp, st, step, dynamic=True)
         for b in (r or {}).get("result", []):
@@ -186,7 +187,7 @@ async def network_pivot(mcp, st: HuntState):
         common = lateral + [{"field": "host.name", "op": "eq", "value": h}]
         base_step = PlanStep(step_id=f"T1021.002-base-{h}", technique="T1021.002", tool="aggregate", role="benign_check",
                              purpose=f"Baseline: internal destinations {h} already reached on lateral ports before {t_start}",
-                             params={"index": IDX, "time_from": tf, "time_to": t_start, "agg": "terms", "field": "destination.ip", "size": 50,
+                             params={"index": config.HUNT_INDEX, "time_from": tf, "time_to": t_start, "agg": "terms", "field": "destination.ip", "size": 50,
                                      "filters": common, "any_of": INTERNAL_DST})
         known: set[str] = set()
         if t_start > tf:
@@ -196,7 +197,7 @@ async def network_pivot(mcp, st: HuntState):
             st.notes.append(f"no baseline period before the seed time for {h}; every destination counts as new")
         win_step = PlanStep(step_id=f"T1021.002-b-{h}", technique="T1021.002", tool="search", role="indicator", must_have=True,
                             purpose=f"Lateral-port connections from {h} to internal hosts between {t_start} and {t_end_s}",
-                            params={"index": IDX, "time_from": t_start, "time_to": t_end_s, "size": 100, "filters": common, "any_of": INTERNAL_DST,
+                            params={"index": config.HUNT_INDEX, "time_from": t_start, "time_to": t_end_s, "size": 100, "filters": common, "any_of": INTERNAL_DST,
                                     "fields": ["@timestamp", "host.name", "process.name", "destination.ip", "destination.port"]})
         rw = await run_step(mcp, st, win_step, dynamic=True)
         if not rw:
@@ -226,30 +227,39 @@ async def bruteforce_success(mcp, st: HuntState):
     tf, tt = plan.time_range["from"], plan.time_range["to"]
     thr = BASE["bruteforce_min_failures"]
     host = [{"field": "host.name", "op": "in", "value": plan.entities["hosts"]}] if plan.entities.get("hosts") else []
-    cands: list[str] = []
-    for sid in ("T1110-a", "T1078-a"):
-        res = st.raw.get(sid) or {}
+    cands: list[tuple[str, str]] = []              # (dataset matched by ECS fields, or "" for the SSH playbook; source IP)
+    for sid, res in st.raw.items():
+        step, _, d = sid.partition("@")
+        if step not in ("T1110-a", "T1078-a"):
+            continue
         for b in res.get("result", []) if isinstance(res.get("result"), list) else []:
-            if b["count"] >= thr and b["key"] not in cands:
-                cands.append(b["key"])
-    for ip in sorted(cands)[:MAX_PIVOT_HOSTS]:
-        base = [ds("auth"), {"field": "event.action", "op": "eq", "value": "ssh_login"}, {"field": "source.ip", "op": "eq", "value": ip}] + host
-        first = PlanStep(step_id=f"T1078-first-{ip}", technique="T1078", tool="search", role="context", purpose=f"First failed SSH login from {ip}",
+            if b["count"] >= thr and (d, b["key"]) not in cands:
+                cands.append((d, b["key"]))
+    for d, ip in sorted(cands)[:MAX_PIVOT_HOSTS]:
+        src = {"field": "source.ip", "op": "eq", "value": ip}
+        if d:       # ECS-generic: the dataset's own event.action values are unknown
+            base = [{"field": "event.dataset", "op": "eq", "value": d}, {"field": "event.category", "op": "eq", "value": "authentication"}, src] + host
+            sfx, what = f"@{d}", f"logins in {d}"
+        else:
+            base = [native("auth"), {"field": "event.action", "op": "eq", "value": "ssh_login"}, src] + host
+            sfx, what = "", "SSH logins"
+        first = PlanStep(step_id=f"T1078-first-{ip}{sfx}", technique="T1078", tool="search", role="context", purpose=f"First failed {'SSH login' if not d else 'login in ' + d} from {ip}",
                          analysis={"sample_ok": True},
-                         params={"index": IDX, "time_from": tf, "time_to": tt, "size": 1, "fields": ["@timestamp"],
+                         params={"index": config.HUNT_INDEX, "time_from": tf, "time_to": tt, "size": 1, "fields": ["@timestamp"],
                                  "filters": base + [{"field": "event.outcome", "op": "eq", "value": "failure"}]})
         r = await run_step(mcp, st, first, dynamic=True)
         if not r or not r.get("hits"):
             continue
         t_first = r["hits"][0]["fields"]["@timestamp"]
-        succ = PlanStep(step_id=f"T1078-b-{ip}", technique="T1078", tool="search", role="indicator", must_have=True,
-                        purpose=f"Successful SSH logins from {ip} after its first failed login ({t_first})",
-                        params={"index": IDX, "time_from": t_first, "time_to": tt, "size": 100,
+        succ = PlanStep(step_id=f"T1078-b-{ip}{sfx}", technique="T1078", tool="search", role="indicator", must_have=True,
+                        purpose=f"Successful {what} from {ip} after its first failed login ({t_first})",
+                        params={"index": config.HUNT_INDEX, "time_from": t_first, "time_to": tt, "size": 100,
                                 "fields": ["@timestamp", "source.ip", "user.name", "host.name"],
                                 "filters": base + [{"field": "event.outcome", "op": "eq", "value": "success"}]},
                         # the failure count lives in the T1110 claim, which cites the aggregate; this claim cites only the
                         # success events, and "after" is guaranteed by the query window starting at the first failure
-                        claim_template="Source {source.ip} logged in successfully as {user.name} on {host.name} after its failed SSH logins began",
+                        claim_template="Source {source.ip} logged in successfully as {user.name} on {host.name} after its failed "
+                                       + ("SSH logins began" if not d else f"logins in {d} began"),
                         analysis={"group_by": ["source.ip", "user.name", "host.name"]})
         rs = await run_step(mcp, st, succ, dynamic=True)
         if rs:

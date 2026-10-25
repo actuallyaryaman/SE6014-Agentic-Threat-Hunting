@@ -5,7 +5,7 @@ Ported from the prototype's src/hunt/run.py (the verifier and reporter stay with
 from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
-from . import act, agent, config, guardrails, planner, hunter, selfcheck, skeptic, verdict
+from . import act, agent, config, guardrails, planner, hunter, promote, selfcheck, skeptic, verdict
 from .llm import get_llm, start_trace
 from .mcp_client import McpHunt
 
@@ -73,7 +73,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
         n_hunt = mcp.calls
         guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
         n_guard = mcp.calls
-        agent_out = (await agent.investigate(mcp, plan, st, notes, guard) if controls["agent_loop"]
+        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False)) if controls["agent_loop"]
                      else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
         n_agent = mcp.calls
         check = selfcheck.check(st)
@@ -85,6 +85,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                    else {"detections": [], "response": [], "notes": ["control act is off"]})
         n_act = mcp.calls
         tool_calls, ignored_tools = mcp.calls, mcp.ignored
+    candidates = promote.write_candidates(run_dir, run_id, plan, st, agent_out, notes.get("unknown_sources"))
     phases = [("planning", n_plan), ("hunt", n_hunt), ("guardrail", n_guard), ("agent", n_agent), ("skeptic", n_skeptic), ("act", n_act)]
     queries = _queries(run_dir / "trace.jsonl", plan, st, guard, phases,
                        {x["step_id"]: x["purpose"] for x in agent_out["steps"] if x.get("step_id")})
@@ -110,9 +111,10 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                           "review_reasons": d["review_reasons"], "reasons": d["reasons"], "leads": d["leads"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],
               "findings": {"prompt_injection": guard}, "agent": agent_out, "skeptic": sk, "actions": actions,
+              "candidates": candidates,
               "step_results": st.step_results, "dynamic_steps": [s.model_dump() for s in st.dynamic_steps], "queries": queries,
               "self_check": check,
-              "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing")},
+              "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing", "unknown_sources")},
               "limitations": limitations, "notes": st.notes + notes["llm_notes"], "manifest": meta}
     (run_dir / "result.json").write_text(json.dumps(result, indent=1, default=str))
     return result
