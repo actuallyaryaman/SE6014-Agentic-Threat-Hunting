@@ -1,0 +1,14 @@
+
+{
+  "@timestamp": "2026-10-21T00:15:00Z",
+  "event_id": "A2-PUSH-002",
+  "event_type": "process_creation",
+  "source_type": "sysmon",
+  "host": {
+    "name": "a2-push-lab"
+  },
+  "process": {
+    "name": "powershell.exe"
+  },
+  "message": "A2 second push ingestion test"
+}
