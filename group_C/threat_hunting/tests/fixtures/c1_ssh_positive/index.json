@@ -1,0 +1,96 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "event": {
+        "properties": {
+          "id": {
+            "type": "keyword"
+          },
+          "dataset": {
+            "type": "keyword"
+          },
+          "category": {
+            "type": "keyword"
+          },
+          "type": {
+            "type": "keyword"
+          },
+          "action": {
+            "type": "keyword"
+          },
+          "outcome": {
+            "type": "keyword"
+          },
+          "original": {
+            "type": "keyword"
+          }
+        }
+      },
+      "message": {
+        "type": "text"
+      },
+      "host": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          }
+        }
+      },
+      "source": {
+        "properties": {
+          "ip": {
+            "type": "ip"
+          },
+          "port": {
+            "type": "long"
+          }
+        }
+      },
+      "destination": {
+        "properties": {
+          "ip": {
+            "type": "ip"
+          },
+          "port": {
+            "type": "long"
+          }
+        }
+      },
+      "user": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          }
+        }
+      },
+      "process": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "pid": {
+            "type": "long"
+          }
+        }
+      },
+      "labels": {
+        "properties": {
+          "source_id": {
+            "type": "keyword"
+          },
+          "ingest_mode": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
