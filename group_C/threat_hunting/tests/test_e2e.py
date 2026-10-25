@@ -77,6 +77,18 @@ def test_ssh_bruteforce_then_login_is_supported():
     s = score(r, "ssh")
     assert s["event_recall"] == 1.0 and s["event_precision"] == 1.0, s
     assert any("203.0.113.99" in c["text"] and "logged in successfully" in c["text"] for c in r["claims"])
+    t1078 = [c for c in r["claims"] if c["technique"] == "T1078"]
+    assert t1078 and all(set(c["facts"]) == {"source.ip", "user.name", "host.name"} for c in t1078)   # only fields of its cited events
+
+
+def test_ssh_login_after_bruteforce_is_refutable_when_there_is_none():
+    """PR #24 / C3 finding: T1078 must have an indicator step even when no brute-force candidate exists."""
+    r = run("An external IP brute-forced SSH on DC-01 and then logged in successfully on 2026-10-01.", "ssh-benign")
+    assert label(r) == "NOT_SUPPORTED", r["verdict"]
+    plan = json.loads((config.RUNS_DIR / r["run_id"] / "plan.json").read_text())
+    assert [s["role"] for s in plan["steps"] if s["technique"] == "T1078"] == ["indicator"]
+    row = next(t for t in r["techniques"] if t["technique"] == "T1078")
+    assert row["covered"] and not row["gaps"]
 
 
 def test_bruteforce_on_a_host_without_one_is_not_supported():

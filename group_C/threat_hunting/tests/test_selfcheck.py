@@ -52,6 +52,25 @@ def test_aggregate_numbers_must_match_the_bucket():
     assert st.claims[1].status == "unsupported" and "count=300" in st.claims[1].verifier_notes
 
 
+def test_a_value_from_other_evidence_in_facts_fails():
+    """PR #24 / C3 finding: the T1078 claim quoted the T1110 failure count, which is not in its cited success events."""
+    st = _state()
+    st.claims[0].facts["failed_logins"] = "30"
+    st.claims[0].text += " (30 failures from this source in the window)"
+    selfcheck.check(st)
+    assert st.claims[0].status == "unsupported"
+    assert "failed_logins" in st.claims[0].verifier_notes and "['30']" in st.claims[0].verifier_notes
+
+
+def test_facts_do_not_validate_their_own_text():
+    """A value present only in the claim's facts is not evidence (same rule C3 applies)."""
+    st = _state()
+    st.claims[1].facts["host.name"] = "WS-9999"
+    st.claims[1].text += " on WS-9999 at port 4444"
+    selfcheck.check(st)
+    assert st.claims[1].status == "unsupported" and "4444" in st.claims[1].verifier_notes
+
+
 def test_missing_evidence_fails():
     st = _state()
     st.claims[1].evidence_ids = ["E-nope"]

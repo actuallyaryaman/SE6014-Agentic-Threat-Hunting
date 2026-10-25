@@ -239,12 +239,16 @@ Audit files next to it: `audit/<run_id>.jsonl` (ES server: params, exact DSL, re
 | Check | C2 (self-check, before handoff) | C3 (independent verification) |
 |---|---|---|
 | Every claim cites existing evidence; its event ids come from the cited results | ✔ | ✔ |
-| Facts match the cited events; aggregate counts / sums / distinct counts match the cited bucket | ✔ | ✔ |
-| IPs and numbers quoted in a claim's text appear in its facts, cited events or query | ✔ (claim text only) | ✔ |
+| Every fact is a field value of **every** cited event (the only derived fact is `n_connections` = number of cited events); aggregate counts / sums / distinct counts match the cited bucket | ✔ | ✔ |
+| IPs and numbers quoted in a claim's text appear in its cited events, bucket or query. **A claim's own facts never count as evidence for its text** | ✔ (claim text only) | ✔ |
 | Hosts and users quoted in claims, reasons and notes are in the evidence | — | ✔ |
 | Document evidence exists in ES with these field values | — | ✔ via `get_event` |
 | Re-executing the query reproduces the result (`queries[].request`) | — | ✔ (optional / sampled) |
 | Report rendering (Markdown / HTML / PDF) | — | ✔ |
+
+A claim quotes only what it cites. A value from other evidence (for example the failure count behind a successful-login claim) belongs in the claim that cites that evidence (here the T1110 aggregate claim), not in `facts`.
+
+A technique counts as testable when it has at least one step with role `indicator`, even if that step finds nothing; for T1078 that is `T1078-a` (brute-force candidates), so a hunt with no brute force can be refuted.
 
 ### 4.3 Confidence and analyst review (single source of truth for C2 and C3)
 Implemented in `threat_hunting/verdict.py`; C3 applies the same rule.

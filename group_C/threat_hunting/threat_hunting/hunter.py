@@ -81,10 +81,9 @@ def _context_only(st: HuntState, technique: str) -> bool:
     return technique not in st.plan.required_techniques
 
 
-def extract_claims(st: HuntState, step: PlanStep, res: dict, extra_facts: dict | None = None):
+def extract_claims(st: HuntState, step: PlanStep, res: dict):
     a = step.analysis
     ctx_only = _context_only(st, step.technique)
-    extra = {k: str(v) for k, v in (extra_facts or {}).items()}
     if step.tool == "search" and step.claim_template and res.get("hits"):
         gb = a.get("group_by", [])
         groups: dict[tuple, list[dict]] = defaultdict(list)
@@ -94,8 +93,8 @@ def extract_claims(st: HuntState, step: PlanStep, res: dict, extra_facts: dict |
             hits = groups[key]
             if len(hits) < a.get("min_count", 1):
                 continue
-            ctx = {**hits[0]["fields"], "n": len(hits), **extra}
-            facts = {**{f: _val(hits[0]["fields"].get(f, "")) for f in gb}, **extra}
+            ctx = {**hits[0]["fields"], "n": len(hits)}
+            facts = {f: _val(hits[0]["fields"].get(f, "")) for f in gb}     # only fields of the cited events
             st.claims.append(Claim(
                 claim_id=st.next_claim_id(), text=fill(step.claim_template, ctx), technique=step.technique, evidence_ids=[f"E-{step.step_id}"],
                 facts=facts, step_id=step.step_id, kind="events", context_only=ctx_only,
@@ -227,12 +226,12 @@ async def bruteforce_success(mcp, st: HuntState):
     tf, tt = plan.time_range["from"], plan.time_range["to"]
     thr = BASE["bruteforce_min_failures"]
     host = [{"field": "host.name", "op": "in", "value": plan.entities["hosts"]}] if plan.entities.get("hosts") else []
-    cands: dict[str, int] = {}
+    cands: list[str] = []
     for sid in ("T1110-a", "T1078-a"):
         res = st.raw.get(sid) or {}
         for b in res.get("result", []) if isinstance(res.get("result"), list) else []:
-            if b["count"] >= thr:
-                cands.setdefault(b["key"], b["count"])
+            if b["count"] >= thr and b["key"] not in cands:
+                cands.append(b["key"])
     for ip in sorted(cands)[:MAX_PIVOT_HOSTS]:
         base = [ds("auth"), {"field": "event.action", "op": "eq", "value": "ssh_login"}, {"field": "source.ip", "op": "eq", "value": ip}] + host
         first = PlanStep(step_id=f"T1078-first-{ip}", technique="T1078", tool="search", role="context", purpose=f"First failed SSH login from {ip}",
@@ -248,12 +247,13 @@ async def bruteforce_success(mcp, st: HuntState):
                         params={"index": IDX, "time_from": t_first, "time_to": tt, "size": 100,
                                 "fields": ["@timestamp", "source.ip", "user.name", "host.name"],
                                 "filters": base + [{"field": "event.outcome", "op": "eq", "value": "success"}]},
-                        claim_template="Source {source.ip} logged in successfully as {user.name} on {host.name} after its failed SSH logins began "
-                                       "({failed_logins} failures from this source in the window)",
+                        # the failure count lives in the T1110 claim, which cites the aggregate; this claim cites only the
+                        # success events, and "after" is guaranteed by the query window starting at the first failure
+                        claim_template="Source {source.ip} logged in successfully as {user.name} on {host.name} after its failed SSH logins began",
                         analysis={"group_by": ["source.ip", "user.name", "host.name"]})
         rs = await run_step(mcp, st, succ, dynamic=True)
         if rs:
-            extract_claims(st, succ, rs, extra_facts={"failed_logins": cands[ip]})
+            extract_claims(st, succ, rs)
 
 
 async def execute(mcp, plan: HuntPlan, max_calls: int = 120, complete_results: bool = True) -> HuntState:
