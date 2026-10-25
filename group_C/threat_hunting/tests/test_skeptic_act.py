@@ -6,6 +6,15 @@ from threat_hunting.models import Claim, PlanStep
 from tests.test_agent import FakeMcp, _rows_plan, setup
 
 
+class OtherEventsMcp(FakeMcp):
+    """Answers every search with an event the claims do not cite (so a skeptic test looks beyond the evidence)."""
+    async def call(self, tool, **args):
+        r = await super().call(tool, **args)
+        for h in r.get("hits", []):
+            h["event_id"] = "e7"
+        return r
+
+
 def _claims():
     return [Claim(claim_id="C-001", text="203.0.113.99 failed 30 times", technique="T1110", evidence_ids=["E"], step_id="T1110-a",
                   status="self_checked", kind="aggregate", facts={"bucket_key": "203.0.113.99", "count": "30"}),
@@ -27,7 +36,7 @@ def test_skeptic_tests_alternatives_and_caps_confidence(fake_llm):
     plan, st, notes = _rows_plan(_claims())
     notes.update({"index_types": setup()[1]["index_types"], "llm_notes": []})
     llm.start_trace(None)
-    sk = asyncio.run(skeptic.challenge(FakeMcp(), plan, st, notes, {"findings": []}))
+    sk = asyncio.run(skeptic.challenge(OtherEventsMcp(), plan, st, notes, {"findings": []}))
     assert [a["outcome"] for a in sk["alternatives"]] == ["supported", "not_tested", "not_tested"]
     assert sk["alternatives"][0]["step_id"] == "SK-01" and len(st.claims) == 2          # skeptic tests create no claims
     plain = verdict.decide(plan, st, notes)
@@ -80,8 +89,27 @@ def test_rejected_skeptic_tests_get_one_repair_round(fake_llm):
     plan, st, notes = _rows_plan(_claims())
     notes.update({"index_types": setup()[1]["index_types"], "llm_notes": []})
     llm.start_trace(None)
-    sk = asyncio.run(skeptic.challenge(FakeMcp(), plan, st, notes, {"findings": []}))
+    sk = asyncio.run(skeptic.challenge(OtherEventsMcp(), plan, st, notes, {"findings": []}))
     first, second = sk["alternatives"]
     assert first["superseded"] and "unknown params ['user']" in first["reason"]
     assert second["outcome"] == "supported" and second["step_id"] == "SK-01"          # technique comes from the claim, not the LLM
     assert "unknown params ['user']" in fake.prompts["skeptic"][1][1]
+
+
+def test_a_test_that_only_recounts_the_evidence_does_not_count(fake_llm):
+    """Team-stack run: "the 30 failures are a retry loop" tested by counting the same 30 failures held, and capped confidence."""
+    recount = {"action": "count", "technique": "T1110", "purpose": "failures from the source",
+               "params": {"filters": [{"field": "event.dataset", "op": "eq", "value": "linux.auth"},
+                                      {"field": "source.ip", "op": "eq", "value": "203.0.113.99"},
+                                      {"field": "event.outcome", "op": "eq", "value": "failure"}]}}
+    fake_llm({"skeptic": [{"alternatives": [{"claim_id": "C-001", "explanation": "a retry loop", "benign_if": ">=25", "action": recount}]}]})
+    plan, st, notes = _rows_plan(_claims())
+    notes.update({"index_types": setup()[1]["index_types"], "llm_notes": []})
+    llm.start_trace(None)
+    class Thirty(FakeMcp):
+        async def call(self, tool, **args):
+            self.calls += 1
+            return {"call_id": f"c{self.calls}", "total": 30}
+    sk = asyncio.run(skeptic.challenge(Thirty(), plan, st, notes, {"findings": []}))
+    assert sk["alternatives"][0]["outcome"] == "not_discriminating"
+    assert verdict.decide(plan, st, notes, skeptic=sk)["confidence"] == "high"

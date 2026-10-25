@@ -25,6 +25,8 @@ Rules:
   search, aggregate or count:
 """ + agent.PARAMS_HELP + """
 - benign_if is a condition on the query's total number of hits: ">0", "==0", ">=N" or "<N".
+- A test must look beyond the finding's own events (other times, hosts, users or datasets): re-counting the finding's
+  events fits the attack as well as the benign story, and such a test is not counted.
 - Do not repeat the queries that already ran. Give no explanation you cannot test with these logs.
 - Keep each explanation to one sentence.
 
@@ -41,6 +43,21 @@ def _holds(cond: str, total: int) -> bool | None:
         return None
     op, n = m.group(1), int(m.group(2))
     return {">": total > n, ">=": total >= n, "==": total == n, "<": total < n, "<=": total <= n}[op]
+
+
+def restates(step, obs: dict, claim) -> bool:
+    """True when the test can only have returned the finding's own events: then it fits the attack and the benign story alike.
+    A search restates when every hit is a cited event; a count or aggregation when its total is no larger than the finding's
+    evidence and one of its filters pins a value of the finding's own facts."""
+    own = set(claim.event_ids)
+    size = len(own) or int(claim.facts.get("count", 0) or 0)
+    total = obs.get("total", 0)
+    if step.tool == "search":
+        return total <= len(own) and all(h["event_id"] in own for h in obs.get("hits", []))
+    facts = {str(x) for v in claim.facts.values() for x in (v if isinstance(v, list) else [v])}
+    pins = any(f.get("op", "eq") in ("eq", "in") and {str(x) for x in (f["value"] if isinstance(f.get("value"), list) else [f.get("value")])} <= facts
+               for f in step.params.get("filters", []) if f.get("field") != "event.dataset")
+    return pins and 0 < total <= size
 
 
 def targets(plan: HuntPlan, st: hunter.HuntState) -> list:
@@ -120,6 +137,9 @@ async def _run_tests(mcp, st, ctx, claims, alts, out, state) -> list[dict]:
         rec.update(step_id=step.step_id, total=res.get("total"))
         if "error" in res:
             rec.update(outcome="not_tested", reason=f"query failed: {res['error']}")
+        elif restates(step, res, next(c for c in claims if c.claim_id == cid)):
+            rec.update(outcome="not_discriminating",
+                       reason="the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack")
         else:
             rec["outcome"] = "supported" if _holds(rec["benign_if"], res.get("total", 0)) else "ruled_out"
     return rejected
