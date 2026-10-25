@@ -40,7 +40,8 @@ def _queries(trace: Path, plan, st, guard: dict, phases: list[tuple[str, int]], 
 
 
 async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 120, perturb_seed: int | None = None,
-                   controls: dict | None = None) -> dict:
+                   controls: dict | None = None, question: str | None = None) -> dict:
+    """One hunt. question: an analyst's follow-up (hunt_server.follow_up); the investigator is asked to answer it."""
     controls = {**DEFAULT_CONTROLS, **(controls or {})}
     run_id = run_id or time.strftime("hunt-%Y%m%d-%H%M%S")
     run_dir = config.RUNS_DIR / run_id
@@ -75,7 +76,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
         n_hunt = mcp.calls
         guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
         n_guard = mcp.calls
-        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False), lessons=shown) if controls["agent_loop"]
+        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False), lessons=shown, question=question) if controls["agent_loop"]
                      else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
         n_agent = mcp.calls
         check = selfcheck.check(st)
@@ -109,7 +110,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                    "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."] + \
                   [f"data gap: {g}" for g in notes["gaps"]] + \
                   [f"missing fields: {k}: {v}" for k, v in notes["missing_fields"].items()]
-    result = {"schema_version": "0.3", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range, "intake": notes.get("intake"),
+    result = {"schema_version": "0.3", "run_id": run_id, "hypothesis": hypothesis, "question": question, "time_range": plan.time_range, "intake": notes.get("intake"),
               "verdict": {"label": d["verdict"], "confidence": d["confidence"], "requires_analyst_review": d["requires_analyst_review"],
                           "review_reasons": d["review_reasons"], "reasons": d["reasons"], "leads": d["leads"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],

@@ -258,7 +258,7 @@ async def run_action(mcp, st: hunter.HuntState, step, ctx: Ctx) -> dict:
 
 
 def _prompt(plan: HuntPlan, notes: dict, st: hunter.HuntState, ctx: Ctx, history: list[dict], recent: list[tuple[int, dict]],
-            turns_left: int, lessons: list[dict]) -> str:
+            turns_left: int, lessons: list[dict], question: str | None = None) -> str:
     done = [{"step_id": s.step_id, "technique": s.technique, "tool": s.tool, "purpose": s.purpose,
              "total": st.step_results.get(s.step_id, {}).get("total"), "status": st.step_results.get(s.step_id, {}).get("status")}
             for s in plan.steps + st.dynamic_steps if not s.step_id.startswith("AG-")]
@@ -268,6 +268,7 @@ def _prompt(plan: HuntPlan, notes: dict, st: hunter.HuntState, ctx: Ctx, history
     ent = plan.entities
     parts = [
         f"Hypothesis: {plan.hypothesis}",
+        *([f"Analyst follow-up question (answer it with your queries): {question}"] if question else []),
         f"Techniques under test: {json.dumps(ent.get('technique_names', {}))}; required: {plan.required_techniques}",
         f"Entities named in the hypothesis: hosts={ent.get('hosts', [])} ips={ent.get('ips', [])} users={ent.get('users', [])}",
         f"Hunt window: {ctx.tf} to {ctx.tt}. Queries may reach back to {ctx.earliest.strftime('%Y-%m-%dT%H:%M:%SZ')}.",
@@ -299,7 +300,7 @@ def _prompt(plan: HuntPlan, notes: dict, st: hunter.HuntState, ctx: Ctx, history
 
 
 async def investigate(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, guard: dict | None, *, draft: bool = False,
-                      max_turns: int | None = None, lessons: list[dict] | None = None) -> dict:
+                      max_turns: int | None = None, lessons: list[dict] | None = None, question: str | None = None) -> dict:
     """The investigator loop. Returns the record that goes into result.json["agent"]."""
     llm = get_llm("investigator")
     out: dict = {"enabled": llm is not None, "model": llm.describe() if llm else None, "draft_mode": draft, "steps": [],
@@ -316,7 +317,7 @@ async def investigate(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, gu
         if st.calls >= st.max_calls:
             out["stopped_because"] = f"tool-call budget ({st.max_calls}) exhausted"
             break
-        a = await ask_json("investigator", SYSTEM, _prompt(plan, notes, st, ctx, history, recent[-RECENT:], max_turns - n + 1, lessons or []),
+        a = await ask_json("investigator", SYSTEM, _prompt(plan, notes, st, ctx, history, recent[-RECENT:], max_turns - n + 1, lessons or [], question),
                            notes["llm_notes"], max_tokens=1500)
         if a is None:
             out["stopped_because"] = "LLM unavailable or LLM call budget exhausted"
