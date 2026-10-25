@@ -76,7 +76,7 @@ class TestEnvExample(unittest.TestCase):
         used = set()
         for f in pkg.glob("*.py"):
             used |= set(re.findall(r'getenv\("([A-Z][A-Z0-9_]*)"', f.read_text(encoding="utf-8")))
-        example = (root / ".env.example").read_text(encoding="utf-8")
+        example = (pkg / ".env.example").read_text(encoding="utf-8")
         declared = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]*)=", example, re.M))
         self.assertEqual(sorted(used - declared), [])
         for line in example.splitlines():                      # names only: no secret values

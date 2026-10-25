@@ -138,7 +138,7 @@ and a mock MCP server. If it fails on a real one, send the output.
 
 ### Step 6: integrate with C1 (MCP server)
 
-1. Copy `.env.example` to `.env` (never commit it) and set `C3_MCP_COMMAND`, `C3_MCP_ARGS` and `C3_MCP_CWD`. `C3_MCP_CWD` is the folder the server starts from. Until C1 delivers its own server, the default starts C2's stand-in, `-m dev.es_mcp_standin.server`.
+1. Copy the lines you need from `group_C/threat_hunting/evidence/.env.example` into the root `.env` file (never commit it) and set `C3_MCP_COMMAND`, `C3_MCP_ARGS` and `C3_MCP_CWD`. `C3_MCP_CWD` is the folder the server starts from. Until C1 delivers its own server, the default starts C2's stand-in, `-m dev.es_mcp_standin.server`.
 2. If C2's analytics server must also be reachable (`check_ioc`), set `C3_MCP_ANALYTICS_COMMAND` and `C3_MCP_ANALYTICS_ARGS`.
 3. Run `cli report --bundle <file> --verify mcp`. C3 uses its own connection, so its calls go to their own audit file (`<run>-verify`).
 

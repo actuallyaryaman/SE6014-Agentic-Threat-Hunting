@@ -149,7 +149,7 @@ docker compose -f group_C/threat_hunting/evidence/dev/docker-compose.dev.yml up 
 python group_C/threat_hunting/evidence/dev/load_sample_data.py --reset
 python -m group_C.threat_hunting.evidence.cli report --bundle tests/group_C/c3/fixtures/hunt_bundle_confirmed.json --verify es
 
-# through C1's MCP server (set C3_MCP_COMMAND and C3_MCP_ARGS in .env)
+# through C1's MCP server (set C3_MCP_COMMAND and C3_MCP_ARGS in .env, see evidence/.env.example)
 python -m group_C.threat_hunting.evidence.cli report --bundle <bundle.json> --verify mcp --formats json,md,html,pdf
 
 # from a C2 run folder (the analytics audit file is read from next to the audit file)
