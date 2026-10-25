@@ -26,7 +26,7 @@ Both services use authenticated HTTPS to Elasticsearch, preserve upstream metada
 | `tools/push-test*.json`, `tools/invalid-test.json` | Test fixtures |
 | `../docker-compose.pull.yaml` | Both A2 services and persistent volumes |
 
-**Required:** Docker Desktop/Compose, a running Elasticsearch service on the external Docker network `elastic`, the repository-root `.env`, and `group_A/certs/http_ca.crt`. Python 3 is needed only for the optional sender.
+**Required:** Docker Desktop/Compose, a running Elasticsearch service on the external Docker network `elastic`, the repository-root `.env`, and `certs/http_ca.crt`. Python 3 is needed only for the optional sender.
 
 Configure the root `.env` with `ELASTICSEARCH_URL`, `ELASTICSEARCH_USER`, and `ELASTICSEARCH_PASSWORD`. For team integration, also use:
 
