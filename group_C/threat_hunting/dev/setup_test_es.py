@@ -2,7 +2,8 @@
 
 Touches only: ingest pipelines c2test-*, index template c2test-security-events, index security-events-c2test and the API key
 c2test-hunt-ro (read + view_index_metadata on security-events-c2test*). Admin credentials come from ES_ADMIN_USER /
-ES_ADMIN_PASSWORD and are never printed. ES_URL, the read-only key and HUNT_INDEX are written to .env.test (mode 0600).
+ES_ADMIN_PASSWORD and are never printed. ES_URL, the read-only key, HUNT_INDEX and ES_CA_CERT (when set) are written to
+.env.test (mode 0600).
 
 python -m dev.setup_test_es [--teardown]"""
 from __future__ import annotations
@@ -78,7 +79,8 @@ def setup():
         "indices": [{"names": [f"{INDEX}*"], "privileges": ["read", "view_index_metadata"]}]}})
     ENV_FILE.touch(mode=0o600)
     ENV_FILE.chmod(0o600)
-    ENV_FILE.write_text(f"ES_URL={url}\nES_API_KEY={k['encoded']}\nHUNT_INDEX={INDEX}*\n")
+    ca = os.environ.get("ES_CA_CERT", "")          # needed for a TLS cluster such as the team stack
+    ENV_FILE.write_text(f"ES_URL={url}\nES_API_KEY={k['encoded']}\nHUNT_INDEX={INDEX}*\n" + (f"ES_CA_CERT={ca}\n" if ca else ""))
     print(f"read-only API key {KEY_NAME} (id {k['id']}) written to {ENV_FILE.name}")
 
 

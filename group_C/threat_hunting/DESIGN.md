@@ -1,4 +1,4 @@
-# C2 — Threat-Hunting Agent: Design (Draft v0.4)
+# C2 — Threat-Hunting Agent: Design (Draft v0.5)
 
 | | |
 |---|---|
@@ -6,6 +6,7 @@
 | **Status** | Draft for review. Feedback welcome via PR comments |
 | **Related** | [INTERFACES.md](INTERFACES.md): contracts and requests to other members · [README.md](README.md): how to run the code |
 | **Last updated** | 2026-10-25 |
+| **Changes in v0.5** | C1's server delivered; status table and §6 updated; C2 claims cite only their own evidence, and T1078 has an indicator step (found by C3 and #24) |
 | **Changes in v0.4** | C3 review fixes: tool allowlist (T7), injection sweep (T1), analyst-review rule per §4.2, 95 % coverage threshold (§5.4), bucket cap, `queries[]` / `dynamic_steps` / analytics audit for C3; §3, §6, §8, §9.1, §11, §15 now match the code; confidence and review rules are binding in INTERFACES.md §4.3 |
 | **Changes in v0.3** | Implementation status below; the code is a port of the C2 parts of the author's prototype |
 | **Changes in v0.2** | Aligned with the SE6014 project requirements: coverage guarantees (§5), hunt-analytics MCP server (§3, §6), switchable repeatability controls (§9), demo profile (§3.3), decision-risk outputs (§4.2), references (§13), requirements traceability (§14) |
@@ -30,7 +31,7 @@ The code in this folder is a port of the C2 parts of the author's prototype (`vt
 | Hunt-analytics MCP server (§6) | `gap_check`, `lookup_attack`, `check_ioc` done, with an audit file; `burst_detect`, `beacon_score`, `rare_values` planned |
 | Switchable controls (§9.2) | Four controls (`--control`); profiles and time budgets (§3.3), `--no-playbook`, `--warmup`, `--replay` not yet |
 | Structured intake `HuntSpec`, completeness gate, ATT&CK variant catalogue (§3.1, §5.1, §5.3) | Not yet: the planner builds the plan from rules and the `SOURCES` / `REQUIRED_FIELDS` tables in `playbooks.py` |
-| C1 ES MCP server | Temporary stand-in in `dev/es_mcp_standin/` until C1 delivers |
+| C1 ES MCP server | Delivered by C1 as `es_mcp_server/` (same tools, TLS verification always on); tested end to end with C2 and C3 on Elastic 8.19.23. The stand-in `dev/es_mcp_standin/` is still the default command |
 
 Deviations from this design found while porting: the team's firewall log has no ports or byte counts, so beaconing is counted per destination, host scanning counts distinct internal destinations, and exfiltration hunts return `INSUFFICIENT_DATA`; lateral movement is detected from Sysmon EID 3 instead of the firewall.
 
@@ -274,7 +275,7 @@ The requirement is that *search, aggregation and every other capability the hunt
 
 | Server | Owner | Tools | Notes |
 |---|---|---|---|
-| **ES MCP server** | C1 (stand-in: `dev/es_mcp_standin/`) | `describe_data`, `search`, `count`, `aggregate` (used by the agent); `get_event` (used by C3) | Holds the read-only ES key. Structured filters only. Contract in INTERFACES.md §1.2 |
+| **ES MCP server** | C1: `es_mcp_server/` (stand-in: `dev/es_mcp_standin/`) | `describe_data`, `search`, `count`, `aggregate` (used by the agent); `get_event` (used by C3) | Holds the read-only ES key. Structured filters only. Contract in INTERFACES.md §1.2 |
 | **hunt-analytics MCP server** | **C2** | `gap_check`, `lookup_attack`, `check_ioc` (done); `burst_detect`, `beacon_score`, `rare_values` (planned) | **Pure functions** over data that the agent obtained from C1's tools (histogram buckets, timestamps, term counts). Holds no ES credentials and has no network access. Built with the official MCP Python SDK. Contract in INTERFACES.md §1.6 |
 
 What stays inside the agent, and why: planning, the completeness gate, decision-rule evaluation and the self-check are the agent's own **reasoning and control logic**, not capabilities of the log platform. The tool list C2 depends on is short and stable, so C1 can adopt the analytics tools into the ES server later without changes to the agent.
@@ -429,10 +430,11 @@ group_C/threat_hunting/
 ├── threat_hunting/             # the agent (MCP client)
 │   ├── run.py                  # python -m threat_hunting.run "<hypothesis>" [--run-id] [--max-calls] [--control NAME=off]
 │   ├── planner.py · playbooks.py · hunter.py · verdict.py · selfcheck.py · guardrails.py
-│   ├── query.py                # structured filters → ES DSL + validation (also used by the ES stand-in)
+│   ├── query.py                # structured filters → ES DSL + validation (also used by both ES servers)
 │   ├── models.py · config.py · llm.py · mcp_client.py · evaluate.py · perturb.py
 │   └── knowledge/              # attack_subset.json, baselines.yml, iocs.yml
 ├── analytics_server/           # C2's hunt-analytics MCP server (pure functions; no ES access)
+├── es_mcp_server/              # C1's Elasticsearch MCP server
 ├── dev/                        # temporary: es_mcp_standin/ (C1 stand-in), b1_pipelines/, index_template.json, setup_test_es.py
 ├── scenarios/                  # synthetic data generator; output and ground truth are git-ignored
 └── tests/                      # offline unit tests + end-to-end hunts (-m es)

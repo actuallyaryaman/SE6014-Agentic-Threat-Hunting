@@ -9,7 +9,7 @@ Takes a plain-language hypothesis, plans a hunt from vetted playbooks, queries E
 | `threat_hunting/` | The agent (an MCP client): `planner`, `playbooks`, `hunter`, `verdict`, `selfcheck`, `query` (filter → DSL compiler), `llm`, `mcp_client`, `run` |
 | `analytics_server/` | C2's MCP server: `gap_check`, `lookup_attack`, `check_ioc` (pure functions, no ES credentials) |
 | `es_mcp_server/` | C1's maintained Elasticsearch MCP server; [install, configure and validate](es_mcp_server/README.md) |
-| `dev/es_mcp_standin/` | **Temporary** read-only ES MCP server standing in for C1's |
+| `dev/es_mcp_standin/` | The read-only ES MCP server C1's was promoted from; still the default command until C1 switches it |
 | `dev/b1_pipelines/` | B1's pipelines vendored from PR #12 (`fee53b1`) + `windows_ext.json` (request R3a) |
 | `dev/setup_test_es.py`, `dev/index_template.json` | Isolated test setup (`c2test-*` pipelines, `security-events-c2test` index, read-only key) |
 | `scenarios/generate.py` | Deterministic synthetic data with planted attacks and ground truth |

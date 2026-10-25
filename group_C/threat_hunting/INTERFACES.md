@@ -1,10 +1,11 @@
-# C2 — Interface Contracts and Requests to Other Members (Draft v0.4)
+# C2 — Interface Contracts and Requests to Other Members (Draft v0.5)
 
 | | |
 |---|---|
 | **Owner** | Vu Tuan Dat (C2) |
 | **Status** | **Proposal.** Please comment on the PR or propose changes; nothing here is final until agreed |
 | **Companion** | [DESIGN.md](DESIGN.md) |
+| **Changes in v0.5** | C1 delivered `es_mcp_server/` (promoted from the stand-in): §1.2 and §1.4 now describe both servers; §4.2 states the fact rule C2 and C3 share; R1 delivered; [RUN_HUNTS.md](RUN_HUNTS.md) gives the Group C commands for the four reference hunts |
 | **Changes in v0.4** | Settles the conflicts from C3's review: §4.1 now documents the real `result.json` (binding for C3), with `queries[]`, `dynamic_steps`, `findings` and `review_reasons`; new §4.3 is the single source of truth for confidence and analyst review; §1.1 tool allowlist, §1.4 limits, §1.5 structured filters, §5 CLI and controls all match the code; `logs-*` examples replaced by `security-events-*` |
 | **Changes in v0.3** | Synced with the working port (`threat_hunting/`): §1.2 lists the tools the agent actually calls (implemented by the C1 stand-in `dev/es_mcp_standin/`); §1.6 marks what the analytics server implements; §2.1 follows Group B's `security-events-*` + `event.dataset` convention; new request **R3a** to B1 |
 | **Changes in v0.2** | C2-owned contracts only: hunt-analytics MCP server (§1.6); coverage matrix and decision-risk fields in `HuntResult` (§4.1); profiles, switchable controls and new CLI flags for C4 (§5). No new requests to other members |
@@ -17,7 +18,7 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 
 | # | From | Request | Priority | Needed by | C2 stand-in until then |
 |---|---|---|---|---|---|
-| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | `dev/es_mcp_standin/` (ported read-only prototype server) |
+| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | **Delivered** as `es_mcp_server/` (tools §1.2); the target envelope §1.3 is still open. Stand-in `dev/es_mcp_standin/` remains the default command |
 | R2 | **C1** | Server-side query safety limits (§1.4) | High | M4 | Same limits enforced in C2's compiler |
 | R3 | **Group B (B1)** | Dataset names, index naming, per-dataset field list with ES types (§2) | High | M2/M5 | Assumed ECS mapping below |
 | R3a | **Group B (B1)** | `windows-json` pipeline: set `@timestamp` from `EventTime`/`UtcTime` (today **no** Windows event gets one, so time-bounded hunts never see them) and map `CommandLine`, `ParentImage`, `SourceImage`, `TargetImage`, `GrantedAccess`, `TargetFilename` | High | M5 | `dev/b1_pipelines/windows_ext.json` appended in the test setup |
@@ -39,7 +40,7 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 - **Credentials:** the MCP server holds the ES credentials. **The agent never sees them.** The agent passes ES settings only to the ES server; the analytics server gets none.
 - **Tool allowlist (threat T7):** at start-up the agent routes only the tools it uses (`describe_data`, `search`, `count`, `aggregate` on the ES server; `gap_check`, `lookup_attack`, `check_ioc` on the analytics server) and checks that each one declares the parameters it relies on. A missing tool or parameter, or one tool name offered by two servers, stops the run. Any other tool a server offers is never routed and is listed in `manifest.ignored_tools`. Allowlist: `ALLOWED` in `threat_hunting/mcp_client.py`.
 
-### 1.2 Tools the agent calls (implemented today by the stand-in `dev/es_mcp_standin/`)
+### 1.2 Tools the agent calls (implemented by C1's `es_mcp_server/` and by the stand-in `dev/es_mcp_standin/`)
 
 Filters use a structured language, never raw DSL: `{field, op, value}` with `op` in `eq|neq|in|wildcard|prefix|contains|gte|lte|gt|lt|exists`; `filters` are ANDed, `must_not` excluded, `any_of` needs one match. The server compiles them with `threat_hunting/query.py` (index allowlist `security-events-*`, mandatory time range, size cap 200, no scripts, CIDR only on `ip` fields).
 
@@ -52,7 +53,7 @@ Filters use a structured language, never raw DSL: `{field, op, value}` with `op`
 | `get_event` | `index` (exact), `event_id` | `{event}` including `event.original`. **Used by C3 to verify evidence** |
 | `save_finding`, `get_audit_log` | | Audit helpers |
 
-`time_from`/`time_to` are **mandatory** and become a `range` filter on `@timestamp`, so a query without a time bound is impossible. C1 can replace the stand-in with any server that offers these names and shapes; the agent is pointed at it with `HUNT_ES_MCP_CMD`. (The v0.2 proposal of `list_indices` / `get_field_mapping` / raw-DSL `search` is superseded by this list.)
+`time_from`/`time_to` are **mandatory** and become a `range` filter on `@timestamp`, so a query without a time bound is impossible. C1's server offers exactly these names and shapes; select it with `HUNT_ES_MCP_CMD=python -m es_mcp_server.server` (the stand-in stays the default until C1 says otherwise). (The v0.2 proposal of `list_indices` / `get_field_mapping` / raw-DSL `search` is superseded by this list.)
 
 ### 1.3 Response envelope (all tools)
 
@@ -88,7 +89,7 @@ Filters use a structured language, never raw DSL: `{field, op, value}` with `op`
 
 **Why `request` and `request_hash` matter:** C3 must record the exact query behind every finding, and C4 compares queries across runs. If the server echoes the canonical request, all three of us share a single source of truth.
 
-### 1.4 Safety limits (enforced by the query compiler `threat_hunting/query.py` and the stand-in; C1 should enforce the same)
+### 1.4 Safety limits (enforced by the query compiler `threat_hunting/query.py` and by both ES servers)
 - Index allowlist: patterns starting with `security-events-`. No system indices (`.security*`, `.kibana*`), no `_all`, `*` or `..`.
 - Structured filters only (§1.2) compile to `bool`, `term`, `range`, `exists`, `wildcard`, `prefix`, `match_phrase`. **Rejected:** `script`, `script_fields`, `scripted_metric`, `runtime_mappings`, raw DSL.
 - **Leading wildcards are allowed** because filters come only from vetted playbooks, never from the LLM: `*\lsass.exe`, `*.dmp`, `*/uploads/*.php`, the SQL-injection patterns, and `contains` on keyword fields (`*value*`). This is fine at course-project volumes; at scale, map `url.original` and `process.command_line` as the `wildcard` field type.
