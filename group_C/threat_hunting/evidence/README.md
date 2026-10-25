@@ -114,6 +114,14 @@ or a claim that failed verification.
 | `verified` | All checks passed. |
 | `unverified` | The claim cannot be checked in this mode (offline, or Elasticsearch cannot replay an IOC lookup), or it cites more than 500 events. C3 fetches every cited event again and never checks a sample. |
 
+### Facts are not evidence
+
+The `facts` field of a claim is what C2 says it quoted. C3 checks it and never uses it to back up the claim text.
+For event claims, each fact must match the re-fetched events. For aggregate claims, `bucket_key` and `count` must
+match the replayed bucket, and every other fact must match the events behind the bucket (or appear in the replayed
+response or the step query). The claim text is then linted against the re-fetched events, the step query and the
+replayed bucket only. A name or number that appears only in `facts` and in the text makes the claim `contradicted`.
+
 ### Text lint
 
 Every IP, host name, account, number (2 or more digits) and hash in a claim's sentence must appear in that claim's

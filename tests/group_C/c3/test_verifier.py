@@ -175,3 +175,45 @@ class TestEventLimit(unittest.TestCase):
     def test_verified_note_says_all_events_were_checked(self):
         out = by_id(run(build_confirmed(), FakeGateway(MiniES())))
         self.assertIn("re-fetched all", out["C-001"].verifier_notes)
+
+
+class TestClaimFactsAreNotEvidence(unittest.TestCase):
+    """What C2 puts in claim.facts must not vouch for the claim text (reviewer finding)."""
+
+    def _run_c005(self, text_suffix="", facts=None, text=None):
+        bundle = build_confirmed()
+        claim = next(c for c in bundle.claims if c.claim_id == "C-005")
+        if text is not None:
+            claim.text = text
+        claim.text += text_suffix
+        claim.facts = {**claim.facts, **(facts or {})}
+        return by_id(run(bundle, FakeGateway(MiniES())))["C-005"]
+
+    def test_invented_host_in_text_and_facts_is_rejected(self):
+        claim = self._run_c005(" from WS-9999", {"host.name": "WS-9999"})
+        self.assertEqual(claim.status, "contradicted")
+        self.assertIn("host.name", claim.verifier_notes)
+
+    def test_invented_host_in_text_only_is_rejected(self):
+        claim = self._run_c005(" from WS-9999")
+        self.assertEqual(claim.status, "contradicted")
+
+    def test_wrong_bucket_key_in_facts_is_rejected(self):
+        claim = self._run_c005(facts={"bucket_key": "10.9.9.9"})
+        self.assertEqual(claim.status, "contradicted")
+        self.assertIn("bucket_key", claim.verifier_notes)
+
+    def test_wrong_count_in_facts_is_rejected(self):
+        claim = self._run_c005(facts={"count": "7"})
+        self.assertEqual(claim.status, "contradicted")
+
+    def test_invented_host_in_an_events_claim_is_rejected(self):
+        bundle = build_confirmed()
+        claim = next(c for c in bundle.claims if c.claim_id == "C-001")
+        claim.text += " on WS-9999"
+        claim.facts = {**claim.facts, "host.name": "WS-9999"}
+        out = by_id(run(bundle, FakeGateway(MiniES())))["C-001"]
+        self.assertEqual(out.status, "contradicted")
+
+    def test_unchanged_claim_is_still_verified(self):
+        self.assertEqual(self._run_c005().status, "verified")

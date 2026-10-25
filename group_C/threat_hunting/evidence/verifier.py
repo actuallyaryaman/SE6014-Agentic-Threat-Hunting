@@ -228,7 +228,7 @@ class _Verifier:
         problem = self._check_facts(claim, docs)
         if problem:
             return self._set(claim, "contradicted", problem)
-        extra = lint_text(claim.text, self._haystack(docs, claim) + "\n" + consts)
+        extra = lint_text(claim.text, self._docs_haystack(docs) + "\n" + consts + "\n" + str(len(claim.event_ids)))
         if extra:
             return self._set(claim, "contradicted", f"claim text contains values not in evidence: {extra}")
         return self._set(claim, "verified", f"re-fetched all {len(claim.event_ids)} cited events; all quoted values match")
@@ -239,8 +239,13 @@ class _Verifier:
                 "C3 does not report a claim as verified when some cited events were never checked")
 
     @staticmethod
-    def _check_facts(claim: Claim, docs: list[dict[str, Any]]) -> Optional[str]:
-        for key, value in claim.facts.items():
+    def _docs_haystack(docs: list[dict[str, Any]]) -> str:
+        """Lower-cased values of the retrieved events only. Nothing the claim itself says is included."""
+        return "\n".join(str(v) for d in docs for v in d.values()).lower()
+
+    @staticmethod
+    def _check_facts(claim: Claim, docs: list[dict[str, Any]], facts: Optional[dict[str, Any]] = None) -> Optional[str]:
+        for key, value in (claim.facts if facts is None else facts).items():
             if key == "n_connections":
                 if str(len(claim.event_ids)) != str(value):
                     return f"claimed {value} connections, {len(claim.event_ids)} events cited"
@@ -252,6 +257,24 @@ class _Verifier:
                 bad = [d for d in docs if str(d.get(key, "")).lower() != str(value).lower()]
                 if bad:
                     return f"{key}={value!r} not present in {len(bad)} of {len(docs)} cited events"
+        return None
+
+    def _check_aggregate_facts(self, claim: Claim, bucket: dict[str, Any], docs: list[dict[str, Any]],
+                               evidence_text: str) -> Optional[str]:
+        """Check the facts of an aggregate claim against the replayed bucket and the retrieved events."""
+        facts = dict(claim.facts)
+        key = facts.pop("bucket_key", None)
+        if key is not None and str(key).lower() != str(bucket.get("key")).lower():
+            return f"bucket_key={key!r} differs from the replayed bucket {bucket.get('key')!r}"
+        count = facts.pop("count", None)
+        if count is not None and str(count) != str(bucket.get("count")):
+            return f"count={count!r} differs from the replayed count {bucket.get('count')!r}"
+        if docs:
+            return self._check_facts(claim, docs, facts)
+        for name, value in facts.items():
+            values = value if isinstance(value, list) else [value]
+            if not all(_appears(str(v), evidence_text) for v in values):
+                return f"{name}={value!r} is not backed by the replayed response"
         return None
 
     def _aggregate_record(self, claim: Claim) -> AuditRecord:
@@ -290,7 +313,14 @@ class _Verifier:
             docs.append(event_result.event)
         if docs:
             notes.append(f"re-fetched all {len(docs)} events behind the bucket; all match")
-        extra = lint_text(claim.text, self._haystack(docs, claim) + "\n" + consts + "\n" + json.dumps(bucket, default=str).lower())
+
+        # What C2 says in claim.facts must be backed by the replayed response or the retrieved events.
+        # It is checked here and is never used as evidence for the claim text.
+        evidence_text = self._docs_haystack(docs) + "\n" + consts + "\n" + json.dumps(bucket, default=str).lower()
+        problem = self._check_aggregate_facts(claim, bucket, docs, evidence_text)
+        if problem:
+            return self._set(claim, "contradicted", problem)
+        extra = lint_text(claim.text, evidence_text)
         if extra:
             return self._set(claim, "contradicted", f"claim text contains values not in evidence: {extra}")
         return self._set(claim, "verified", "; ".join(notes))
