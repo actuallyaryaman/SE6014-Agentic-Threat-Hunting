@@ -97,4 +97,16 @@ audit evidence. The CLI adds `onboard` (dry-run by default, `--execute` for
 writes) and `verify`. Stream execution remains blocked pending A3 agreement.
 See [the B3 README](agentic_ingestion/README.md) for configuration and failure
 semantics, and [live ES results](tests/LIVE_ES_RESULTS.md) for isolated indexing
-and replay evidence. Shared A1/A2/A3 integration remains Batch 7 work.
+and replay evidence. The unchanged A1/A2 configurations now also pass an
+isolated authenticated HTTPS integration run; see
+[the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Access to the
+shared deployment, A3 agreement and the complete hunting demo remain.
+
+
+## Independent local hunt demo
+
+The [demo runbook](DEMO_RUNBOOK.md) exercises B3 → actual A2 → HTTPS ES →
+C2's existing development MCP servers → a rules-based SSH hunt. It needs no
+shared credentials or live LLM. The [recorded results](tests/ONBOARDING_HUNT_RESULTS.md)
+include positive/negative cases, exact planted-event evidence and repeatability.
+The final C1/C3 services and A3 agreement remain separate integration work.

@@ -112,3 +112,12 @@ pipeline and routed an unknown JSON source to B2 generation. This checks the
 Python boundary only; it does not replace live B1 pipeline/A2/A1 verification.
 The earlier 258-test live result above predates this merge and is not a fresh
 live run against the combined B1 tree.
+
+
+## Subsequent A1/A2 configuration integration
+
+The unchanged A1/A2 Logstash pipelines have since passed real pull/push
+onboarding over authenticated HTTPS with separate B3 keys. This supersedes
+the earlier local transport gap for those pinned configurations, but does not
+verify Ishaan's deployment. See [A1/A2 results](A1_A2_INTEGRATION_RESULTS.md)
+and its machine-readable evidence for the exact scope and remaining work.
