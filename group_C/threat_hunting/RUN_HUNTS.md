@@ -101,6 +101,17 @@ Measured on 2026-10-25 on the team stack (Elastic 8.19.23 over HTTPS), with C3 a
 
 Every query C3 replayed through C1's server returned identical results. Case 1 requires analyst review (every `SUPPORTED` verdict does).
 
+Agent mode (section 4b), measured the same day with DeepSeek `deepseek-flash`. The agent's queries and leads differ from run to run; the verdict rules do not:
+
+| Case | C2 verdict | Leads | What the agent did | C3 verdict | C3 review |
+|---|---|---|---|---|---|
+| 1. attack | `SUPPORTED`, high | 4 | 10 queries; skeptic: 3 benign explanations ruled out, 1 test not discriminating; 5 detection drafts | Confirmed (6/6 verified) | agrees |
+| 2. benign host | `INCONCLUSIVE`, low | 6 | 10 queries; recorded the host's few failed logins and a later success as leads | Inconclusive (6/6 verified) | agrees |
+| 3. host with no logs | `INCONCLUSIVE`, low | 3 | 10 queries; leads on other hosts | Inconclusive (3/3 verified) | agrees |
+| 4. date with no data | `INSUFFICIENT_DATA`, low | 0 | Stopped after 4 queries: no `linux.auth` events in the window | Inconclusive | agrees |
+
+Case 2 shows the price of agency: leads block a refutation by design (a missed attack costs more than a review), so a benign host whose logs contain a few failed logins comes out `INCONCLUSIVE` with leads to review instead of `NOT_SUPPORTED`. Every replay was identical in both modes.
+
 ## Outputs
 - C2: `runs/c-<case>/result.json`, `plan.json` and `trace.jsonl` (INTERFACES.md §4.1).
 - C1's audit logs: `audit/c-<case>.jsonl`, plus `audit/c-<case>-analytics.jsonl` from C2's analytics server.
