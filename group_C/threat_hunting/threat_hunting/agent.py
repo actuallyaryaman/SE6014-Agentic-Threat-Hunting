@@ -23,6 +23,12 @@ AGGS = {"terms", "rare_terms", "cardinality", "stats", "date_histogram"}
 DEFAULT_FIELDS = ["@timestamp", "event.dataset", "host.name", "source.ip", "destination.ip", "destination.port", "user.name",
                   "process.name", "event.action", "event.outcome", "url.path"]
 TECH_RX = re.compile(r"^T\d{4}(\.\d{3})?$")
+PARAMS_HELP = """search params: time_from, time_to, filters, must_not, any_of, fields (list), size (at most 100)
+aggregate params: time_from, time_to, filters, must_not, any_of, agg (terms | rare_terms | cardinality | stats | date_histogram),
+  field, size, interval (date_histogram, e.g. 1h), sum_field or distinct_field (terms)
+count params: time_from, time_to, filters, must_not, any_of
+To limit a query to one dataset, add the filter {"field": "event.dataset", "op": "eq", "value": "<dataset>"}."""
+ALIASES = {"filter": "filters", "limit": "size", "exclude": "must_not"}     # names models often use instead
 PH_RX = re.compile(r"\{([\w.@]+)\}")
 MAX_REJECTIONS = 3
 RECENT = 3                     # observations shown in full; older actions appear in the history only
@@ -50,10 +56,7 @@ Answer with ONE JSON object:
  "action": "search" | "aggregate" | "count" | "check_ioc" | "stop",
  "technique": "the ATT&CK id this tests", "purpose": "what the query looks for",
  "params": {...}, "claim": {...}}
-search params: time_from, time_to, filters, must_not, any_of, fields (list), size (at most 100)
-aggregate params: time_from, time_to, filters, must_not, any_of, agg (terms | rare_terms | cardinality | stats | date_histogram),
-  field, size, interval (date_histogram, e.g. 1h), sum_field or distinct_field (terms)
-count params: time_from, time_to, filters, must_not, any_of
+""" + PARAMS_HELP + """
 check_ioc params: value (an IP or domain from the findings)
 For "stop", give "thought" and "reason" only."""
 
@@ -149,6 +152,19 @@ def validate_action(a: dict, ctx: Ctx, n: int, prefix: str = "AG", role: str = "
             return _reject("check_ioc takes exactly one string param: value")
         return {"kind": "ioc", "step_id": sid, "technique": tech, "purpose": purpose, "value": v}, None
     p = dict(p)
+    for k, v in ALIASES.items():
+        if k in p and v not in p:
+            p[v] = p.pop(k)
+    tr = p.pop("time_range", None)
+    if isinstance(tr, dict):                                # {"from", "to"} means time_from / time_to
+        p.setdefault("time_from", tr.get("from") or tr.get("gte"))
+        p.setdefault("time_to", tr.get("to") or tr.get("lt") or tr.get("lte"))
+    if "dataset" in p:                                      # "dataset" means an event.dataset filter
+        d = p.pop("dataset")
+        p["filters"] = [{"field": "event.dataset", "op": "in" if isinstance(d, list) else "eq", "value": d}] + list(p.get("filters") or [])
+    if act == "aggregate" and "group_by" in p and "field" not in p:
+        g = p.pop("group_by")
+        p["field"] = g[0] if isinstance(g, list) and g else g
     if act == "aggregate" and isinstance(a.get("claim"), dict):     # thresholds are claim settings; models often put them in params
         for k in ("bucket_min_count", "bucket_min_sum", "bucket_min_distinct"):
             if k in p:
@@ -219,7 +235,8 @@ def summarize(res: dict, step: PlanStep, flagged: set[str], new_claims) -> dict:
         r = res.get("result")
         out["buckets" if isinstance(r, list) else "result"] = r[:10] if isinstance(r, list) else r
     if new_claims:
-        out["new_findings"] = [{"claim_id": c.claim_id, "text": c.text} for c in new_claims]
+        out["new_findings"] = [{"claim_id": c.claim_id, **({"withheld": "built from events with injection-like text"}
+                                                           if set(c.event_ids) & flagged else {"text": c.text})} for c in new_claims]
     return out
 
 

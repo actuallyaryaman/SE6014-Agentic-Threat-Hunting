@@ -69,3 +69,19 @@ def test_response_proposals_must_target_cited_facts(fake_llm, tmp_path):
     assert len([n for n in out["notes"] if n.startswith("response proposal dropped")]) == 2
     rule = next(d for d in out["detections"] if d["from_step"] == "T1078-b")
     assert rule["title"] == "SSH login after brute force" and rule["metadata_by"] == "llm" and rule["validation"]["ok"]
+
+
+def test_rejected_skeptic_tests_get_one_repair_round(fake_llm):
+    bad = {"action": "search", "technique": "T1078", "purpose": "earlier logins", "params": {"user": "admin"}}
+    good = {"action": "search", "technique": "T9999", "purpose": "earlier logins",
+            "params": {"filters": [{"field": "user.name", "op": "eq", "value": "admin"}]}}
+    fake = fake_llm({"skeptic": [{"alternatives": [{"claim_id": "C-002", "explanation": "admin works from home", "benign_if": ">0", "action": bad}]},
+                                 {"alternatives": [{"claim_id": "C-002", "explanation": "admin works from home", "benign_if": ">0", "action": good}]}]})
+    plan, st, notes = _rows_plan(_claims())
+    notes.update({"index_types": setup()[1]["index_types"], "llm_notes": []})
+    llm.start_trace(None)
+    sk = asyncio.run(skeptic.challenge(FakeMcp(), plan, st, notes, {"findings": []}))
+    first, second = sk["alternatives"]
+    assert first["superseded"] and "unknown params ['user']" in first["reason"]
+    assert second["outcome"] == "supported" and second["step_id"] == "SK-01"          # technique comes from the claim, not the LLM
+    assert "unknown params ['user']" in fake.prompts["skeptic"][1][1]

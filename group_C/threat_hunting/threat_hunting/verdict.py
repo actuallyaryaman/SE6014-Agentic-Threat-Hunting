@@ -27,6 +27,8 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
             c = cov.get(s)
             if c and c["n_buckets"] and 1 - c["coverage_ratio"] > GAP_THRESHOLD:
                 gaps.append(f"'{s}' has empty time buckets ({len(c['empty_buckets'])}/{c['n_buckets']})")
+        if notes.get("mapping_missing"):
+            gaps.append("the index mapping could not be read, so a filter may have matched nothing silently")
         steps = [s for s in plan.steps + st.dynamic_steps if s.technique == t and s.role == "indicator"]
         errored = [s.step_id for s in steps if st.step_results.get(s.step_id, {}).get("status") != "ok"]
         if errored:

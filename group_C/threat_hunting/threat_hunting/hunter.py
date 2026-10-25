@@ -72,7 +72,8 @@ async def run_step(mcp, st: HuntState, step: PlanStep, dynamic=False) -> dict | 
         if not info["complete"] and not step.analysis.get("sample_ok"):
             st.notes.append(f"step {step.step_id}: {res['total']} hits but only {len(res['hits'])} returned (size cap); claims cover the returned sample")
     else:
-        ev.excerpt = [res.get("result")] if not isinstance(res.get("result"), list) else res["result"][:5]
+        r = res.get("result")                       # a list of dicts for C3: buckets, a stats object, a value, or nothing (count)
+        ev.excerpt = r[:5] if isinstance(r, list) else [r] if isinstance(r, dict) else [] if r is None else [{"value": r}]
     st.evidence.append(ev)
     st.step_results[step.step_id] = info
     return res

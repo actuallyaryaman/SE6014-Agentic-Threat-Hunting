@@ -100,7 +100,7 @@ async def intake(hypothesis: str, kb: dict, now: str, notes: dict) -> dict:
 
 
 def hunt_window(hypothesis: str, sources: list[dict], llm_window) -> tuple[str, str, dict]:
-    """DESIGN.md 5.2: the hunt window, from the spans of the datasets the techniques need (not the whole index).
+    """DESIGN.md 5.4: the hunt window, from the spans of the datasets the techniques need (not the whole index).
     Basis, in order: a time the LLM read from the hypothesis (inside its date, if one is written), the date written in the
     hypothesis, else the last DEFAULT_LOOKBACK_H hours before the newest needed event. Never longer than MAX_WINDOW_DAYS."""
     first = min(s["first_event"] for s in sources); last = max(s["last_event"] for s in sources)
@@ -157,7 +157,9 @@ async def profile(mcp, s: dict) -> dict:
     hits = await mcp.call("search", **T, size=5)
     cats = await mcp.call("aggregate", **T, agg="terms", field="event.category", size=5)
     samples = [h["fields"] for h in hits.get("hits", [])]
-    return {"fields": sorted({k for h in samples for k in h}), "samples": samples,
+    markers = [m.lower() for m in playbooks.BASE["injection_markers"]]          # the sweep runs later; apply its markers here too
+    shown = [{"withheld": "injection-like text"} if any(m in json.dumps(x).lower() for m in markers) else x for x in samples]
+    return {"fields": sorted({k for h in samples for k in h}), "samples": shown,
             "categories": [b["key"] for b in cats.get("result", [])] if isinstance(cats.get("result"), list) else []}
 
 
@@ -206,6 +208,12 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     playbooks.set_matches(await match_unknown(mcp, unknown, notes) if unknown else {})
     sources = [s for s in all_sources if playbooks.log_type_of(s["dataset"])]
     unmatched = [s for s in all_sources if not playbooks.log_type_of(s["dataset"])]
+    if not dd.get("fields"):
+        # seen on the team stack: a key without view_index_metadata cannot read the mapping, the ES server then cannot tell an
+        # ip field from a keyword one, and ip filters silently match nothing. That must never become a refutation.
+        notes["mapping_missing"] = True
+        notes["gaps"].append("describe_data returned no field mapping (the API key needs view_index_metadata): "
+                             "field types are unknown, so filters may silently match nothing")
     notes["index_fields"] = sorted(f.rsplit(":", 1)[0] for f in dd.get("fields", []))
     notes["index_types"] = dict(f.rsplit(":", 1) for f in dd.get("fields", []) if ":" in f)
     notes["datasets"] = [{"dataset": s["dataset"], "kind": playbooks.log_type_of(s["dataset"]), "docs": s["docs"],

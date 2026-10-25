@@ -96,3 +96,10 @@ def test_failed_step_is_inconclusive():
     plan, st = _state()
     st.step_results["T1110-a"] = {"status": "error"}
     assert verdict.decide(plan, st, _notes())["verdict"] == "INCONCLUSIVE"
+
+
+def test_no_refutation_without_a_readable_mapping():
+    """Team-stack finding: without view_index_metadata the ES server cannot type fields and ip filters match nothing."""
+    plan, st = _state()
+    d = verdict.decide(plan, st, _notes(mapping_missing=True))
+    assert d["verdict"] == "INCONCLUSIVE" and any("mapping could not be read" in g for r in d["rows"] for g in r["gaps"])
