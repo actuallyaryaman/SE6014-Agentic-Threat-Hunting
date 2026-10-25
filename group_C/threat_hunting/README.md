@@ -34,24 +34,24 @@ python -m pytest -q
 python -m threat_hunting.run "An attacker on WS-01 dumped credentials from LSASS and then moved laterally to other hosts on 2026-10-01."
 ```
 
-Each run writes `runs/<run_id>/{plan.json,result.json,trace.jsonl}`. Use `python -m dev.setup_test_es --teardown` to remove the test artifacts.
+Each run writes `runs/<run_id>/{plan.json,result.json,trace.jsonl}` plus `audit/<run_id>.jsonl` (ES server) and `audit/<run_id>-analytics.jsonl` (analytics server). `result.json` is the contract with C3 (INTERFACES.md §4.1): verdict with review reasons, claims, evidence, findings, every query and the steps created at run time. Use `python -m dev.setup_test_es --teardown` to remove the test artifacts.
 
-To use C1's server instead of the stand-in, set `HUNT_ES_MCP_CMD` (it must offer the tools in INTERFACES.md §1.2). Without an LLM configured, the planner uses its rules; `HUNT_FORCE_RULES=1` forces that.
+To use C1's server instead of the stand-in, set `HUNT_ES_MCP_CMD`. It must offer the tools in INTERFACES.md §1.2; the agent refuses to start if a required tool or parameter is missing, and never routes tools outside its allowlist. Without an LLM configured, the planner uses its rules; `HUNT_FORCE_RULES=1` forces that.
 
-## Test results (2026-10-24, Elastic 8.17 single node, 15,190 synthetic events through B1's pipelines)
+## Test results (2026-10-25, Elastic 8.17 single node, 15,190 synthetic events through B1's pipelines; 53 tests)
 
 | Hypothesis | Verdict | Notes |
 |---|---|---|
 | LSASS dump on WS-01, then lateral movement | `SUPPORTED`, high | 14/14 claims self-checked; cites exactly the 50 ground-truth events (12/12 items, recall and precision 1.0); decoys not reported |
 | External IP brute-forced SSH, then logged in | `SUPPORTED`, high | 31/31 ground-truth events, recall and precision 1.0 |
-| Brute force on DC-01 (none planted) | `NOT_SUPPORTED`, medium | Full coverage, no indicators |
+| Brute force on DC-01 (none planted) | `NOT_SUPPORTED`, medium | Full coverage, no indicators; still flagged for review because the window contains injection text |
 | Host HR-LAPTOP-99 (doesn't exist) | `INCONCLUSIVE` | Named entity has no telemetry |
 | Exfiltration over 100 MB | `INSUFFICIENT_DATA` | The firewall log has no `network.bytes` |
 | Empty window (2030) | `INSUFFICIENT_DATA` | No events in the window |
 | Primary hunt with a 6-call budget | `INCONCLUSIVE` | Budget exhaustion is reported |
 | Primary hunt run twice | identical | Same requests (hashes), evidence and claim texts |
 
-A prompt-injection string planted in a web user agent changes no claim and no verdict.
+A prompt-injection string planted in a web user agent changes no claim and no verdict (the LLM never sees log text). The injection sweep reports it as a finding with its event id, so every hunt over that day requires analyst review. Confidence and review follow INTERFACES.md §4.3.
 
 ## Findings for other members
 - **B1 (R3a):** the `windows-json` pipeline sets no `@timestamp`, so Windows events are invisible to any time-bounded hunt. It also leaves the Sysmon fields the playbooks need (`CommandLine`, `ParentImage`, `SourceImage`, `TargetImage`, `GrantedAccess`, `TargetFilename`) unmapped. `dev/b1_pipelines/windows_ext.json` is a tested proposal.
