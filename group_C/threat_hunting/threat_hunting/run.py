@@ -74,7 +74,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     check = selfcheck.check(st)
     d = verdict.decide(plan, st, notes, check, guard)
     queries = _queries(run_dir / "trace.jsonl", plan, st, guard, n_plan, n_hunt)
-    llm = get_llm("planner")
+    llm = get_llm()
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
             "code_hash": _hash_files(src_files), "tool_calls": tool_calls, "seconds": round(time.time() - t0, 1),
@@ -91,7 +91,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                    "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."] + \
                   [f"data gap: {g}" for g in notes["gaps"]] + \
                   [f"missing fields: {k}: {v}" for k, v in notes["missing_fields"].items()]
-    result = {"schema_version": "0.2", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range,
+    result = {"schema_version": "0.2", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range, "intake": notes.get("intake"),
               "verdict": {"label": d["verdict"], "confidence": d["confidence"], "requires_analyst_review": d["requires_analyst_review"],
                           "review_reasons": d["review_reasons"], "reasons": d["reasons"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],
@@ -99,7 +99,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
               "step_results": st.step_results, "dynamic_steps": [s.model_dump() for s in st.dynamic_steps], "queries": queries,
               "self_check": check,
               "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing")},
-              "limitations": limitations, "notes": st.notes, "manifest": meta}
+              "limitations": limitations, "notes": st.notes + notes["llm_notes"], "manifest": meta}
     (run_dir / "result.json").write_text(json.dumps(result, indent=1, default=str))
     return result
 

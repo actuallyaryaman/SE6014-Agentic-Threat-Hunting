@@ -25,7 +25,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from . import config  # noqa: F401  (loads .env)
 
-ROLES = ("planner", "intake", "investigator", "skeptic", "responder", "classifier", "queue", "chat")
+ROLES = ("intake", "investigator", "skeptic", "responder", "classifier", "queue", "chat")
 DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5"}
 
 
