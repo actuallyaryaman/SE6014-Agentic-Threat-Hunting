@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Local B3 -> A2 HTTPS ES -> MCP -> C2 SSH hunt, with no live LLM.
 
-Uses C2's existing development C1 stand-in. It does not certify the final
-C1/C3 services or modify Group C's files/environment. See DEMO_RUNBOOK.md.
+Uses C2's existing development C1 stand-in and optionally C3's verifier.
+It does not certify final C1 or modify Group C's files/environment. See DEMO_RUNBOOK.md.
 """
 
 import argparse
@@ -25,16 +25,22 @@ from group_B.schema_generation.registry import SchemaRegistry
 
 
 class HuntDemo(Integration):
-    def c2_snapshot(self, python):
+    def c2_snapshot(self, python, c2_ref="HEAD", c3_ref=None):
         root = self.root / "c2"
         root.mkdir()
-        data = subprocess.check_output(["git", "archive", "HEAD:group_C/threat_hunting"], cwd=REPO)
+        data = subprocess.check_output(["git", "archive", c2_ref + ":group_C/threat_hunting"], cwd=REPO)
         with tarfile.open(fileobj=io.BytesIO(data)) as archive:
             archive.extractall(root, filter="data")
         assert not (root / ".env").exists() and not (root / ".env.test").exists()
+        if c3_ref:
+            data = subprocess.check_output(["git", "archive", c3_ref, "group_C/threat_hunting/evidence"], cwd=REPO)
+            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                archive.extractall(self.root / "c3", filter="data")
+            self.c3_root = self.root / "c3"
+            self.report["c3_commit"] = command("git", "rev-parse", c3_ref)
         self.c2_root = root
         self.hunt_python = str(python.absolute())
-        self.report["c2_tree"] = command("git", "rev-parse", "HEAD:group_C/threat_hunting")
+        self.report["c2_tree"] = command("git", "rev-parse", c2_ref + ":group_C/threat_hunting")
         versions = command(self.hunt_python, "-c", "import importlib.metadata,json; print(json.dumps({p:importlib.metadata.version(p) for p in ('mcp','elasticsearch','pydantic','PyYAML')}))")
         self.report["c2_dependencies"] = json.loads(versions)
         template = json.loads((root / "dev/index_template.json").read_text())
@@ -130,7 +136,35 @@ class HuntDemo(Integration):
         self.report.setdefault("hunts", []).append({"run_id": run_id, "verdict": result["verdict"]["label"],
             "claims": len(result["claims"]), "cited_events": len(ids), "tool_calls": len(trace),
             "self_check": result["self_check"], "independently_checked_ids": len(ids)})
+        if hasattr(self, "c3_root"):
+            self.verify_c3(run_id, folder, output)
         return result, trace, ids
+
+    def verify_c3(self, run_id, folder, output):
+        destination = output / run_id / "c3"
+        destination.mkdir()
+        env = dict(self.hunt_env)
+        env.update(PYTHONPATH=os.pathsep.join((str(self.c3_root), str(self.c2_root))),
+                   C3_MCP_COMMAND=self.hunt_python, C3_MCP_ARGS="-m dev.es_mcp_standin.server",
+                   C3_MCP_ANALYTICS_COMMAND=self.hunt_python,
+                   C3_MCP_ANALYTICS_ARGS="-m analytics_server.server", C3_MCP_CWD=str(self.c2_root))
+        base = [self.hunt_python, "-m", "group_C.threat_hunting.evidence.cli"]
+        bundle = destination / "bundle.json"
+        commands = [base + ["from-run", "--plan", str(folder / "plan.json"), "--result", str(folder / "result.json"),
+                           "--audit", str(self.c2_root / "audit" / (run_id + ".jsonl")), "--out", str(bundle)],
+                    base + ["report", "--bundle", str(bundle), "--verify", "mcp", "--out-dir", str(destination),
+                            "--formats", "json,md,html"]]
+        for args in commands:
+            done = subprocess.run(args, cwd=self.c2_root, env=env, text=True, capture_output=True, timeout=180)
+            if done.returncode:
+                raise RuntimeError(self.redact((done.stdout + done.stderr)[-5000:]))
+        reports = [p for p in destination.glob("*.json") if p.name != "bundle.json"]
+        assert len(reports) == 1, reports
+        report = json.loads(reports[0].read_text())
+        assert report["verification_mode"] == "mcp", report["verification_mode"]
+        self.report.setdefault("c3_reports", []).append({"run_id": run_id, "decision": report["decision"],
+                                                       "verification": report["verification"]})
+        self.case("c3_live_mcp_report_" + run_id, verdict=report["decision"]["verdict"])
 
     def hunts(self, output):
         attack = "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25."
@@ -158,11 +192,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hunt-python", type=Path, required=True, help="separate interpreter with C2 requirements")
     parser.add_argument("--output-dir", type=Path, required=True, help="new directory for synthetic evidence")
+    parser.add_argument("--c2-ref", default="HEAD", help="committed C2 snapshot to test")
+    parser.add_argument("--c3-ref", help="optional C3 evidence snapshot; does not replace C2")
     args = parser.parse_args()
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     test = HuntDemo("8b86c10eb5ee5248f087aa6c8273c8fadb82758c")
-    test.report["scope"] = "isolated B3/A2/ES/MCP/C2 demo; C1 development stand-in; no live LLM or C3"
+    test.report["scope"] = "isolated B3/A2/ES/MCP/C2 demo; C1 development stand-in; no live LLM; optional C3"
     status = 1
     try:
         test.source_files()
@@ -170,7 +206,7 @@ def main():
         test.certificates()
         test.start_es()
         test.credentials()
-        test.c2_snapshot(args.hunt_python)
+        test.c2_snapshot(args.hunt_python, args.c2_ref, args.c3_ref)
         test.start_logstash("push")
         test.ingest()
         test.hunts(output)

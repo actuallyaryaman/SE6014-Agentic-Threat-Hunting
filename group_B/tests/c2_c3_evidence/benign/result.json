@@ -1,0 +1,1117 @@
+{
+ "schema_version": "0.2",
+ "run_id": "benign",
+ "hypothesis": "An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25.",
+ "time_range": {
+  "from": "2026-10-25T00:00:00Z",
+  "to": "2026-10-25T01:00:00Z"
+ },
+ "verdict": {
+  "label": "NOT_SUPPORTED",
+  "confidence": "medium",
+  "requires_analyst_review": false,
+  "review_reasons": [],
+  "reasons": [
+   "All required sources and fields were covered for the full window and no indicator exists for any required technique."
+  ]
+ },
+ "techniques": [
+  {
+   "technique": "T1110",
+   "name": "Brute Force",
+   "required": true,
+   "sources": [
+    "auth"
+   ],
+   "usable_sources": [
+    "auth"
+   ],
+   "accepted_claims": 0,
+   "supporting_steps": [],
+   "min_support": 1,
+   "supported": false,
+   "any_signal": false,
+   "covered": true,
+   "gaps": []
+  },
+  {
+   "technique": "T1078",
+   "name": "Valid Accounts",
+   "required": true,
+   "sources": [
+    "auth"
+   ],
+   "usable_sources": [
+    "auth"
+   ],
+   "accepted_claims": 0,
+   "supporting_steps": [],
+   "min_support": 1,
+   "supported": false,
+   "any_signal": false,
+   "covered": true,
+   "gaps": []
+  }
+ ],
+ "claims": [],
+ "evidence": [
+  {
+   "evidence_id": "E-T1110-a",
+   "call_id": "benign-0008",
+   "step_id": "T1110-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 3,
+   "excerpt": [
+    {
+     "key": "198.51.100.20",
+     "count": 3
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1078-a",
+   "call_id": "benign-0009",
+   "step_id": "T1078-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 3,
+   "excerpt": [
+    {
+     "key": "198.51.100.20",
+     "count": 3
+    }
+   ]
+  }
+ ],
+ "findings": {
+  "prompt_injection": {
+   "step_id": "guard-injection",
+   "checked_fields": [
+    "user_agent.original",
+    "user.name",
+    "message"
+   ],
+   "markers": [
+    "ignore all previous instructions",
+    "ignore previous instructions",
+    "disregard previous instructions",
+    "ignore the above",
+    "system prompt"
+   ],
+   "call_id": "benign-0010",
+   "total": 0,
+   "findings": []
+  }
+ },
+ "step_results": {
+  "T1110-a": {
+   "call_id": "benign-0008",
+   "status": "ok",
+   "total": 3,
+   "tool": "aggregate"
+  },
+  "T1078-a": {
+   "call_id": "benign-0009",
+   "status": "ok",
+   "total": 3,
+   "tool": "aggregate"
+  }
+ },
+ "dynamic_steps": [],
+ "queries": [
+  {
+   "query_id": "benign-0001",
+   "seq": 1,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "describe_data",
+   "request": {
+    "index_pattern": "security-events-c2test*"
+   },
+   "request_hash": "3da5dd12e6fa5730ba5dce7d56751b9812238d71bc7f12bc2add19da9d5e3ff9",
+   "dsl": null,
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-an0001",
+   "seq": 2,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1110"
+   },
+   "request_hash": "9e951ff64d0bf170d65c249c6d1fa3220401711a95eb9b36536c60e0bec14ace",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "benign-an0002",
+   "seq": 3,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "lookup_attack",
+   "request": {
+    "query": "T1078"
+   },
+   "request_hash": "9ec81361250621332723ea8dcc57774e10bb97589dcac8e9e995c5ccc4fea640",
+   "dsl": null,
+   "ok": true,
+   "total": 1
+  },
+  {
+   "query_id": "benign-0002",
+   "seq": 4,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "BENIGN-SSH"
+     }
+    ]
+   },
+   "request_hash": "eb127dca40060cf6fb37706c9ef126b41d993dcb402d7786f6f241e213ff94bb",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "BENIGN-SSH",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 4
+  },
+  {
+   "query_id": "benign-0003",
+   "seq": 5,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "date_histogram",
+    "interval": "60m",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     }
+    ]
+   },
+   "request_hash": "a9ee9019a5ef94681b1655e9f379019d04b6c16a0117e9580ac4628d25b20acd",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "date_histogram": {
+       "field": "@timestamp",
+       "fixed_interval": "60m",
+       "min_doc_count": 0,
+       "extended_bounds": {
+        "min": "2026-10-25T00:00:00.000Z",
+        "max": "2026-10-25T00:59:59.999Z"
+       }
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-an0003",
+   "seq": 6,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "analytics",
+   "tool": "gap_check",
+   "request": {
+    "buckets": [
+     {
+      "key": "2026-10-25T00:00:00.000Z",
+      "count": 35
+     }
+    ]
+   },
+   "request_hash": "1a34acfc5b5ea2cf09b09ccb729c4ff87601c15e2cee694aae04ad252085d7a0",
+   "dsl": null,
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-0004",
+   "seq": 7,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "source.ip",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "114da3fa7999757efee8de318807682803313e18f953f403c7bd3215b5b2d360",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "source.ip"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-0005",
+   "seq": 8,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "53791da02d80b35037d79b10e35f42a7e9fa8983face87e91c4db3e5335b3518",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.action"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-0006",
+   "seq": 9,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.outcome",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "0a06864a978b1a122959394377378a13275c9f145b3464e0cce72c94d305bf12",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "event.outcome"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-0007",
+   "seq": 10,
+   "phase": "planning",
+   "step_id": null,
+   "purpose": null,
+   "server": "es",
+   "tool": "count",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "user.name",
+      "op": "exists"
+     }
+    ]
+   },
+   "request_hash": "91187b295f13270973aa6186881f3897a871226f98d231ad1d13538ba85c759e",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "exists": {
+         "field": "user.name"
+        }
+       }
+      ]
+     }
+    }
+   },
+   "ok": true,
+   "total": 35
+  },
+  {
+   "query_id": "benign-0008",
+   "seq": 11,
+   "phase": "hunt",
+   "step_id": "T1110-a",
+   "purpose": "Sources with many failed SSH logins",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "BENIGN-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "878ccbe7e74862aede09269088139d964bcdc3c0d405cd56a3d2668fc80a97a8",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "BENIGN-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 3
+  },
+  {
+   "query_id": "benign-0009",
+   "seq": 12,
+   "phase": "hunt",
+   "step_id": "T1078-a",
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+   "server": "es",
+   "tool": "aggregate",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "BENIGN-SSH"
+      ]
+     }
+    ]
+   },
+   "request_hash": "878ccbe7e74862aede09269088139d964bcdc3c0d405cd56a3d2668fc80a97a8",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "event.dataset": {
+             "value": "linux.auth",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       },
+       {
+        "term": {
+         "event.action": {
+          "value": "ssh_login",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "event.outcome": {
+          "value": "failure",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "host.name": {
+             "value": "BENIGN-SSH",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "source.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "ok": true,
+   "total": 3
+  },
+  {
+   "query_id": "benign-0010",
+   "seq": 13,
+   "phase": "guardrail",
+   "step_id": "guard-injection",
+   "purpose": "Prompt-injection sweep over the hunt window",
+   "server": "es",
+   "tool": "search",
+   "request": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-25T00:00:00Z",
+    "time_to": "2026-10-25T01:00:00Z",
+    "size": 50,
+    "any_of": [
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user_agent.original",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "user.name",
+      "op": "contains",
+      "value": "system prompt"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore all previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "disregard previous instructions"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "ignore the above"
+     },
+     {
+      "field": "message",
+      "op": "contains",
+      "value": "system prompt"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "event.dataset",
+     "host.name",
+     "source.ip",
+     "user_agent.original",
+     "user.name",
+     "message"
+    ]
+   },
+   "request_hash": "0ceb5d78e159f3203e634e2c5953c3c25e3158fb6ae086fbbf0e731fbdc811c2",
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-25T00:00:00.000Z",
+          "lt": "2026-10-25T01:00:00.000Z"
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user_agent.original": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore all previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*disregard previous instructions*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*ignore the above*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "wildcard": {
+            "user.name": {
+             "value": "*system prompt*",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore all previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "disregard previous instructions"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "ignore the above"
+           }
+          },
+          {
+           "match_phrase": {
+            "message": "system prompt"
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     },
+     {
+      "event.original": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "ok": true,
+   "total": 0
+  }
+ ],
+ "self_check": {
+  "claims": 0,
+  "self_checked": 0,
+  "failed": []
+ },
+ "coverage": {
+  "data_sources": {
+   "auth": 35
+  },
+  "coverage": {
+   "auth": {
+    "total": 35,
+    "n_buckets": 1,
+    "empty_buckets": [],
+    "coverage_ratio": 1.0
+   }
+  },
+  "gaps": [],
+  "missing_fields": {},
+  "entity_missing": []
+ },
+ "limitations": [
+  "Findings depend on the playbooks used; techniques without a playbook are not tested.",
+  "Baselines are synthetic allowlists and must be tuned per environment.",
+  "NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.",
+  "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."
+ ],
+ "notes": [],
+ "manifest": {
+  "run_id": "benign",
+  "backend": "rules (no usable LLM configured)",
+  "planner": "rules",
+  "code_hash": "8e5620d5f9c668fc",
+  "tool_calls": 13,
+  "seconds": 1.4,
+  "python": "3.11.16",
+  "temperature": "provider default",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true,
+   "complete_results": true,
+   "canonical_params": true
+  },
+  "perturb_seed": null,
+  "index": "security-events-c2test*",
+  "mcp_servers": {
+   "es": "python -m dev.es_mcp_standin.server",
+   "analytics": "python -m analytics_server.server"
+  },
+  "ignored_tools": [
+   "es.get_event",
+   "es.save_finding",
+   "es.get_audit_log"
+  ],
+  "audit_files": [
+   "audit/benign.jsonl",
+   "audit/benign-analytics.jsonl"
+  ]
+ }
+}

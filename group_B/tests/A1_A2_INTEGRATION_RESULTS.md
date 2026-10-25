@@ -2,12 +2,15 @@
 
 The unchanged A1 and A2 Logstash pipelines passed together with B1/B2/B3 in
 an isolated authenticated HTTPS environment. This validates the configurations
-and Python boundaries locally; it does not verify access to Ishaan's running
-Elasticsearch deployment. A2 PR #2 remains open.
+and Python boundaries locally. Ay subsequently confirmed there is no shared
+Elasticsearch instance; team members run their own local services. A2 PR #2
+has now merged, with the tested runtime configurations unchanged.
 
 ## Provenance and isolation
 
-- Product code: `cb240476faa56271cc40f3e5ee091145c8a86f10` (Batch 6).
+- Original product baseline: `cb240476faa56271cc40f3e5ee091145c8a86f10` (Batch 6).
+  Fresh full rerun on `b01b6cc` after merging current main also passed all
+  22 checkpoints; the linked JSON contains the refreshed evidence.
 - A1 pipeline: `group_A/logstash/pipeline/logstash.conf` from merged main.
 - A2 pull/push: exact git blobs from PR #2 head
   `8b86c10eb5ee5248f087aa6c8273c8fadb82758c`, extracted into a temporary directory.
@@ -100,8 +103,9 @@ cached. Only sanitized evidence was retained.
 
 ## Remaining work
 
-- Repeat against the actual shared A1 deployment with its operator-provided
-  endpoint, CA and separate keys; that deployment was unavailable here.
+- Ay confirmed there is no shared Elasticsearch deployment. Repeat these scripts
+  in either member's local environment, generating credentials there; exchange
+  sanitized results rather than credentials.
 - Agree on A3's normalized/raw envelope, source-ID ownership and year policy.
   Firewall syslog and B3 streaming are not enabled by this result.
 - Exercise the C1/C2 hunting boundary and the presentation demo.

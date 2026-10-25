@@ -3,7 +3,8 @@
 This demo can run without another member's server or credentials. It creates
 its own authenticated HTTPS Elasticsearch and A2 HTTP service, ingests synthetic
 SSH events through B3/B1, then runs C2 through its existing development MCP
-servers. It never calls an LLM. Final C1/C3 services and A3 are outside this demo.
+servers. It never calls an LLM. C3 can be tested with the optional snapshot
+flags below; final C1 and A3 are outside this demo.
 
 ## Prepare
 
@@ -78,6 +79,32 @@ available during the presentation, clearly labeling it as a recorded run.
 
 ## Remaining team integration
 
-Repeat on the actual shared A1 deployment; replace the C1 development stand-in;
+Repeat on another team member's local environment without exchanging credentials;
+replace the C1 development stand-in;
 connect C3's verifier/report; agree on A3's envelope/source IDs and yearless
 firewall policy. None of those agreements is implied by this local demo.
+
+## Test the proposed C2/C3 contracts
+
+The optional snapshot flags test unmerged Group C code without installing it
+in this branch. Preserve the older recorded demo as historical evidence.
+
+```bash
+git fetch origin feature/c2-review-fixes
+git fetch origin refs/pull/23/head
+uv pip install --python "$demo_workspace/hunt-venv/bin/python" Jinja2==3.1.6
+group_B/.venv/bin/python group_B/scripts/check_onboarding_hunt_demo.py \
+  --hunt-python "$demo_workspace/hunt-venv/bin/python" \
+  --c2-ref a8b4a58bb9febab48b57279b09865368859dc887 \
+  --c3-ref e98599eb3b5309c4655124cc25265fe6a9d9f230 \
+  --output-dir "$demo_workspace/c2-c3-evidence"
+```
+
+C2 comes entirely from the selected C2 tree; only C3's evidence package is
+added from its selected commit. Each hunt is passed to C3 through its real
+bundle/report CLI, using a separate MCP connection for verification and query
+replay. The harness rejects offline fallback. Reports are JSON, Markdown and
+HTML; PDF rendering and the final C1 server are outside this test.
+
+See [the C2/C3 findings](tests/C2_C3_INTEGRATION_RESULTS.md) before presenting
+the positive scenario: C3 currently rejects one correlation claim.

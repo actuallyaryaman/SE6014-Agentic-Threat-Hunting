@@ -1,5 +1,5 @@
 {
-  "started_at": "2026-10-25T02:48:14.424546+00:00",
+  "started_at": "2026-10-25T09:41:34.744087+00:00",
   "a2_ref": "8b86c10eb5ee5248f087aa6c8273c8fadb82758c",
   "cases": [
     {
@@ -75,7 +75,7 @@
       "name": "push_listener_ready",
       "status": "passed",
       "host_refusals": 0,
-      "container_refusals": 1
+      "container_refusals": 2
     },
     {
       "name": "push_apache",
@@ -142,7 +142,7 @@
     "group_A/a2/pipeline/pull.conf": "d44d140ff5a59e078bb23d7f9aabe9cabcb65a17acb1f09a89e709adaec513d2",
     "group_A/a2/push-pipeline/push.conf": "06187687e04f6d040e3b5c30cd42ae4ff9b9af91c8ed8f5d9f702188bd8176de"
   },
-  "code_head": "cb240476faa56271cc40f3e5ee091145c8a86f10",
+  "code_head": "b01b6cc4c5bb845c668d68fb43cce9be463404d7",
   "harness_sha256": "84ee7d1a6fb07e3b9aceeeea5dc145fd25d7bd16b7c8f8cf74cb809d510cfcd8",
   "images": {
     "docker.elastic.co/elasticsearch/elasticsearch:8.19.23": [
@@ -158,6 +158,6 @@
   ],
   "a1_baseline_skipped": false,
   "status": "passed",
-  "completed_at": "2026-10-25T02:50:43.314524+00:00",
+  "completed_at": "2026-10-25T09:44:02.611651+00:00",
   "cleanup": "owned containers, network, data, credentials and certificates removed"
 }

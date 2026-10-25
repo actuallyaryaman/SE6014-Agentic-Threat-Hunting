@@ -195,3 +195,5 @@ The unchanged A1/A2 configurations also passed with actual Logstash pull/push
 over authenticated HTTPS in an isolated environment; see
 `group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. The actual shared deployment,
 the A3 boundary, live LLM behavior and the complete team demo remain.
+
+Live C2/C3 snapshot integration: [results and unresolved correlation claim](../tests/C2_C3_INTEGRATION_RESULTS.md).
