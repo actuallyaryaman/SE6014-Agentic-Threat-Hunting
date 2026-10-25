@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat hunt report {{ r.run_id }}</title>
+<style>
+:root { --bg:#f6f7f9; --fg:#18202b; --muted:#5d6878; --line:#dde2ea; --card:#fff; --code:#eef1f6;
+        --red:#b42318; --amber:#9a5800; --green:#11734a; --grey:#475467; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0f141b; --fg:#e5e9f0; --muted:#98a4b5; --line:#263142; --card:#161d27; --code:#0b1017;
+        --red:#ff8086; --amber:#f0b457; --green:#52c98f; --grey:#a3adbd; } }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+main { max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:24px; margin:0 0 6px; } h2 { font-size:19px; margin:34px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+h3 { font-size:16px; margin:18px 0 6px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+.verdict { font-size:26px; font-weight:700; }
+.v-Confirmed { color:var(--red); } .v-Refuted { color:var(--green); } .v-Inconclusive { color:var(--grey); }
+.muted { color:var(--muted); } code, .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; }
+.wrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; font-size:13px; }
+th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); }
+pre { background:var(--code); padding:10px; border-radius:8px; overflow-x:auto; font-size:12.5px; }
+.bad { color:var(--red); } .ok { color:var(--green); } .warn { color:var(--amber); }
+.pill { display:inline-block; font-size:12px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); }
+</style>
+</head>
+<body><main>
+<h1>Threat hunt report</h1>
+<p class="muted">Run <span class="mono">{{ r.run_id }}</span>, verification {{ r.verification_mode }}</p>
+<div class="card"><strong>Hypothesis:</strong> {{ r.hypothesis }}</div>
+
+<div class="card">
+  <div class="verdict v-{{ d.verdict }}">{{ d.verdict | upper }}</div>
+  <div class="muted">confidence {{ d.confidence }}{% if d.analyst_review %}, <span class="warn">analyst review required</span>{% endif %}</div>
+  {% if d.analyst_review and d.review_reasons %}<div class="muted">Why: {{ d.review_reasons | join("; ") }}</div>{% endif %}
+  {% if d.review and d.review.c2_label %}<div class="muted">C2 drafted {{ d.review.c2_label }}{% if d.review.c2_confidence %} ({{ d.review.c2_confidence }} confidence){% endif %}. C3 review: {{ d.review.outcome | replace("_", " ") }}</div>{% endif %}
+  <p>{{ r.summary }}</p>
+  <strong>Why this verdict</strong><ul>{% for x in d.reasons %}<li>{{ x }}</li>{% endfor %}</ul>
+  {% if d.next_steps %}<strong>What would settle it</strong><ul>{% for x in d.next_steps %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  <span class="pill">{{ r.verification.verified }}/{{ r.verification.claims }} claims verified</span>
+  <span class="pill">replay {{ r.verification.replay.identical }}/{{ r.verification.replay.replayed }} identical</span>
+</div>
+
+<h2>Coverage per technique</h2>
+<div class="wrap"><table>
+<tr><th>Technique</th><th>Required</th><th>Sources</th><th>Steps ok</th><th>Verified</th><th>Independent</th><th>Min</th><th>Covered</th><th>Gaps</th></tr>
+{% for t in d.rows %}<tr><td><span class="mono">{{ t.technique }}</span> {{ t.name }}</td><td>{{ "yes" if t.required else "context" }}</td><td class="mono">{{ t.sources | join(", ") or "-" }}</td>
+<td>{{ r.steps_ok.get(t.technique, "-") }}</td><td>{{ t.verified_claims }}</td><td>{{ t.supporting_steps | length }}</td><td>{{ t.min_support }}</td>
+<td class="{{ 'ok' if t.covered else 'bad' }}">{{ "yes" if t.covered else "NO" }}</td><td>{{ t.gaps | join("; ") or "-" }}</td></tr>{% endfor %}
+</table></div>
+
+<h2>Findings (verified claims)</h2>
+{% for tech, items in findings_by_technique.items() %}
+<h3><span class="mono">{{ tech }}</span> {{ names.get(tech, "") }}</h3>
+{% for c in items %}<div class="card"><strong>{{ c.claim_id }}</strong> {{ c.text }}{% if c.origin == "llm" %} <span class="warn">(LLM-proposed query: lead only)</span>{% endif %}
+<div class="muted">first seen {{ c.first_seen or "-" }}, step <span class="mono">{{ c.step_id }}</span></div>
+{% for q in r.claim_queries.get(c.claim_id, []) %}<div class="muted">query <span class="mono">{{ q.call_id }}</span> {{ q.tool }} on <span class="mono">{{ q.index }}</span>, {{ q.time_from or "?" }} to {{ q.time_to or "?" }}</div>{% else %}<div class="warn">query: none found in the audit log</div>{% endfor %}
+{% if c.event_ids %}<div class="mono">{% for e in c.event_ids[:8] %}{{ e }}{{ ", " if not loop.last }}{% endfor %}{% if c.event_ids | length > 8 %} (+{{ c.event_ids | length - 8 }}){% endif %}</div>{% endif %}
+<div class="ok">{{ c.verifier_notes }}</div></div>{% endfor %}
+{% else %}<p class="muted">No verified findings.</p>{% endfor %}
+{% if r.context_findings %}<h3>Related activity (context only)</h3><ul>{% for c in r.context_findings %}<li><span class="mono">{{ c.technique }}</span> {{ c.text }}</li>{% endfor %}</ul>{% endif %}
+
+<h2>Claims the verifier rejected</h2>
+{% if r.rejected %}<div class="wrap"><table><tr><th>Claim</th><th>Status</th><th>Text</th><th>Reason</th></tr>
+{% for c in r.rejected %}<tr><td class="mono">{{ c.claim_id }}</td><td class="bad">{{ c.status }}</td><td>{{ c.text }}</td><td>{{ c.verifier_notes }}</td></tr>{% endfor %}
+</table></div>{% else %}<p class="muted">No claim was rejected.</p>{% endif %}
+
+<h2>Verification, flags and limitations</h2>
+<ul>
+{% for m in r.verification.replay.mismatches %}<li class="bad">replay mismatch {{ m.call_id }} ({{ m.tool }}): was {{ m.was }}, now {{ m.now }}</li>{% endfor %}
+{% for f in r.flags %}<li class="warn">{{ f.code }}: {{ f.message }}</li>{% endfor %}
+{% for x in r.limitations %}<li>{{ x }}</li>{% endfor %}
+</ul>
+
+<h2>Every query executed ({{ r.audit | length }})</h2>
+<div class="wrap"><table><tr><th>Call</th><th>Tool</th><th>Index</th><th>Total</th><th>OK</th><th>Hash</th></tr>
+{% for a in r.audit %}<tr><td class="mono">{{ a.call_id }}</td><td>{{ a.tool }}</td><td class="mono">{{ a.params.get("index") or a.params.get("indices") or "-" }}</td><td>{{ a.total if a.total is not none else "-" }}</td>
+<td class="{{ 'ok' if a.ok else 'bad' }}">{{ "yes" if a.ok else a.error }}</td><td class="mono">{{ a.result_hash or "-" }}</td></tr>{% endfor %}
+</table></div>
+<details><summary>Executed DSL</summary>{% for a in r.audit if a.dsl %}<div class="mono">{{ a.call_id }}</div><pre>{{ a.dsl | tojson_pretty }}</pre>{% endfor %}</details>
+<p class="muted">{{ r.generator }}</p>
+</main></body></html>
