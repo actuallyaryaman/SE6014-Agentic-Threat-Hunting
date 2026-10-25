@@ -96,6 +96,8 @@ def hunt_window(hypothesis: str, sources: list[dict], llm_window) -> tuple[str, 
     if m:
         start = datetime.fromisoformat(m.group(1)).replace(tzinfo=timezone.utc)
         day = (start, start + timedelta(days=1))
+    if llm_window and day and llm_window[1] - llm_window[0] >= timedelta(hours=23):
+        llm_window = None                         # the LLM only restated the written date
     if llm_window and (day is None or (day[0] <= llm_window[0] and llm_window[1] <= day[1])):
         req, basis = llm_window, "time stated in the hypothesis (read by the intake LLM)"
     elif day:
@@ -130,6 +132,9 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     if not sources:
         raise RuntimeError(f"no known datasets in {config.HUNT_INDEX}: {dd.get('error') or [s['dataset'] for s in dd.get('sources', [])]}")
     notes["index_fields"] = sorted(f.rsplit(":", 1)[0] for f in dd.get("fields", []))
+    notes["index_types"] = dict(f.rsplit(":", 1) for f in dd.get("fields", []) if ":" in f)
+    notes["datasets"] = [{"dataset": s["dataset"], "kind": playbooks.log_type_of(s["dataset"]), "docs": s["docs"],
+                          "first_event": s["first_event"], "last_event": s["last_event"]} for s in dd.get("sources", [])]
     by_type: dict[str, list[dict]] = {}
     for s in sources:
         by_type.setdefault(playbooks.log_type_of(s["dataset"]), []).append(s)

@@ -5,7 +5,7 @@ Ported from the prototype's src/hunt/run.py (the verifier and reporter stay with
 from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
-from . import config, guardrails, planner, hunter, selfcheck, verdict
+from . import agent, config, guardrails, planner, hunter, selfcheck, verdict
 from .llm import get_llm, start_trace
 from .mcp_client import McpHunt
 
@@ -21,16 +21,18 @@ def _hash_files(paths) -> str:
     return h.hexdigest()[:16]
 
 
-def _queries(trace: Path, plan, st, guard: dict, n_plan: int, n_hunt: int) -> list[dict]:
-    """Every MCP call of the run, in order, with its phase, the step it belongs to and the exact request (from trace.jsonl)."""
+def _queries(trace: Path, plan, st, guard: dict, phases: list[tuple[str, int]], purposes: dict | None = None) -> list[dict]:
+    """Every MCP call of the run, in order, with its phase, the step it belongs to and the exact request (from trace.jsonl).
+    phases: (name, last seq of that phase), in run order."""
     purpose = {s.step_id: s.purpose for s in plan.steps + st.dynamic_steps} | {guardrails.STEP_ID: "Prompt-injection sweep over the hunt window"}
+    purpose |= purposes or {}
     steps = {**st.call_steps, **({guard["call_id"]: guard["step_id"]} if guard.get("call_id") else {})}
     out = []
     for line in trace.read_text().splitlines():
         r = json.loads(line)
         sid = steps.get(r["call_id"])
         out.append({"query_id": r["call_id"] or f"seq-{r['seq']}", "seq": r["seq"],
-                    "phase": "planning" if r["seq"] <= n_plan else "hunt" if r["seq"] <= n_hunt else "guardrail",
+                    "phase": next((name for name, last in phases if r["seq"] <= last), phases[-1][0]),
                     "step_id": sid, "purpose": purpose.get(sid),
                     "server": r["server"], "tool": r["tool"], "request": r["args"], "request_hash": r["request_hash"], "dsl": r.get("dsl"),
                     "ok": r["ok"], "total": r["total"], **({"error": r["error"]} if "error" in r else {})})
@@ -70,10 +72,16 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
         st = await hunter.execute(mcp, plan, max_calls, controls["complete_results"])
         n_hunt = mcp.calls
         guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
+        n_guard = mcp.calls
+        agent_out = (await agent.investigate(mcp, plan, st, notes, guard) if controls["agent_loop"]
+                     else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
+        n_agent = mcp.calls
         tool_calls, ignored_tools = mcp.calls, mcp.ignored
     check = selfcheck.check(st)
     d = verdict.decide(plan, st, notes, check, guard)
-    queries = _queries(run_dir / "trace.jsonl", plan, st, guard, n_plan, n_hunt)
+    phases = [("planning", n_plan), ("hunt", n_hunt), ("guardrail", n_guard), ("agent", n_agent)]
+    queries = _queries(run_dir / "trace.jsonl", plan, st, guard, phases,
+                       {x["step_id"]: x["purpose"] for x in agent_out["steps"] if x.get("step_id")})
     llm = get_llm()
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
@@ -91,11 +99,11 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
                    "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."] + \
                   [f"data gap: {g}" for g in notes["gaps"]] + \
                   [f"missing fields: {k}: {v}" for k, v in notes["missing_fields"].items()]
-    result = {"schema_version": "0.2", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range, "intake": notes.get("intake"),
+    result = {"schema_version": "0.3", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range, "intake": notes.get("intake"),
               "verdict": {"label": d["verdict"], "confidence": d["confidence"], "requires_analyst_review": d["requires_analyst_review"],
-                          "review_reasons": d["review_reasons"], "reasons": d["reasons"]},
+                          "review_reasons": d["review_reasons"], "reasons": d["reasons"], "leads": d["leads"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],
-              "findings": {"prompt_injection": guard},
+              "findings": {"prompt_injection": guard}, "agent": agent_out,
               "step_results": st.step_results, "dynamic_steps": [s.model_dump() for s in st.dynamic_steps], "queries": queries,
               "self_check": check,
               "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing")},
