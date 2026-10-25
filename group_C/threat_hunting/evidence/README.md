@@ -112,7 +112,7 @@ or a claim that failed verification.
 | `unsupported` | The evidence id is unknown, or its call failed or was not audited. The claim cites no events, or a cited event cannot be retrieved. |
 | `contradicted` | A quoted fact is not in the cited events. A replayed aggregate or IOC gives a different result. The claim text names an IP, host, account, number or hash that is not in its evidence (see below). |
 | `verified` | All checks passed. |
-| `unverified` | The claim cannot be checked in this mode (offline, or Elasticsearch cannot replay an IOC lookup). |
+| `unverified` | The claim cannot be checked in this mode (offline, or Elasticsearch cannot replay an IOC lookup), or it cites more than 500 events. C3 fetches every cited event again and never checks a sample. |
 
 ### Text lint
 

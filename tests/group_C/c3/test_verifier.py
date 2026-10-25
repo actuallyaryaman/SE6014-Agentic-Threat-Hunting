@@ -146,3 +146,32 @@ class TestLintAndHash(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEventLimit(unittest.TestCase):
+    """A claim is verified only if every cited event was checked (reviewer finding)."""
+
+    @staticmethod
+    def _bundle_with_events(event_ids):
+        bundle = build_confirmed()
+        claim = next(c for c in bundle.claims if c.claim_id == "C-001")
+        claim.event_ids = event_ids(claim.event_ids[0])
+        claim.facts = {}
+        return bundle
+
+    def test_missing_event_after_the_old_limit_is_caught(self):
+        # 25 real references followed by one that does not exist. The old sampling stopped at 25.
+        bundle = self._bundle_with_events(lambda real: [real] * 25 + ["logs-sysmon-sysmon-endpoints/does-not-exist"])
+        out = by_id(run(bundle, FakeGateway(MiniES())))
+        self.assertEqual(out["C-001"].status, "unsupported")
+        self.assertIn("does-not-exist", out["C-001"].verifier_notes)
+
+    def test_claim_over_the_limit_is_not_verified(self):
+        bundle = self._bundle_with_events(lambda real: [real] * 501)
+        out = by_id(run(bundle, FakeGateway(MiniES())))
+        self.assertEqual(out["C-001"].status, "unverified")
+        self.assertIn("limit is 500", out["C-001"].verifier_notes)
+
+    def test_verified_note_says_all_events_were_checked(self):
+        out = by_id(run(build_confirmed(), FakeGateway(MiniES())))
+        self.assertIn("re-fetched all", out["C-001"].verifier_notes)

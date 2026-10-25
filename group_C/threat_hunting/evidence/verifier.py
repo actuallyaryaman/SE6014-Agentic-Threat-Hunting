@@ -10,8 +10,8 @@ Each claim gets the status of the first problem found:
                 the IOC no longer matches, or the text names an IP, number or
                 hash that appears nowhere in its evidence
   verified      every check passed
-  unverified    the claim could not be checked (offline, or the gateway cannot
-                replay it)
+  unverified    the claim could not be checked (offline, the gateway cannot replay
+                it, or it cites more events than MAX_EVENTS_PER_CLAIM)
 
 C2 sends claims as "unverified" or, in the current prototype, "self_checked"
 (its own structural check passed). C3 re-verifies both and keeps C2's value in
@@ -36,7 +36,9 @@ from .contracts import PENDING_STATUSES, AuditRecord, Claim, HuntBundle
 from .gateways import Gateway, GatewayUnavailable, NotReplayable
 from .injection import scan_for_injection
 
-MAX_EVENTS_PER_CLAIM = 25
+# A claim may cite up to this many events and all of them are fetched again. A claim that cites more
+# is left "unverified". The verifier never checks a sample and then reports the whole claim as verified.
+MAX_EVENTS_PER_CLAIM = 500
 
 _IP_RX = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 _TS_RX = re.compile(r"\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?|\b\d{1,2}:\d{2}(?::\d{2})?Z?")
@@ -211,8 +213,10 @@ class _Verifier:
     async def _verify_events(self, claim: Claim, consts: str) -> Claim:
         if not claim.event_ids:
             return self._set(claim, "unsupported", "claim cites no events")
+        if len(claim.event_ids) > self.max_events:
+            return self._set(claim, "unverified", self._too_many_events(claim))
         docs = []
-        for ref in claim.event_ids[: self.max_events]:
+        for ref in claim.event_ids:
             event_result = await self._fetch(ref)
             if event_result.event is None:
                 return self._set(claim, "unsupported", f"cited event {ref} is not retrievable: {event_result.error}")
@@ -227,8 +231,12 @@ class _Verifier:
         extra = lint_text(claim.text, self._haystack(docs, claim) + "\n" + consts)
         if extra:
             return self._set(claim, "contradicted", f"claim text contains values not in evidence: {extra}")
-        checked = min(len(claim.event_ids), self.max_events)
-        return self._set(claim, "verified", f"re-fetched {checked} of {len(claim.event_ids)} cited events; all quoted values match")
+        return self._set(claim, "verified", f"re-fetched all {len(claim.event_ids)} cited events; all quoted values match")
+
+    def _too_many_events(self, claim: Claim) -> str:
+        """Note for a claim that cites more events than the verifier is allowed to fetch."""
+        return (f"not verified: the claim cites {len(claim.event_ids)} events and the limit is {self.max_events}. "
+                "C3 does not report a claim as verified when some cited events were never checked")
 
     @staticmethod
     def _check_facts(claim: Claim, docs: list[dict[str, Any]]) -> Optional[str]:
@@ -273,13 +281,15 @@ class _Verifier:
 
         docs = []
         field_name = replay_info.get("event_field")
-        for ref in claim.event_ids[: self.max_events] if field_name else []:
+        if field_name and len(claim.event_ids) > self.max_events:
+            return self._set(claim, "unverified", self._too_many_events(claim))
+        for ref in claim.event_ids if field_name else []:
             event_result = await self._fetch(ref)
             if event_result.event is None or str(event_result.event.get(field_name, "")).lower() != str(replay_info["bucket_key"]).lower():
                 return self._set(claim, "contradicted", f"cited event {ref} does not match {field_name}={replay_info['bucket_key']}")
             docs.append(event_result.event)
         if docs:
-            notes.append(f"re-fetched {len(docs)} of {len(claim.event_ids)} events behind the bucket; all match")
+            notes.append(f"re-fetched all {len(docs)} events behind the bucket; all match")
         extra = lint_text(claim.text, self._haystack(docs, claim) + "\n" + consts + "\n" + json.dumps(bucket, default=str).lower())
         if extra:
             return self._set(claim, "contradicted", f"claim text contains values not in evidence: {extra}")
