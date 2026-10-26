@@ -70,3 +70,26 @@ def test_matched_datasets_widen_ds_but_not_the_ssh_specific_filter():
         assert ids == ["T1110-a", "T1110-a@vpn.auth"]
     finally:
         playbooks.set_matches({})
+
+
+def test_candidates_drop_the_hunt_host_from_queries_and_claim_text(tmp_path, monkeypatch):
+    """Live DNS run: the template said "WS-03 issued {count} queries" while the host filter was removed, so vetted claims
+    failed the self-check. The host's name goes too."""
+    from threat_hunting import config, promote
+    from threat_hunting.hunter import HuntState
+    from threat_hunting.models import Claim, HuntPlan, PlanStep
+    monkeypatch.setattr(config, "ROOT", tmp_path)
+    step = PlanStep(step_id="AG-01", technique="T1048", tool="aggregate", purpose="queries per type", role="context",
+                    claim_template="WS-03 issued {count} DNS queries of type {bucket_key}", analysis={"bucket_min_count": 1},
+                    params={"index": "i", "time_from": "a", "time_to": "b", "agg": "terms", "field": "dns.question.type",
+                            "filters": [{"field": "event.dataset", "op": "eq", "value": "dns.query"},
+                                        {"field": "host.name", "op": "eq", "value": "WS-03"}]})
+    plan = HuntPlan(hypothesis="WS-03 tunnelled data out over DNS", techniques=["T1048"], required_techniques=["T1048"], required_sources=[],
+                    time_range={"from": "a", "to": "b"}, steps=[], success_criteria=[], refutation_criteria=[], entities={"hosts": ["WS-03"]})
+    st = HuntState(plan)
+    st.dynamic_steps = [step]
+    st.claims = [Claim(claim_id="C-001", text="t", technique="T1048", evidence_ids=["E"], step_id="AG-01", kind="aggregate",
+                       status="self_checked", origin="llm", facts={"bucket_key": "TXT", "count": "120"})]
+    out = promote.write_candidates(tmp_path / "runs" / "r1", "r1", plan, st, {"model": "fake"})
+    pb = yaml.safe_load((tmp_path / out[0]["file"]).read_text())
+    assert pb["steps"][0]["params"]["filters"] == [] and pb["steps"][0]["claim_template"] == "a host issued {count} DNS queries of type {bucket_key}"

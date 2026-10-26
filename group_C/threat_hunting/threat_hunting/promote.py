@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse, asyncio, json, re, sys, time
 from pathlib import Path
 import yaml
-from . import config, hunter, playbooks
+from . import config, hunter, playbooks, selfcheck
 from .mcp_client import McpHunt
 from .models import ACCEPTED, HuntPlan
 
@@ -60,11 +60,15 @@ def write_candidates(run_dir: Path, run_id: str, plan: HuntPlan, st: hunter.Hunt
             p = {k: v for k, v in s.params.items() if k not in ("index", "time_from", "time_to")}
             datasets |= scope[sid]
             # the playbook adds its own dataset filter; a host named in the hypothesis is scope, not logic
+            hosts = plan.entities.get("hosts", [])
             p["filters"] = [f for f in p.get("filters", []) if f.get("field") != "event.dataset"
-                            and not (f.get("field") == "host.name" and f.get("value") in plan.entities.get("hosts", []))]
+                            and not (f.get("field") == "host.name" and f.get("value") in hosts)]
+            template = s.claim_template
+            for h in hosts:                             # without the host filter, a claim naming that host would be false
+                template = template.replace(h, "a host")
             expect = sorted({e for c in claims for e in c.event_ids}) if s.tool == "search" else sorted({c.facts["bucket_key"] for c in claims})
             pb_steps.append({"id": "", "from_step": sid, "tool": s.tool, "purpose": s.purpose, "params": p,
-                             "claim_template": s.claim_template, "analysis": s.analysis, "expect": expect})
+                             "claim_template": template, "analysis": s.analysis, "expect": expect})
         if not datasets:
             out.append({"technique": tech, "file": None, "skipped": "the agent steps do not name an event.dataset"})
             continue
@@ -98,6 +102,10 @@ async def replay(mcp, pb: dict, tf: str, tt: str) -> list[dict]:
         keys = sorted({e for c in new for e in c.event_ids}) if step.tool == "search" else sorted({c.facts["bucket_key"] for c in new})
         out.append({"step": step.step_id, "claims": len(new), "keys": keys,
                     **({"error": st.step_results.get(step.step_id, {}).get("error", "failed")} if res is None else {})})
+    failed = {f["claim_id"]: f["problems"] for f in selfcheck.check(st)["failed"]}     # a vetted claim must pass the self-check
+    by_step = {c.claim_id: c.step_id for c in st.claims}
+    for r in out:
+        r["self_check_failed"] = [cid for cid, sid in by_step.items() if sid == r["step"] and cid in failed]
     return out
 
 
@@ -116,7 +124,8 @@ async def promote(path: Path, benign: tuple[str, str], approved_by: str, keyword
     checks = {"attack_window": win, "benign_window": {"from": benign[0], "to": benign[1]},
               "attack": [{**r, "keys": r["keys"][:20], "reproduced": expect[r["step"]] <= set(r["keys"])} for r in attack],
               "benign": [{k: r[k] for k in ("step", "claims", "keys") if k in r} for r in quiet]}
-    ok = all(r["reproduced"] and "error" not in r for r in checks["attack"]) and all(r["claims"] == 0 for r in quiet)
+    ok = all(r["reproduced"] and "error" not in r and not r["self_check_failed"] for r in checks["attack"]) \
+        and all(r["claims"] == 0 for r in quiet)
     out = {"ok": ok, "validation": checks, "file": None}
     if ok:
         pb.update(status="approved", keywords=keywords, approved_by=approved_by, validation=checks,
