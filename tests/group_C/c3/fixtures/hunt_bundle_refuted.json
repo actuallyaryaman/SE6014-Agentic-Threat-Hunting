@@ -1,0 +1,340 @@
+{
+ "schema_version": "1.0.0",
+ "run_id": "hunt-exfil-004",
+ "plan": {
+  "hypothesis": "WS-01 exfiltrated data over FTP, SSH or DNS on 2026-10-15.",
+  "techniques": [
+   "T1048"
+  ],
+  "required_techniques": [
+   "T1048"
+  ],
+  "context_techniques": [],
+  "entities": {
+   "hosts": [
+    "WS-01"
+   ],
+   "technique_names": {
+    "T1003.001": "OS Credential Dumping: LSASS Memory",
+    "T1021.002": "Remote Services: SMB/Windows Admin Shares",
+    "T1078": "Valid Accounts",
+    "T1048": "Exfiltration Over Alternative Protocol"
+   }
+  },
+  "required_sources": [
+   "logs-firewall-fw-edge"
+  ],
+  "time_range": {
+   "from": "2026-10-15T08:00:00Z",
+   "to": "2026-10-15T18:00:00Z"
+  },
+  "window_minutes": 60,
+  "steps": [
+   {
+    "step_id": "T1048-a",
+    "technique": "T1048",
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-firewall-fw-edge",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "agg": "terms",
+     "field": "destination.ip",
+     "filters": [
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      },
+      {
+       "field": "destination.port",
+       "op": "in",
+       "value": [
+        21,
+        22,
+        53
+       ]
+      }
+     ]
+    },
+    "purpose": "large outbound transfers to external addresses",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "firewall connection logs"
+   }
+  ],
+  "success_criteria": [
+   "T1048: at least 1 independent verified indicator"
+  ],
+  "refutation_criteria": [
+   "T1048: all required sources covered for the full window AND zero verified indicators"
+  ],
+  "planner": "rules"
+ },
+ "evidence": [
+  {
+   "evidence_id": "E-T1048-a",
+   "call_id": "hunt-exfil-004-0001",
+   "step_id": "T1048-a",
+   "index": "logs-firewall-fw-edge",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  }
+ ],
+ "claims": [],
+ "audit": [
+  {
+   "call_id": "hunt-exfil-004-0001",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "logs-firewall-fw-edge",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "agg": "terms",
+    "field": "destination.ip",
+    "filters": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     },
+     {
+      "field": "destination.port",
+      "op": "in",
+      "value": [
+       21,
+       22,
+       53
+      ]
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "destination.port": 21
+           }
+          },
+          {
+           "term": {
+            "destination.port": 22
+           }
+          },
+          {
+           "term": {
+            "destination.port": 53
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "destination.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[]"
+   ],
+   "result_hash": "bc3a60a2ff2488b0",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [], \"total\": 0}"
+  },
+  {
+   "call_id": "hunt-exfil-004-0002",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "coverage_check",
+   "params": {
+    "indices": [
+     "logs-firewall-fw-edge"
+    ],
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "bucket_minutes": 60
+   },
+   "dsl": {
+    "logs-firewall-fw-edge": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-15T08:00:00Z",
+        "lt": "2026-10-15T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-15T08:00:00Z",
+         "max": "2026-10-15T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    }
+   },
+   "total": 12,
+   "returned_ids": [
+    "{\"logs-firewall-fw-edge\": 12}"
+   ],
+   "result_hash": "b2d9059cca8ad183",
+   "ok": true,
+   "error": "",
+   "digest": "{\"coverage\": {\"logs-firewall-fw-edge\": {\"buckets\": [{\"docs\": 1, \"start\": \"2026-10-15T08:00:00.000Z\"}, {\"docs\": 2, \"start\": \"2026-10-15T09:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T11:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T12:00:00.000Z\"}, {\"docs\": 6, \"start\": \"2026-10-15T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T15:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-15T11:00:00.000Z\", \"2026-10-15T14:00:00.000Z\", \"2026-10-15T15:00:00.000Z\", \"2026-10-15T17:00:00.000Z\"], \"total\": 12}}, \"total\": 12}"
+  }
+ ],
+ "step_results": {
+  "T1048-a": {
+   "status": "ok",
+   "total": 0
+  }
+ },
+ "dynamic_steps": [],
+ "weak_signals": {},
+ "notes": {
+  "entity_missing": [],
+  "untested": {},
+  "coverage": {
+   "logs-firewall-fw-edge": {
+    "total": 12,
+    "buckets": [
+     {
+      "start": "2026-10-15T08:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T09:00:00.000Z",
+      "docs": 2
+     },
+     {
+      "start": "2026-10-15T10:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T12:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T13:00:00.000Z",
+      "docs": 6
+     },
+     {
+      "start": "2026-10-15T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T16:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-15T11:00:00.000Z",
+     "2026-10-15T14:00:00.000Z",
+     "2026-10-15T15:00:00.000Z",
+     "2026-10-15T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   }
+  },
+  "coverage_gaps": {},
+  "gaps": [],
+  "dated": true,
+  "data_sources": {
+   "logs-firewall-fw-edge": 12
+  },
+  "selected_sources": [],
+  "out_of_scope": null,
+  "in_scope_without_playbook": null,
+  "min_support": {},
+  "technique_sources": {},
+  "missing_fields": {},
+  "info": []
+ },
+ "hunt_notes": [],
+ "baselines": [
+  "LSASS access allowlist: ['C:\\\\Program Files\\\\Windows Defender\\\\MsMpEng.exe', 'C:\\\\Windows\\\\System32\\\\svchost.exe']",
+  "10.0.1.15 -> 10.0.2.20 on 445 is daily file-share traffic"
+ ],
+ "limitations": [],
+ "meta": {
+  "run_id": "hunt-exfil-004",
+  "planner": "rules",
+  "backend": "rules (simulated hunter)",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true
+  },
+  "fixture": "c3-sample"
+ },
+ "c2_verdict": null,
+ "c2_self_check": {},
+ "trace": [],
+ "analytics_audit": [],
+ "queries": [],
+ "c2_findings": {}
+}

@@ -1,0 +1,116 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "claim_id": {
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "technique": {
+      "title": "Technique",
+      "type": "string"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "facts": {
+      "additionalProperties": true,
+      "title": "Facts",
+      "type": "object"
+    },
+    "confidence": {
+      "default": "medium",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "step_id": {
+      "default": "",
+      "title": "Step Id",
+      "type": "string"
+    },
+    "kind": {
+      "default": "events",
+      "enum": [
+        "events",
+        "aggregate",
+        "ioc"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "first_seen": {
+      "default": "",
+      "title": "First Seen",
+      "type": "string"
+    },
+    "event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Event Ids",
+      "type": "array"
+    },
+    "replay": {
+      "additionalProperties": true,
+      "title": "Replay",
+      "type": "object"
+    },
+    "context_only": {
+      "default": false,
+      "title": "Context Only",
+      "type": "boolean"
+    },
+    "origin": {
+      "default": "playbook",
+      "enum": [
+        "playbook",
+        "llm"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "status": {
+      "default": "unverified",
+      "enum": [
+        "unverified",
+        "self_checked",
+        "verified",
+        "unsupported",
+        "contradicted"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "c2_status": {
+      "default": "",
+      "title": "C2 Status",
+      "type": "string"
+    },
+    "verifier_notes": {
+      "default": "",
+      "title": "Verifier Notes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim_id",
+    "text",
+    "technique"
+  ],
+  "title": "Claim",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se6014/group_C/claim.schema.json"
+}

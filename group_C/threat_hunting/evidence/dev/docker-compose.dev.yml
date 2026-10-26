@@ -1,0 +1,42 @@
+# DEV ONLY - a throwaway single-node Elasticsearch + Kibana so C3 can be
+# developed and tested before Group A's stack is ready (README section 5:
+# "Group C can begin development using sample indexed logs").
+# The real stack lives in group_A/infrastructure/. Keep ELK_VERSION equal to
+# the version Group A chooses.
+#
+#   docker compose -f group_C/threat_hunting/evidence/dev/docker-compose.dev.yml up -d
+#   python group_C/threat_hunting/evidence/dev/load_sample_data.py --reset
+#
+# Security is disabled here for convenience. Never expose these ports publicly.
+
+name: c3-dev
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:-8.17.4}
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - c3-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION:-8.17.4}
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+volumes:
+  c3-es-data:

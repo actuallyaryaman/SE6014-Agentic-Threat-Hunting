@@ -1,0 +1,20 @@
+# C3 - evidence verification and hunt report (Python 3.11)
+# Install from the repo root:  pip install -r group_C/threat_hunting/evidence/requirements.txt
+pydantic>=2.7,<3          # data contract (models + JSON Schema export)
+jinja2>=3.1,<4            # Markdown / HTML report templates
+python-dotenv>=1.0        # optional: loads .env for ES_URL / ES_API_KEY
+
+# Optional - re-verify through C1's MCP server (--verify mcp).
+# Pin to the exact version Group C1 chooses.
+mcp>=1.9
+
+# Optional - PDF reports (--formats pdf). Either one is enough:
+#   weasyprint>=62
+#   playwright>=1.45   (then: playwright install chromium)
+
+# Tests (stdlib unittest works too; pytest is nicer)
+pytest>=8
+jsonschema>=4.22
+
+# Elasticsearch access uses the standard library (read-only REST), so no
+# elasticsearch-py client is required by C3.
