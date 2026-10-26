@@ -8,7 +8,6 @@ import json
 import os
 import sys
 import unittest
-import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +15,7 @@ B1 = os.path.dirname(HERE)
 sys.path.insert(0, B1)
 
 from recognise import recognise  # noqa: E402
+import load_file  # noqa: E402  (shares the Elasticsearch settings: ES_URL, ES_API_KEY, ES_CA_CERT ...)
 
 REQUIRED = ["@timestamp", "event.dataset", "event.original", "message"]
 DATA = os.path.join(HERE, "data")
@@ -181,7 +181,7 @@ class TestPipelinePolicy(unittest.TestCase):
 class TestOnElasticsearch(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.es = os.environ["ES_URL"].rstrip("/")
+        cls.es = load_file.ES
         cls.pipelines = load_pipelines()
         for name, body in cls.pipelines.items():
             cls.call(f"/_ingest/pipeline/{name}", body, "PUT")
@@ -190,8 +190,7 @@ class TestOnElasticsearch(unittest.TestCase):
     def call(cls, path, body, method="POST"):
         req = urllib.request.Request(cls.es + path, data=json.dumps(body).encode(), method=method,
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return json.load(r)
+        return load_file.send(req)
 
     def simulate(self, name, lines):
         res = self.call(f"/_ingest/pipeline/{name}/_simulate",
@@ -219,6 +218,17 @@ class TestOnElasticsearch(unittest.TestCase):
                 for doc in self.simulate(name, read_lines(fn)):
                     self.assertTrue(required_ok(doc), doc)
                     self.assertNotIn("_parse_failure", doc.get("tags", []))
+
+    def test_apache_malformed_requests_are_parsed(self):
+        """Scanners send broken request lines; Apache answers 400. They must keep their real time."""
+        lines = ['172.17.0.1 - - [26/Oct/2026:01:23:43 +0000] "TRACE /" 400 0 "-" "-"',
+                 '172.17.0.1 - - [26/Oct/2026:01:23:56 +0000] "<script>alert(1)</script> / HTTP/1.1" 400 0 "-" "-"']
+        for doc in self.simulate("apache-access", lines):
+            self.assertNotIn("_parse_failure", doc.get("tags", []), doc)
+            self.assertIn("malformed_request", doc["tags"])
+            self.assertTrue(get(doc, "@timestamp").startswith("2026-10-26T01:23:"), doc)
+            self.assertEqual(get(doc, "source.ip"), "172.17.0.1")
+            self.assertEqual(get(doc, "http.response.status_code"), 400)
 
     def test_windows_attack_event(self):
         doc = self.simulate("windows-json", [WIN_SECURITY])[0]
