@@ -100,7 +100,7 @@ See [the B3 README](agentic_ingestion/README.md) for configuration and failure
 semantics, and [live ES results](tests/LIVE_ES_RESULTS.md) for isolated indexing
 and replay evidence. The unchanged A1/A2 configurations now also pass an
 isolated authenticated HTTPS integration run; see
-[the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Access to the
+[the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Reproducing in
 another local environment is a repeatability check; no shared deployment
 exists. See [the bounded B3/A3 contract](B3_A3_CONTRACT.md) for stream setup.
 
@@ -112,3 +112,13 @@ C2's existing development MCP servers → a rules-based SSH hunt. It needs no
 shared credentials or live LLM. The [recorded results](tests/ONBOARDING_HUNT_RESULTS.md)
 include positive/negative cases, exact planted-event evidence and repeatability.
 The final C1/C3 services and A3 agreement remain separate integration work.
+
+
+## Latest A3 and live-agent integration
+
+[The latest results](tests/A3_END_TO_END_RESULTS.md) cover actual A3 UDP
+forwarding through A2, B1/B2, HTTPS Elasticsearch and C1/C2/C3/C4. Rules mode
+passed 28 checkpoints. Bounded live DeepSeek runs verified every claim and
+replayed 55/55 queries identically. Live-agent repeatability is partial (5/7
+C4 fields); verdict labels/evidence stayed stable, but queries and confidence
+varied. The older demo records above remain historical evidence.
