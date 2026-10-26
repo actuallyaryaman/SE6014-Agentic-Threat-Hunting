@@ -25,6 +25,15 @@ This writes `group_C/threat_hunting/.env` (owner-only, git-ignored). C1's server
 ```bash
 cd "$REPO/group_C/threat_hunting" && (umask 077 && printf 'ES_URL=%s\nES_API_KEY=%s\nES_CA_CERT=%s\nHUNT_INDEX=%s\nHUNT_INDEX_PREFIX=security-events-\n' "$ES_URL" "$ES_API_KEY" "$ES_CA_CERT" "$HUNT_INDEX" > .env)
 ```
+For agent mode (section 4b), also add an LLM. Any Anthropic or OpenAI-compatible model works; this example is DeepSeek. Enter the key without it showing:
+```bash
+read -rsp "LLM API key: " LLM_API_KEY && echo
+```
+```bash
+cd "$REPO/group_C/threat_hunting" && (umask 077 && printf 'LLM_PROVIDER=openai\nLLM_BASE_URL=https://api.deepseek.com\nHUNT_MODEL=deepseek-flash\nLLM_API_KEY=%s\n' "$LLM_API_KEY" >> .env) && unset LLM_API_KEY && .venv/bin/python -m threat_hunting.llm 2>/dev/null | tail -1 || true
+```
+(The last command works after step 3; it prints one test answer, not the key.)
+
 This should print a document count:
 ```bash
 curl -s --cacert "$ES_CA_CERT" -H "Authorization: ApiKey $ES_API_KEY" "$ES_URL/$HUNT_INDEX/_count" && echo
@@ -60,6 +69,17 @@ Summary:
 cd "$REPO/group_C/threat_hunting" && for r in attack benign missing-host empty-window; do .venv/bin/python -c "import json; d=json.load(open('runs/c-$r/result.json')); v=d['verdict']; print(f\"{'$r':13s} {v['label']:17s} {v['confidence']:6s} claims={len(d['claims'])} events={len({e for c in d['claims'] for e in c['event_ids']})} es={d['manifest']['mcp_servers']['es']}\")"; done
 ```
 
+## 4b. The same hunts in agent mode (needs the LLM settings from step 2)
+Without `HUNT_FORCE_RULES=1`, the intake LLM reads the hypothesis, the investigator follows leads with its own validated queries, the skeptic tests benign explanations and the responder drafts detection rules and response proposals (DESIGN.md §3.2–3.4). Each hunt takes 1–3 minutes.
+```bash
+cd "$REPO/group_C/threat_hunting" && for c in "attack DEMO-SSH 2026-10-25" "benign BENIGN-SSH 2026-10-25" "missing-host NO-SUCH-HOST 2026-10-25" "empty-window DEMO-SSH 2030-01-01"; do set -- $c; HUNT_ES_MCP_CMD="python -m es_mcp_server.server" .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on $2 and then logged in successfully on $3." --run-id a-$1 2>/dev/null | head -1; done
+```
+What the agent did, per hunt (its steps, leads, skeptic tests and drafts):
+```bash
+cd "$REPO/group_C/threat_hunting" && for r in attack benign missing-host empty-window; do .venv/bin/python -c "import json; d=json.load(open('runs/a-$r/result.json')); v=d['verdict']; a=d['agent']; print(f\"{'$r':13s} {v['label']:17s} {v['confidence']:6s} leads={len(v['leads'])} agent_steps={len(a['steps'])} ({a['stopped_because']}) skeptic={[x['outcome'] for x in d['skeptic']['alternatives']]} drafts={len(d['actions']['detections'])} llm_calls={d['manifest']['llm']['calls']}\")"; done
+```
+To check these with C3, run section 5 with `a-` in place of `c-` in the loop.
+
 ## 5. Independent check by C3
 C3's code is in PR #23 until it is merged; this fetches it into a separate folder next to the checkout.
 ```bash
@@ -81,6 +101,17 @@ Measured on 2026-10-25 on the team stack (Elastic 8.19.23 over HTTPS), with C3 a
 
 Every query C3 replayed through C1's server returned identical results. Case 1 requires analyst review (every `SUPPORTED` verdict does).
 
+Agent mode (section 4b), measured the same day with DeepSeek `deepseek-flash`. The agent's queries and leads differ from run to run; the verdict rules do not:
+
+| Case | C2 verdict | Leads | What the agent did | C3 verdict | C3 review |
+|---|---|---|---|---|---|
+| 1. attack | `SUPPORTED`, high | 4 | 10 queries; skeptic: 3 benign explanations ruled out, 1 test not discriminating; 5 detection drafts | Confirmed (6/6 verified) | agrees |
+| 2. benign host | `INCONCLUSIVE`, low | 6 | 10 queries; recorded the host's few failed logins and a later success as leads | Inconclusive (6/6 verified) | agrees |
+| 3. host with no logs | `INCONCLUSIVE`, low | 3 | 10 queries; leads on other hosts | Inconclusive (3/3 verified) | agrees |
+| 4. date with no data | `INSUFFICIENT_DATA`, low | 0 | Stopped after 4 queries: no `linux.auth` events in the window | Inconclusive | agrees |
+
+Case 2 shows the price of agency: leads block a refutation by design (a missed attack costs more than a review), so a benign host whose logs contain a few failed logins comes out `INCONCLUSIVE` with leads to review instead of `NOT_SUPPORTED`. Every replay was identical in both modes.
+
 ## Outputs
 - C2: `runs/c-<case>/result.json`, `plan.json` and `trace.jsonl` (INTERFACES.md §4.1).
 - C1's audit logs: `audit/c-<case>.jsonl`, plus `audit/c-<case>-analytics.jsonl` from C2's analytics server.
@@ -90,4 +121,4 @@ All of these are under `group_C/threat_hunting` and git-ignored.
 
 The `.env` written in step 2 takes precedence over the `.env.test` that `dev/setup_test_es.py` writes for C2's own end-to-end tests; remove one of them when you switch between the two.
 
-**Caveat.** If `HUNT_INDEX` also holds data from other days, case 2 can come out `INCONCLUSIVE` instead of `NOT_SUPPORTED`, because the agent currently sets the hunt window from the newest event in the whole index. Point `HUNT_INDEX` at the demo data's index to avoid this until the window fix lands.
+**Hunt window.** The window spans only the data of the datasets the techniques need, within the date written in the hypothesis (DESIGN.md §5.4), so data from other days or other sources in `HUNT_INDEX` no longer widens it.

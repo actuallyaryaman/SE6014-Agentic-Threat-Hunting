@@ -1,7 +1,8 @@
 """Create the isolated C2 test artifacts in a local Elasticsearch and load the synthetic scenarios through B1's pipelines.
 
-Touches only: ingest pipelines c2test-*, index template c2test-security-events, index security-events-c2test and the API key
-c2test-hunt-ro (read + view_index_metadata on security-events-c2test*). Admin credentials come from ES_ADMIN_USER /
+Touches only: ingest pipelines c2test-*, index template c2test-security-events, indices security-events-c2test and
+security-events-c2test-new (sources without a playbook, already ECS JSON) and the API key c2test-hunt-ro (read +
+view_index_metadata on security-events-c2test*). Admin credentials come from ES_ADMIN_USER /
 ES_ADMIN_PASSWORD and are never printed. ES_URL, the read-only key, HUNT_INDEX and ES_CA_CERT (when set) are written to
 .env.test (mode 0600).
 
@@ -15,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DEV = ROOT / "dev"
 ENV_FILE = ROOT / ".env.test"
 INDEX, TEMPLATE, KEY_NAME = "security-events-c2test", "c2test-security-events", "c2test-hunt-ro"
+NEW_INDEX, ECS_PIPELINE = "security-events-c2test-new", "c2test-ecs-json"
+# already-normalised ECS JSON lines: parse, keep the line as event.original, nothing else
+ECS_PROCESSORS = [{"json": {"field": "message", "add_to_root": True}}, {"set": {"field": "event.original", "copy_from": "message"}},
+                  {"remove": {"field": "message"}}]
 PIPELINES = {"auth": "linux-auth", "web": "apache-access", "firewall": "firewall-syslog", "sysmon": "windows-json"}   # log type -> B1 pipeline
 
 
@@ -67,7 +72,16 @@ def setup():
         ok, errors = helpers.bulk(es, actions, pipeline=f"c2test-{PIPELINES[lt]}", raise_on_error=False, chunk_size=1000)
         reasons = sorted({e["index"]["error"]["reason"][:160] for e in errors})[:3] if errors else []
         print(f"loaded {fname}: {ok}/{len(lines)} indexed" + (f"; {len(errors)} rejected: {reasons}" if errors else ""))
-    es.indices.refresh(index=INDEX)
+    es.ingest.put_pipeline(id=ECS_PIPELINE, description="C2 test: ECS JSON lines as they are", processors=ECS_PROCESSORS)
+    if es.indices.exists(index=NEW_INDEX):
+        es.indices.delete(index=NEW_INDEX)
+    es.indices.create(index=NEW_INDEX)
+    lines = [l for l in (raw / generate.NEW_INDEX_FILE).read_text().splitlines() if l.strip()]
+    ok, errors = helpers.bulk(es, ({"_index": NEW_INDEX, "_id": hashlib.sha256(f"new|{i}|{l}".encode()).hexdigest()[:20],
+                                    "_source": {"message": l}} for i, l in enumerate(lines)),
+                              pipeline=ECS_PIPELINE, raise_on_error=False, chunk_size=1000)
+    print(f"loaded {generate.NEW_INDEX_FILE} into {NEW_INDEX}: {ok}/{len(lines)} indexed" + (f"; {len(errors)} rejected" if errors else ""))
+    es.indices.refresh(index=[INDEX, NEW_INDEX])
     r = es.search(index=INDEX, size=0, aggs={"ds": {"terms": {"field": "event.dataset"}}, "no_ts": {"missing": {"field": "@timestamp"}}})
     print("docs per event.dataset:", {b["key"]: b["doc_count"] for b in r["aggregations"]["ds"]["buckets"]},
           "| without @timestamp:", r["aggregations"]["no_ts"]["doc_count"])
@@ -80,18 +94,19 @@ def setup():
     ENV_FILE.touch(mode=0o600)
     ENV_FILE.chmod(0o600)
     ca = os.environ.get("ES_CA_CERT", "")          # needed for a TLS cluster such as the team stack
-    ENV_FILE.write_text(f"ES_URL={url}\nES_API_KEY={k['encoded']}\nHUNT_INDEX={INDEX}*\n" + (f"ES_CA_CERT={ca}\n" if ca else ""))
+    # exactly the original index: the new-source tests point HUNT_INDEX at NEW_INDEX themselves
+    ENV_FILE.write_text(f"ES_URL={url}\nES_API_KEY={k['encoded']}\nHUNT_INDEX={INDEX}\n" + (f"ES_CA_CERT={ca}\n" if ca else ""))
     print(f"read-only API key {KEY_NAME} (id {k['id']}) written to {ENV_FILE.name}")
 
 
 def teardown():
     es, _ = admin()
-    es.indices.delete(index=INDEX, ignore_unavailable=True)
+    es.indices.delete(index=[INDEX, NEW_INDEX], ignore_unavailable=True)
     try:
         es.indices.delete_index_template(name=TEMPLATE)
     except NotFoundError:
         pass
-    for name in PIPELINES.values():
+    for name in [*PIPELINES.values(), "ecs-json"]:
         try:
             es.ingest.delete_pipeline(id=f"c2test-{name}")
         except NotFoundError:

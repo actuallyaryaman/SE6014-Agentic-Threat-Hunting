@@ -76,3 +76,10 @@ def test_missing_evidence_fails():
     st.claims[1].evidence_ids = ["E-nope"]
     selfcheck.check(st)
     assert st.claims[1].status == "unsupported"
+
+
+def test_ip_and_port_are_not_read_as_a_time():
+    """Live agent claim "demo from 198.51.100.20:43000": "20:43" was stripped as a time, leaving a stray "000"."""
+    assert selfcheck.lint_text("demo from 198.51.100.20:43000", '{"source.ip": "198.51.100.20", "source.port": 43000}') == []
+    assert selfcheck.lint_text("demo from 198.51.100.21:43000", '{"source.ip": "198.51.100.20", "source.port": 43000}') == ["198.51.100.21"]
+    assert selfcheck.lint_text("at 14:03 from WS-02", '{"host.name": "ws-02"}') == []   # a clock time is still not a number to check

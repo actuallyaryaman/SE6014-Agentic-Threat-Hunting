@@ -2,7 +2,7 @@
 hypothesis and the ATT&CK catalogue, claims are filled from templates and verdicts come from rules. Injection-like text in the
 logs is still suspicious in its own right, so every hunt sweeps its window for it, reports matches as findings and forces review."""
 from __future__ import annotations
-from . import config
+from . import config, progress
 from .models import HuntPlan
 from .playbooks import BASE
 
@@ -17,9 +17,10 @@ async def injection_sweep(mcp, plan: HuntPlan, index_fields: set[str]) -> dict:
     out: dict = {"step_id": STEP_ID, "checked_fields": fields, "markers": markers, "call_id": None, "total": 0, "findings": []}
     if not fields:
         return out
-    r = await mcp.call("search", index=config.HUNT_INDEX, time_from=plan.time_range["from"], time_to=plan.time_range["to"], size=50,
-                       any_of=[{"field": f, "op": "contains", "value": m} for f in fields for m in markers],
-                       fields=["@timestamp", "event.dataset", "host.name", "source.ip", *fields])
+    with progress.step("injection sweep"):
+        r = await mcp.call("search", index=config.HUNT_INDEX, time_from=plan.time_range["from"], time_to=plan.time_range["to"], size=50,
+                           any_of=[{"field": f, "op": "contains", "value": m} for f in fields for m in markers],
+                           fields=["@timestamp", "event.dataset", "host.name", "source.ip", *fields])
     out.update(call_id=r.get("call_id"), total=r.get("total", 0))
     if "error" in r:
         out["error"] = r["error"]

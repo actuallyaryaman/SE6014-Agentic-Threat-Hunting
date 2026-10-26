@@ -54,6 +54,7 @@ class Claim(BaseModel):
     event_ids: list[str] = []      # "<index>/<event_id>"
     replay: dict[str, Any] = {}    # how a verifier (C3) re-checks aggregate / ioc claims
     context_only: bool = False     # context techniques never decide the verdict
+    origin: Literal["playbook", "llm"] = "playbook"   # llm = from an investigator query: a lead, never proof (same field as C3's)
     # self_checked = passed C2's structural self-check; verified/unsupported/contradicted are set by C3's verifier
     status: Literal["unverified", "self_checked", "verified", "unsupported", "contradicted"] = "unverified"
     verifier_notes: str = ""

@@ -7,7 +7,8 @@ import json, re
 from .hunter import HuntState
 
 IP_RX = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
-TS_RX = re.compile(r"\d{4}-\d{2}-\d{2}T[\d:.]+Z?|\b\d{1,2}:\d{2}(?::\d{2})?Z?")
+# a clock time, but not the "20:43" inside "198.51.100.20:43000" (an IP and a port; seen in a live agent claim)
+TS_RX = re.compile(r"\d{4}-\d{2}-\d{2}T[\d:.]+Z?|(?<![\d.])\b\d{1,2}:\d{2}(?::\d{2})?Z?(?!\d)")
 INT_RX = re.compile(r"(?<![\w.])\d{2,}(?![\w.])")
 
 
