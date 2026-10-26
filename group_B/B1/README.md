@@ -7,7 +7,7 @@ Elasticsearch ingest pipeline. Unknown formats are handled by B2.
 
 | Format | `format_id` | `dataset` | Pipeline ID | Input |
 |---|---|---|---|---|
-| Apache access log | `apache_access` | `apache.access` | `apache-access` | Combined log format, trailing response time optional |
+| Apache access log | `apache_access` | `apache.access` | `apache-access` | Combined log format, trailing response time optional; broken request lines (status 400) are parsed and tagged `malformed_request` |
 | Windows / Sysmon JSON | `windows_json` | the event's `Channel` | `windows-json` | One JSON event per line (Mordor style, `EventID` and `Channel`) |
 | Firewall syslog | `firewall_syslog` | `firewall` | `firewall-syslog` | `Oct 22 10:20:01 fw01 firewall: Blocked connection from A to B` |
 | Linux auth | `linux_auth` | `linux.auth` | `linux-auth` | sshd, sudo, PAM lines, ISO or classic syslog timestamps |
@@ -102,11 +102,20 @@ CI runs the same tests on every pull request (`.github/workflows/b1-ci.yml`).
 | Dataset | Lines | Required fields non-empty | Parse failures |
 |---|---|---|---|
 | Apache access (clean, 1,000,000 lines) | 1,000,000 | 1,000,000 | 0 |
+| Apache access (attack: Nikto scan of DVWA) | 7,205 | 7,205 | 0 |
 | Windows / Sysmon, Mordor empire_mimikatz | 7,887 | 7,887 | 0 |
 | Firewall sample (from A3) | 6 | 6 | 0 |
 | Linux auth sample (Kali VM) | 19 | 19 | 0 |
 
-Ground truth: the Windows file holds 4 known attack events (Event ID 5145, `RelativeTargetName`
+Ground truth, Apache attack file (Nikto 2.6 scan of a local DVWA container, 2026-10-26, times UTC):
+the file has 7,205 lines. The scan ran from `01:23:19Z` to `01:27:18Z` and produced **7,145** requests, all
+from `172.17.0.1`. The other 60 lines are normal `curl` requests to `/login.php` made before and after the scan.
+The Kibana query `@timestamp >= "2026-10-26T01:23:19Z" and @timestamp <= "2026-10-26T01:27:18Z"` returns 7,145 hits.
+Only 12 lines show "Nikto" in `user_agent.original`, because Nikto 2.6 rotates browser user agents, so a
+user-agent search misses most of the scan. Other signs of the scan: a burst of thousands of requests from one IP in
+4 minutes, many 4xx responses, and `malformed_request` lines (`TRACE /`, `<script>...`).
+
+Ground truth, Windows file: the file holds 4 known attack events (Event ID 5145, `RelativeTargetName`
 `lsarpc`, 2020-10-22 18:33:36 UTC); the search `event.code : 5145 and RelativeTargetName : lsarpc`
 returns 4 hits. Kibana shows times in local time; the data is UTC.
 
