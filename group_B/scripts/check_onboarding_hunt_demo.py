@@ -183,6 +183,14 @@ class HuntDemo(Integration):
         if process.returncode:
             raise RuntimeError(self.redact((stdout + stderr)[-5000:]))
         folder = self.c2_root / "runs" / run_id
+        destination = output / run_id
+        shutil.copytree(folder, destination)
+        audit = self.c2_root / "audit" / (run_id + ".jsonl")
+        if audit.exists():
+            shutil.copy2(audit, destination / "mcp-audit.jsonl")
+        analytics_audit = self.c2_root / "audit" / (run_id + "-analytics.jsonl")
+        if analytics_audit.exists():
+            shutil.copy2(analytics_audit, destination / "analytics-audit.jsonl")
         result = json.loads((folder / "result.json").read_text())
         if self.llm_env_file:
             assert result["manifest"]["backend"].startswith("llm:"), "agent fell back to rules"
@@ -196,6 +204,12 @@ class HuntDemo(Integration):
         assert trace and all(row["ok"] for row in trace), "MCP tool failed"
         assert {row["server"] for row in trace} == {"es", "analytics"}
         ids = {event for claim in result["claims"] for event in claim["event_ids"]}
+        self.report.setdefault("ground_truth_checks", []).append({
+            "run_id": run_id, "actual_label": result["verdict"]["label"],
+            "expected_attack_ids": len(self.expected) if run_id in {"attack", "attack-repeat"} else 0,
+            "cited_ids": len(ids), "missing_ids": sorted(self.expected - ids) if run_id in {"attack", "attack-repeat"} else [],
+            "unexpected_ids": sorted(ids - self.expected) if run_id in {"attack", "attack-repeat"} else sorted(ids),
+        })
         self.check_ground_truth(run_id, result, ids)
         # Check every citation using ES independently of C2's structural self-check.
         for reference in ids:
@@ -204,14 +218,6 @@ class HuntDemo(Integration):
             document = self.api("GET", "/" + index + "/_doc/" + identifier)["_source"]
             assert document["event"]["dataset"] == "linux.auth"
             assert document["event"]["original"] and document["labels"]["source_id"] == self.report["onboarding"]["source_id"]
-        destination = output / run_id
-        shutil.copytree(folder, destination)
-        audit = self.c2_root / "audit" / (run_id + ".jsonl")
-        if audit.exists():
-            shutil.copy2(audit, destination / "mcp-audit.jsonl")
-        analytics_audit = self.c2_root / "audit" / (run_id + "-analytics.jsonl")
-        if analytics_audit.exists():
-            shutil.copy2(analytics_audit, destination / "analytics-audit.jsonl")
         assert result["manifest"]["mcp_servers"]["es"] == self.hunt_env["HUNT_ES_MCP_CMD"]
         self.report.setdefault("hunts", []).append({"run_id": run_id, "verdict": result["verdict"]["label"],
             "claims": len(result["claims"]), "cited_events": len(ids), "tool_calls": len(trace),
