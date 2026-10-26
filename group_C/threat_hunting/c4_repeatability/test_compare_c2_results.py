@@ -70,5 +70,42 @@ class ComparisonTests(unittest.TestCase):
         self.b["queries"][0]["request"]["filters"][0]["value"] = "5.6.7.8"
         self.assert_detects("queries_and_values")
 
+    def test_phase_timings_are_execution_metadata(self):
+        self.a["manifest"]["phase_seconds"] = {"planning": 1.0, "total": 3.0}
+        self.b["manifest"]["phase_seconds"] = {"planning": 2.0, "total": 9.0}
+        checks, errors = compare(self.a, self.b)
+        self.assertFalse(errors)
+        self.assertTrue(checks["manifest"]["match"])
+
+    def test_nested_manifest_settings_remain_meaningful(self):
+        self.a["manifest"]["controls"] = {"seconds": 5, "phase_seconds": {"limit": 2}}
+        self.b["manifest"]["controls"] = {"seconds": 10, "phase_seconds": {"limit": 3}}
+        self.assert_detects("manifest")
+
+    def test_zero_claim_negative_results_are_valid(self):
+        for verdict in ("NOT_SUPPORTED", "INCONCLUSIVE", "INSUFFICIENT_DATA"):
+            with self.subTest(verdict=verdict):
+                for value in (self.a, self.b):
+                    value["verdict"]["label"] = verdict
+                    value["claims"] = []
+                    value["evidence"] = []
+                checks, errors = compare(self.a, self.b)
+                self.assertFalse(errors)
+                self.assertTrue(all(c["match"] for c in checks.values()))
+
+    def test_supported_without_claims_is_invalid(self):
+        self.b["claims"] = []
+        checks, errors = compare(self.a, self.b)
+        self.assertEqual(checks, {})
+        self.assertIn("SUPPORTED verdict requires claims", "; ".join(errors))
+
+    def test_missing_lists_remain_invalid(self):
+        self.b["claims"] = None
+        self.b["queries"] = []
+        checks, errors = compare(self.a, self.b)
+        self.assertEqual(checks, {})
+        self.assertTrue(any("claims" in e for e in errors))
+        self.assertTrue(any("queries" in e for e in errors))
+
 if __name__ == "__main__":
     unittest.main()

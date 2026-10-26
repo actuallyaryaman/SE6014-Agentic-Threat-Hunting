@@ -196,6 +196,7 @@ class HuntDemo(Integration):
         assert trace and all(row["ok"] for row in trace), "MCP tool failed"
         assert {row["server"] for row in trace} == {"es", "analytics"}
         ids = {event for claim in result["claims"] for event in claim["event_ids"]}
+        self.check_ground_truth(run_id, result, ids)
         # Check every citation using ES independently of C2's structural self-check.
         for reference in ids:
             index, separator, identifier = reference.partition("/")
@@ -219,6 +220,16 @@ class HuntDemo(Integration):
         if hasattr(self, "c3_root"):
             self.verify_c3(run_id, folder, output)
         return result, trace, ids
+
+    def check_ground_truth(self, run_id, result, ids):
+        expected = {"attack": "SUPPORTED", "attack-repeat": "SUPPORTED", "benign": "NOT_SUPPORTED",
+                    "missing-host": "INCONCLUSIVE", "empty-window": "INSUFFICIENT_DATA"}[run_id]
+        assert result["verdict"]["label"] == expected, f"{run_id}: wrong seeded-scenario verdict"
+        assert not result["self_check"]["failed"], f"{run_id}: failed claim self-check"
+        if run_id in {"attack", "attack-repeat"}:
+            assert ids == self.expected, f"{run_id}: citations differ from independent attack ground truth"
+        else:
+            assert not result["claims"] and not ids, f"{run_id}: unexpected claims for negative scenario"
 
     def verify_c3(self, run_id, folder, output):
         destination = output / run_id / "c3"
@@ -245,10 +256,6 @@ class HuntDemo(Integration):
         if self.require_c3_agreement:
             expected = {"attack": "Confirmed", "attack-repeat": "Confirmed", "benign": "Refuted",
                         "missing-host": "Inconclusive", "empty-window": "Inconclusive"}[run_id]
-            if self.llm_env_file:
-                c2_label = json.loads((folder / "result.json").read_text())["verdict"]["label"]
-                expected = {"SUPPORTED": "Confirmed", "NOT_SUPPORTED": "Refuted", "INCONCLUSIVE": "Inconclusive",
-                            "INSUFFICIENT_DATA": "Inconclusive"}[c2_label]
             checks = report["verification"]
             assert report["decision"]["verdict"] == expected, report["decision"]
             assert not checks["unsupported"] and not checks["contradicted"] and not checks["unverified"], checks

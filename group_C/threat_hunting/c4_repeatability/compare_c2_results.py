@@ -13,12 +13,12 @@ def normalize(obj, *, manifest=False, action=False):
         excluded = EXECUTION_KEYS | (MANIFEST_EXECUTION_KEYS if manifest else set())
         result = {}
         for k, v in sorted(obj.items()):
-            if k in excluded:
+            if k in excluded or (manifest and k == "phase_seconds" and isinstance(v, dict)):
                 continue
             if action and k == "file" and isinstance(v, str) and v.startswith("runs/") and "/actions/" in v:
                 # Normalize only the per-run output directory, preserving the artifact's relative path.
                 v = "actions/" + v.split("/actions/", 1)[1]
-            result[k] = normalize(v, manifest=manifest, action=action)
+            result[k] = normalize(v, action=action)
         return result
     if isinstance(obj, list):
         return [normalize(v, manifest=manifest, action=action) for v in obj]
@@ -44,8 +44,8 @@ def validate(data, label):
         errors.append(f"{label}: coverage.data_sources and coverage.coverage required")
     for key, identifier in (("claims", "claim_id"), ("evidence", "evidence_id"), ("queries", "request")):
         items = data.get(key)
-        if not isinstance(items, list) or not items:
-            errors.append(f"{label}: {key} must be a nonempty list")
+        if not isinstance(items, list) or (key == "queries" and not items):
+            errors.append(f"{label}: {key} must be a " + ("nonempty list" if key == "queries" else "list"))
             continue
         for i, item in enumerate(items):
             if not isinstance(item, dict) or identifier not in item or item[identifier] in (None, "", [], {}):
@@ -54,6 +54,8 @@ def validate(data, label):
                 errors.append(f"{label}: claims[{i}].evidence_ids required")
             if key == "evidence" and (not isinstance(item, dict) or not isinstance(item.get("event_ids"), list)):
                 errors.append(f"{label}: evidence[{i}].event_ids required")
+    if isinstance(verdict, dict) and verdict.get("label") == "SUPPORTED" and data.get("claims") == []:
+        errors.append(f"{label}: SUPPORTED verdict requires claims")
     if isinstance(data.get("claims"), list) and isinstance(data.get("evidence"), list):
         known = {e.get("evidence_id") for e in data["evidence"] if isinstance(e, dict)}
         for i, claim in enumerate(data["claims"]):
@@ -106,7 +108,7 @@ def report(checks, errors, run_a, run_b):
                   json.dumps(item["run_b"], indent=2, ensure_ascii=False), "```", ""]
     lines += ["", "## Notes", "",
               "Only execution IDs (run_id, call_id, query_id) and manifest execution "
-              "duration/audit-file paths are ignored. Event timestamps, claim facts, "
+              "duration, phase timings and audit-file paths are ignored. Event timestamps, claim facts, "
               "evidence links, evidence contents, and query requests/values are preserved.",
               "This compares saved C2 outputs; it does not rerun hunts or establish correctness.", ""]
     return "\n".join(lines)
