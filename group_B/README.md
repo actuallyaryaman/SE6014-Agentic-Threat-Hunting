@@ -94,13 +94,15 @@ in `tests/fixtures/otrf/`.
 `agentic_ingestion` provides bounded inspection, read-only planning, opt-in
 pull/push/direct execution, independent Elasticsearch verification and JSONL
 audit evidence. The CLI adds `onboard` (dry-run by default, `--execute` for
-writes) and `verify`. Stream execution remains blocked pending A3 agreement.
+writes) and `verify`. Bounded file/HTTP snapshots support explicit stream
+forwarding through A3; continuous capture remains blocked.
 See [the B3 README](agentic_ingestion/README.md) for configuration and failure
 semantics, and [live ES results](tests/LIVE_ES_RESULTS.md) for isolated indexing
 and replay evidence. The unchanged A1/A2 configurations now also pass an
 isolated authenticated HTTPS integration run; see
 [the integration results](tests/A1_A2_INTEGRATION_RESULTS.md). Access to the
-shared deployment, A3 agreement and the complete hunting demo remain.
+another local environment is a repeatability check; no shared deployment
+exists. See [the bounded B3/A3 contract](B3_A3_CONTRACT.md) for stream setup.
 
 
 ## Independent local hunt demo

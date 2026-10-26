@@ -241,8 +241,9 @@ Known-format pipeline selection requires an operator-approved mapping. Missing
 B1 configuration is distinct from an explicit format miss. B2 receives the
 source timezone for candidate generation; naive timestamps without one and
 yearless syslog remain blocked. Stream inspection accepts supplied samples
-without opening a UDP listener. A3's normalized-event interface still needs
-agreement before raw-envelope stream execution can be planned as supported.
+without opening a UDP listener. Bounded file/HTTP snapshots may explicitly
+select stream transport using [B3/A3 raw-envelope v1](B3_A3_CONTRACT.md).
+Continuous stream-source capture remains unsupported.
 
 Source inspection and exact B2 resolution remain available in memory; raw
 samples and candidate resolution are excluded from JSON plan summaries.

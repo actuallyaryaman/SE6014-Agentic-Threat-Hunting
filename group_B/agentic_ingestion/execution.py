@@ -12,7 +12,7 @@ from group_B.schema_generation.models import CsvParser
 from group_B.schema_generation.registry import SchemaRegistry
 from group_B.schema_generation.validate import validate_pipeline
 
-from .adapters import DirectESAdapter, FileDropAdapter, HttpPushAdapter, Receipt
+from .adapters import DirectESAdapter, FileDropAdapter, HttpPushAdapter, UdpStreamAdapter, Receipt
 from .audit import AuditError, AuditLog
 from .inspect import capture_source
 from .models import ExecutionConfig, ExecutionReport
@@ -189,6 +189,8 @@ def onboard(source, policy, config: ExecutionConfig, *, recognizer=None,
             if adapter is None:
                 if plan.ingest_mode == "pull":
                     adapter = FileDropAdapter(config.incoming_dir)
+                elif plan.ingest_mode == "stream":
+                    adapter = UdpStreamAdapter(config.a3_udp_url)
                 elif plan.ingest_mode == "push":
                     adapter = HttpPushAdapter(config.push_url, timeout=config.timeout_seconds)
                 else:

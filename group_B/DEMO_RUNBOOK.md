@@ -136,3 +136,36 @@ run. Older results above remain historical evidence of earlier snapshots.
 
 [Unified recorded results](tests/UNIFIED_C1_C4_RESULTS.md) show the expected
 C3 verdicts and complete query replay with these exact snapshots.
+
+## Latest bounded A3 and DeepSeek chain
+
+The newer path adds `--a3-stream` to run B3 raw envelopes through the actual
+A3 UDP receiver before A2. Use the current C2 agent branch:
+
+```bash
+git fetch origin feature/c2-agentic-hunt refs/pull/23/head refs/pull/25/head
+group_B/.venv/bin/python group_B/scripts/check_onboarding_hunt_demo.py \
+  --hunt-python "$demo_workspace/hunt-venv/bin/python" \
+  --c2-ref fd9995af15804a7e2fe33b13d90f39911ef6ee36 \
+  --c3-ref 5d8ced350259c3727d9c1bddabf292194518797e \
+  --es-mcp-module es_mcp_server.server --require-c3-agreement \
+  --c4-ref ae8b316730fdabcbe90929b6869c1a8f8bf0eef4 \
+  --a3-stream --output-dir "$demo_workspace/a3-rules-evidence"
+```
+
+For live agent checks, add `--llm-env /absolute/path/to/private-provider.env`
+and use another new output directory. The file contains `LLM_PROVIDER`,
+`LLM_BASE_URL`, `LLM_API_KEY` and `HUNT_MODEL`. DeepSeek was tested through its
+OpenAI-compatible API using `deepseek-flash`. Provider credentials are passed
+only to C2, never written to evidence or sent to C3's MCP processes.
+
+The live variant runs attack, benign and repeated attack cases. It sets an
+8-call LLM budget, two investigator steps and a 45-second provider timeout.
+Every actual completed LLM call is retained in the synthetic run audit. C3
+still re-verifies the resulting claims independently. C4 records differences
+instead of failing just because the LLM chose a different query.
+
+The rules variant also checks raw Apache (including a malformed request),
+unknown JSON/CSV through B2, the original normalized A3 path with duplicate
+replay, and rejection of unapproved raw pipelines. Existing A3 parsers and
+sender scripts remain usable. See [the transport contract](B3_A3_CONTRACT.md).

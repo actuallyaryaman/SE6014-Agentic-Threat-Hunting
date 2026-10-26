@@ -6,3 +6,6 @@ __pycache__/
 *.py[cod]
 .venv/
 *.log
+
+# Local provider credentials
+dskey.txt

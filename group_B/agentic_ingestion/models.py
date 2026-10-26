@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import ipaddress
 import fnmatch
 import os
 from pathlib import Path
@@ -136,6 +137,7 @@ class ExecutionConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     incoming_dir: Path | None = None
     push_url: str = "http://127.0.0.1:8088"
+    a3_udp_url: str = "udp://127.0.0.1:9999"
     index_prefix: str = Field(default="security-events", pattern=r"^[a-z0-9][a-z0-9_-]{0,100}$")
     search_pattern: str = Field(default="security-events-*", pattern=r"^[a-z0-9][a-z0-9_*.-]{0,150}$")
     audit_path: Path = Path(__file__).parent / "runtime" / "audit.jsonl"
@@ -150,6 +152,17 @@ class ExecutionConfig(BaseModel):
         if not fnmatch.fnmatch(self.index_prefix + "-2000.01.01", self.search_pattern):
             raise ValueError("verification pattern must cover the write index prefix")
         return self
+
+    @field_validator("a3_udp_url")
+    @classmethod
+    def check_a3_endpoint(cls, value):
+        parsed = urlsplit(value)
+        if (parsed.scheme != "udp" or not parsed.hostname or not parsed.port
+                or parsed.username or parsed.password or parsed.path not in ("", "/")
+                or parsed.query or parsed.fragment
+                or not ipaddress.ip_address(parsed.hostname).is_loopback):
+            raise ValueError("A3 requires an explicit loopback udp://IP:port endpoint")
+        return value
 
     @field_validator("push_url")
     @classmethod
@@ -166,6 +179,7 @@ class ExecutionConfig(BaseModel):
         return cls(
             incoming_dir=os.environ.get("A2_INCOMING_DIR") or None,
             push_url=os.environ.get("A2_PUSH_URL") or "http://127.0.0.1:8088",
+            a3_udp_url=os.environ.get("A3_UDP_URL") or "udp://127.0.0.1:9999",
             index_prefix=os.environ.get("ES_WRITE_INDEX_PREFIX") or "security-events",
             search_pattern=os.environ.get("ES_SEARCH_INDEX_PATTERN") or "security-events-*",
             audit_path=os.environ.get("B3_AUDIT_PATH") or cls.model_fields["audit_path"].default,

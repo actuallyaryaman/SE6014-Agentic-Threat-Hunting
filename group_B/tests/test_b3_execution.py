@@ -295,3 +295,20 @@ def test_known_pipeline_must_already_be_installed(run):
             raise Missing()
     with pytest.raises(PipelineError, match="not installed"):
         prepare_pipeline_original(plan, None, SimpleNamespace(ingest=Ingest()))
+
+
+def test_stream_send_without_indexed_documents_fails_verification(run, monkeypatch):
+    from group_B.agentic_ingestion import adapters
+    from group_B.agentic_ingestion.adapters import UdpStreamAdapter
+    class Socket:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def settimeout(self, value): pass
+        def sendto(self, packet, target): return len(packet)
+    monkeypatch.setattr(adapters.socket, 'socket', lambda *args: Socket())
+    monkeypatch.setattr(adapters.time, 'sleep', lambda *args: None)
+    result = run.call(source=run.source.model_copy(update={'ingest_mode': 'stream'}),
+                      adapter=UdpStreamAdapter('udp://127.0.0.1:9999'))
+    assert result.status == 'failed' and 'VERIFICATION_FAILED' in result.error_codes
+    assert result.submitted_count == 80 and result.acknowledged_count == 0
+    assert result.indexed_count == 0

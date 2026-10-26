@@ -1,0 +1,302 @@
+[
+  {
+    "run_id": "attack",
+    "calls": 7,
+    "roles": [
+      "intake",
+      "investigator",
+      "investigator",
+      "skeptic",
+      "skeptic",
+      "skeptic",
+      "responder"
+    ],
+    "input_tokens": 10052,
+    "output_tokens": 14552,
+    "verdict": {
+      "label": "SUPPORTED",
+      "confidence": "high",
+      "requires_analyst_review": true,
+      "review_reasons": [
+        "SUPPORTED verdicts always require analyst review"
+      ],
+      "reasons": [
+        "Every required technique has at least the minimum number of independent self-checked indicators."
+      ],
+      "leads": []
+    },
+    "investigator": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "draft_mode": false,
+      "steps": [
+        {
+          "n": 1,
+          "thought": "The playbook findings already establish both required techniques: 30 failed SSH logins from external IP 203.0.113.99 (T1110) followed by a successful login as demo on DEMO-SSH from that same IP (T1078). Only linux.auth exists in the index, and the 35-event window is fully covered by prior queries, so further pivots would not change the conclusion.",
+          "action": "stop",
+          "technique": null,
+          "purpose": "",
+          "status": "stop",
+          "reason": "Brute force from 203.0.113.99 and subsequent successful login as demo on DEMO-SSH are both confirmed by existing claims (C-001, C-002); no additional data exists to refute or extend the hypothesis."
+        }
+      ],
+      "stopped_because": "the investigator stopped: Brute force from 203.0.113.99 and subsequent successful login as demo on DEMO-SSH are both confirmed by existing claims (C-001, C-002); no additional data exists to refute or extend the hypothesis."
+    },
+    "skeptic": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "alternatives": [
+        {
+          "claim_id": "C-001",
+          "explanation": "A scheduled automation or monitoring client on 203.0.113.99 is retrying with one stale credential, which produces a burst of failures that looks like a dictionary attack.",
+          "benign_if": "<2",
+          "step_id": "SK-01",
+          "total": 30,
+          "outcome": "not_discriminating",
+          "reason": "the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack"
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "The failures are a misconfigured job that keeps failing on the same cadence long after the alleged login, so the 30 failures never were a working attack.",
+          "benign_if": ">0",
+          "outcome": "not_tested",
+          "reason": "query rejected: time range must lie between 2026-09-24T01:00:00Z and 2026-10-25T01:00:00Z",
+          "superseded": true
+        },
+        {
+          "claim_id": "C-002",
+          "explanation": "203.0.113.99 is a sanctioned vendor, bastion or monitoring egress host that logs in successfully on a routine basis, so this session is normal administration.",
+          "benign_if": ">0",
+          "step_id": "SK-02",
+          "total": 0,
+          "outcome": "not_discriminating",
+          "reason": "the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack"
+        },
+        {
+          "claim_id": "C-002",
+          "explanation": "The 'demo' account is a shared test/demo login used from many different sources and hosts, so a success from an external IP is ordinary lab or smoke-test traffic.",
+          "benign_if": ">=2",
+          "step_id": "SK-03",
+          "total": 0,
+          "measured": 0,
+          "measure": "buckets",
+          "outcome": "ruled_out"
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "The failures are a recurring misconfigured job that also failed on the same cadence on days before the hunt, so the 30 failures were not an attack.",
+          "benign_if": ">=2",
+          "step_id": "SK-04",
+          "total": 0,
+          "measured": 0,
+          "measure": "hits",
+          "outcome": "ruled_out"
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "203.0.113.99 is an approved vulnerability scanner that probes many hosts, so its failed SSH logins are expected scanning noise.",
+          "benign_if": ">=3",
+          "outcome": "not_tested",
+          "reason": "unknown claim, or the per-claim or total test limit was reached"
+        }
+      ]
+    }
+  },
+  {
+    "run_id": "benign",
+    "calls": 4,
+    "roles": [
+      "intake",
+      "investigator",
+      "investigator",
+      "investigator"
+    ],
+    "input_tokens": 6407,
+    "output_tokens": 3555,
+    "verdict": {
+      "label": "NOT_SUPPORTED",
+      "confidence": "medium",
+      "requires_analyst_review": false,
+      "review_reasons": [],
+      "reasons": [
+        "All required sources and fields were covered for the full window and no indicator exists for any required technique."
+      ],
+      "leads": []
+    },
+    "investigator": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "draft_mode": false,
+      "steps": [
+        {
+          "n": 1,
+          "thought": "The playbooks found brute-force candidates but returned no findings, so I need to inspect the actual SSH authentication events on BENIGN-SSH to see whether any successful login follows the failures.",
+          "action": "search",
+          "technique": "T1078",
+          "purpose": "List all SSH authentication events for BENIGN-SSH in the hunt window, including source IP, user, action, outcome, and message, to identify successful logins and their context.",
+          "status": "ran",
+          "step_id": "AG-01",
+          "total": 4,
+          "params": {
+            "time_from": "2026-10-25T00:00:00Z",
+            "time_to": "2026-10-25T01:00:00Z",
+            "filters": [
+              {
+                "field": "event.dataset",
+                "op": "eq",
+                "value": "linux.auth"
+              },
+              {
+                "field": "host.name",
+                "op": "eq",
+                "value": "BENIGN-SSH"
+              }
+            ],
+            "fields": [
+              "@timestamp",
+              "source.ip",
+              "source.port",
+              "destination.ip",
+              "destination.port",
+              "user.name",
+              "event.action",
+              "event.outcome",
+              "event.code",
+              "message"
+            ],
+            "size": 100
+          },
+          "claims": []
+        },
+        {
+          "n": 2,
+          "thought": "Action 1 already contains the decisive evidence: three failed SSH password attempts from 198.51.100.20 for user demo at 00:10:00-00:10:02, immediately followed by an accepted password from the same IP and user at 00:11:00 on BENIGN-SSH. With linux.auth the only dataset and no other entities worth pivoting on, any further query would only restate this.",
+          "action": "stop",
+          "technique": null,
+          "purpose": "",
+          "status": "stop",
+          "reason": "Hypothesis confirmed: 198.51.100.20 performed a burst of failed SSH logins (T1110) against BENIGN-SSH and then succeeded as user demo one minute later (T1078). No additional datasets or entities exist to refute or extend this, so more queries would not change the conclusion."
+        }
+      ],
+      "stopped_because": "the investigator stopped: Hypothesis confirmed: 198.51.100.20 performed a burst of failed SSH logins (T1110) against BENIGN-SSH and then succeeded as user demo one minute later (T1078). No additional datasets or entities exist to refute or extend this, so more queries would not change the conclusion."
+    },
+    "skeptic": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "alternatives": [],
+      "skipped_because": "no accepted finding on a required technique"
+    }
+  },
+  {
+    "run_id": "attack-repeat",
+    "calls": 5,
+    "roles": [
+      "intake",
+      "investigator",
+      "skeptic",
+      "skeptic",
+      "responder"
+    ],
+    "input_tokens": 6637,
+    "output_tokens": 9013,
+    "verdict": {
+      "label": "SUPPORTED",
+      "confidence": "medium",
+      "requires_analyst_review": true,
+      "review_reasons": [
+        "SUPPORTED verdicts always require analyst review",
+        "benign explanation not ruled out for C-001: The failures are user demo repeatedly mistyping a password after a credential change, a habit that also produces failures from other source addresses."
+      ],
+      "reasons": [
+        "Every required technique has at least the minimum number of independent self-checked indicators.",
+        "A benign explanation the skeptic proposed holds for C-001; confidence is at most medium."
+      ],
+      "leads": []
+    },
+    "investigator": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "draft_mode": false,
+      "steps": [
+        {
+          "n": 1,
+          "thought": "The playbook evidence already shows 30 failed SSH logins from 203.0.113.99 followed by a successful login as demo on DEMO-SSH, satisfying both T1110 and T1078. Additional queries would only add context and would not change the conclusion.",
+          "action": "stop",
+          "technique": null,
+          "purpose": "",
+          "status": "stop",
+          "reason": "Both required techniques are confirmed by existing findings: repeated failed SSH attempts from one external source, then a successful login from that same source to DEMO-SSH."
+        }
+      ],
+      "stopped_because": "the investigator stopped: Both required techniques are confirmed by existing findings: repeated failed SSH attempts from one external source, then a successful login from that same source to DEMO-SSH."
+    },
+    "skeptic": {
+      "enabled": true,
+      "model": "openai:deepseek-flash@api.deepseek.com",
+      "alternatives": [
+        {
+          "claim_id": "C-001",
+          "explanation": "203.0.113.99 is an organization-run vulnerability scanner or monitoring node, so its many failed SSH attempts against DEMO-SSH are expected scanning noise rather than interactive brute force.",
+          "benign_if": ">=5",
+          "outcome": "not_tested",
+          "reason": "query rejected: time range must lie between 2026-09-24T01:00:00Z and 2026-10-25T01:00:00Z",
+          "superseded": true
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "The failures are the user demo repeatedly mistyping a password after a credential change, not a brute-force campaign, and the same user has similar failures from other sources.",
+          "benign_if": ">=1",
+          "outcome": "not_tested",
+          "reason": "query rejected: time range must lie between 2026-09-24T01:00:00Z and 2026-10-25T01:00:00Z",
+          "superseded": true
+        },
+        {
+          "claim_id": "C-002",
+          "explanation": "The successful demo login is from a known external address that demo normally uses, so it is routine user access rather than attacker login.",
+          "benign_if": ">0",
+          "step_id": "SK-01",
+          "total": 0,
+          "outcome": "not_discriminating",
+          "reason": "the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack"
+        },
+        {
+          "claim_id": "C-002",
+          "explanation": "203.0.113.99 is a shared NAT or VPN egress used by multiple legitimate users, so the demo success is normal access through that gateway.",
+          "benign_if": ">=2",
+          "outcome": "not_tested",
+          "reason": "query rejected: time range must lie between 2026-09-24T01:00:00Z and 2026-10-25T01:00:00Z",
+          "superseded": true
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "203.0.113.99 is an organization-run vulnerability scanner or monitoring node that sweeps many hosts, so failures spread across multiple destinations are expected scanning noise rather than targeted brute force.",
+          "benign_if": ">=2",
+          "step_id": "SK-02",
+          "total": 30,
+          "outcome": "not_discriminating",
+          "reason": "the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack"
+        },
+        {
+          "claim_id": "C-001",
+          "explanation": "The failures are user demo repeatedly mistyping a password after a credential change, a habit that also produces failures from other source addresses.",
+          "benign_if": ">=1",
+          "step_id": "SK-03",
+          "total": 3,
+          "measured": 3,
+          "measure": "hits",
+          "outcome": "supported"
+        },
+        {
+          "claim_id": "C-002",
+          "explanation": "203.0.113.99 is a shared NAT or VPN egress used by several legitimate users, so the demo success is ordinary access through that gateway.",
+          "benign_if": ">=2",
+          "step_id": "SK-04",
+          "total": 31,
+          "measured": 1,
+          "measure": "buckets",
+          "outcome": "ruled_out"
+        }
+      ]
+    }
+  }
+]

@@ -14,6 +14,8 @@ from pathlib import Path
 import re
 import runpy
 import shutil
+import socket
+import time
 import signal
 import subprocess
 import tarfile
@@ -23,6 +25,7 @@ from check_a1_a2_integration import Integration, REPO, command
 from group_B.agentic_ingestion import ExecutionConfig, InspectionPolicy, SourceSpec, onboard
 from group_B.common import load_b1_recognizer
 from group_B.schema_generation.registry import SchemaRegistry
+from group_B.agentic_ingestion.planner import plan_source
 
 
 class HuntDemo(Integration):
@@ -60,6 +63,21 @@ class HuntDemo(Integration):
                          "HUNT_INDEX": "security-events-c2test*", "HUNT_INDEX_PREFIX": "security-events-",
                          "HUNT_FORCE_RULES": "1", "PYTHONUNBUFFERED": "1"}
         self.hunt_env["HUNT_ES_MCP_CMD"] = self.hunt_python + " -m " + self.es_mcp_module
+        if self.llm_env_file:
+            allowed = {"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "HUNT_MODEL"}
+            values = {}
+            for line in self.llm_env_file.read_text().splitlines():
+                if "=" in line and not line.lstrip().startswith("#"):
+                    name, value = line.split("=", 1)
+                    if name.strip() in allowed:
+                        values[name.strip()] = value.strip().strip("\"'")
+            if not all(values.get(k) for k in allowed):
+                raise ValueError("provider config needs LLM_PROVIDER, LLM_BASE_URL, LLM_API_KEY and HUNT_MODEL")
+            self.secrets.append(values["LLM_API_KEY"])
+            self.llm_settings = dict(values, HUNT_FORCE_RULES="0", HUNT_LLM_MAX_CALLS="8",
+                                     HUNT_AGENT_MAX_STEPS="2", LLM_TIMEOUT_S="45")
+            self.report["llm"] = {"provider": values["LLM_PROVIDER"], "model": values["HUNT_MODEL"],
+                                  "max_calls_per_hunt": 8, "max_investigator_steps": 2}
         self.report["es_mcp_module"] = self.es_mcp_module
         self.case("isolated_c2_snapshot_and_readonly_key")
         settings = self.ls_env.read_text()
@@ -67,6 +85,48 @@ class HuntDemo(Integration):
         self.ls_env.write_text(settings.replace("A2_INDEX_PREFIX=security-events\n",
                                                 "A2_INDEX_PREFIX=security-events-c2test\n"))
         self.case("a2_and_hunt_index_namespace_aligned")
+
+    def start_a3(self, pipelines):
+        self.stop_a3()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        self.a3_url = f"udp://127.0.0.1:{port}"
+        log = self.root / "a3.log"
+        log.write_text("")
+        self.a3_log = log.open("a")
+        root = REPO / "group_A/A3_Stream_Ingestion"
+        env = {"PATH": os.environ.get("PATH", ""), "PYTHONUNBUFFERED": "1", "A3_UDP_PORT": str(port),
+               "LOGSTASH_URL": self.push_url, "A3_ALLOW_B3_RAW": "true", "A3_B3_PIPELINES": ",".join(pipelines)}
+        self.a3_process = subprocess.Popen([self.hunt_python, str(root / "receiver.py")], cwd=root, env=env,
+                                           stdout=self.a3_log, stderr=subprocess.STDOUT)
+        for _ in range(100):
+            if self.a3_process.poll() is not None:
+                raise RuntimeError("A3 receiver failed to start")
+            if "Receiver listening" in log.read_text():
+                break
+            time.sleep(0.05)
+        else:
+            raise RuntimeError("A3 receiver readiness timed out")
+        self.report["a3_sha256"] = {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+                                    for name in ("receiver.py", "event_utils.py", "log_parser.py")}
+
+    def stop_a3(self):
+        process = getattr(self, "a3_process", None)
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+        if getattr(self, "a3_log", None):
+            self.a3_log.close()
+        self.a3_process = None
+
+    def cleanup(self):
+        self.stop_a3()
+        super().cleanup()
 
     def ingest(self):
         path = self.root / "sources/ssh-demo.log"
@@ -78,10 +138,12 @@ class HuntDemo(Integration):
             lines.append(f"2026-10-25T00:10:{i:02d}Z BENIGN-SSH sshd[456]: Failed password for demo from 198.51.100.20 port {42000+i} ssh2")
         lines.append("2026-10-25T00:11:00Z BENIGN-SSH sshd[456]: Accepted password for demo from 198.51.100.20 port 43000 ssh2")
         path.write_text("\n".join(lines))
-        config = ExecutionConfig(push_url=self.push_url, index_prefix="security-events-c2test",
+        if self.stream_mode:
+            self.start_a3(["linux-auth"])
+        config = ExecutionConfig(push_url=self.push_url, a3_udp_url=getattr(self, "a3_url", "udp://127.0.0.1:9999"), index_prefix="security-events-c2test",
                                  search_pattern="security-events-c2test*", audit_path=self.root / "audit.jsonl",
                                  verify_attempts=20, verify_interval=2)
-        source = SourceSpec(kind="file", location=str(path), ingest_mode="push", dry_run=False,
+        source = SourceSpec(kind="file", location=str(path), ingest_mode="stream" if self.stream_mode else "push", dry_run=False,
                             dataset_hint="linux.auth")
         policy = InspectionPolicy(allowed_roots=(path.parent,))
         options = dict(recognizer=load_b1_recognizer("group_B.B1.recognizer:recognise"),
@@ -103,7 +165,10 @@ class HuntDemo(Integration):
     def run_hunt(self, run_id, hypothesis, output):
         self.phase("Hunting " + run_id + " through MCP...")
         args = [self.hunt_python, "-m", "threat_hunting.run", hypothesis, "--run-id", run_id]
-        process = subprocess.Popen(args, cwd=self.c2_root, env=self.hunt_env, text=True,
+        env = dict(self.hunt_env)
+        if self.llm_env_file:
+            env.update(self.llm_settings)  # provider key goes only to C2, never C3's MCP subprocesses
+        process = subprocess.Popen(args, cwd=self.c2_root, env=env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         try:
             stdout, stderr = process.communicate(timeout=180)
@@ -119,8 +184,14 @@ class HuntDemo(Integration):
             raise RuntimeError(self.redact((stdout + stderr)[-5000:]))
         folder = self.c2_root / "runs" / run_id
         result = json.loads((folder / "result.json").read_text())
-        assert result["manifest"]["planner"] == "rules"
-        assert result["manifest"]["backend"].startswith("rules")
+        if self.llm_env_file:
+            assert result["manifest"]["backend"].startswith("llm:"), "agent fell back to rules"
+            llm_file = folder / "llm.jsonl"
+            calls = [json.loads(line) for line in llm_file.read_text().splitlines()]
+            assert calls and any(row["role"] == "investigator" for row in calls), "investigator made no live LLM call"
+        else:
+            assert result["manifest"]["planner"] == "rules"
+            assert result["manifest"]["backend"].startswith("rules")
         trace = [json.loads(line) for line in (folder / "trace.jsonl").read_text().splitlines()]
         assert trace and all(row["ok"] for row in trace), "MCP tool failed"
         assert {row["server"] for row in trace} == {"es", "analytics"}
@@ -143,7 +214,8 @@ class HuntDemo(Integration):
         assert result["manifest"]["mcp_servers"]["es"] == self.hunt_env["HUNT_ES_MCP_CMD"]
         self.report.setdefault("hunts", []).append({"run_id": run_id, "verdict": result["verdict"]["label"],
             "claims": len(result["claims"]), "cited_events": len(ids), "tool_calls": len(trace),
-            "self_check": result["self_check"], "independently_checked_ids": len(ids)})
+            "self_check": result["self_check"], "independently_checked_ids": len(ids),
+            "llm_calls": len(calls) if self.llm_env_file else 0})
         if hasattr(self, "c3_root"):
             self.verify_c3(run_id, folder, output)
         return result, trace, ids
@@ -173,6 +245,10 @@ class HuntDemo(Integration):
         if self.require_c3_agreement:
             expected = {"attack": "Confirmed", "attack-repeat": "Confirmed", "benign": "Refuted",
                         "missing-host": "Inconclusive", "empty-window": "Inconclusive"}[run_id]
+            if self.llm_env_file:
+                c2_label = json.loads((folder / "result.json").read_text())["verdict"]["label"]
+                expected = {"SUPPORTED": "Confirmed", "NOT_SUPPORTED": "Refuted", "INCONCLUSIVE": "Inconclusive",
+                            "INSUFFICIENT_DATA": "Inconclusive"}[c2_label]
             checks = report["verification"]
             assert report["decision"]["verdict"] == expected, report["decision"]
             assert not checks["unsupported"] and not checks["contradicted"] and not checks["unverified"], checks
@@ -185,6 +261,11 @@ class HuntDemo(Integration):
 
     def hunts(self, output):
         attack = "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25."
+        if self.llm_env_file:
+            self.run_hunt("attack", attack, output)
+            self.run_hunt("benign", attack.replace("DEMO-SSH", "BENIGN-SSH"), output)
+            self.run_hunt("attack-repeat", attack, output)
+            return
         positive, trace, ids = self.run_hunt("attack", attack, output)
         assert positive["verdict"]["label"] == "SUPPORTED", positive["verdict"]
         assert ids == self.expected and not positive["self_check"]["failed"]
@@ -204,6 +285,75 @@ class HuntDemo(Integration):
         assert [c["text"] for c in positive["claims"]] == [c["text"] for c in repeated["claims"]]
         self.case("hunt_repeatability")
 
+    def extra_stream_cases(self):
+        registry = SchemaRegistry(self.root / "extra-registry")
+        recognizer = load_b1_recognizer("group_B.B1.recognizer:recognise")
+        approved = {"apache_access": "apache-access", "windows_json": "windows-json", "linux_auth": "linux-auth"}
+        for kind, path, dataset in self.sources("stream"):
+            if kind not in ("apache", "json", "csv"):
+                continue
+            if kind == "apache":
+                with path.open("a") as f:
+                    f.write('\n192.0.2.10 - - [25/Oct/2026:00:00:00 +0000] "TRACE /" 400 0 "-" "-"')
+            source = SourceSpec(kind="file", location=str(path), dataset_hint=dataset, ingest_mode="stream", dry_run=False)
+            policy = InspectionPolicy(allowed_roots=(path.parent,))
+            options = dict(registry=registry, recognizer=recognizer, known_pipelines=approved)
+            plan = plan_source(source, policy, **options)
+            assert plan.status == "planned", plan.reasons
+            self.start_a3([plan.pipeline_id])
+            config = ExecutionConfig(a3_udp_url=self.a3_url, index_prefix="security-events-c2test",
+                                     search_pattern="security-events-c2test*", audit_path=self.root / "extra-audit.jsonl",
+                                     verify_attempts=20, verify_interval=2)
+            result = onboard(source, policy, config, **options)
+            assert result.status == "verified", result.model_dump()
+            replay = onboard(source, policy, config, **options)
+            assert replay.status == "verified" and replay.submitted_count == 0
+            assert result.parse_failure_count == 0 and replay.reused_count == result.record_count
+            if kind == "apache":
+                hits = self.api("POST", "/security-events-c2test*/_search", json={"size": 200, "query": {"match_all": {}}})["hits"]["hits"]
+                assert any("malformed_request" in h["_source"].get("tags", [])
+                           and h["_source"]["labels"]["source_id"] == result.source_id for h in hits)
+            self.case("a3_stream_" + kind, indexed=result.indexed_count, pipeline_id=result.pipeline_id, replay_submitted=0)
+        self.legacy_a3_and_rejection()
+
+    def legacy_a3_and_rejection(self):
+        self.start_a3([])
+        fixtures = REPO / "group_A/A3_Stream_Ingestion/Data/fixed_events.jsonl"
+        events = [json.loads(line) for line in fixtures.read_text().splitlines() if line.strip()]
+        for event in events:
+            event["labels"] = {"source_id": "legacy-a3-e2e"}
+        target = int(self.a3_url.rsplit(":", 1)[1])
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            for _ in range(2):
+                for event in events:
+                    sender.sendto(json.dumps(event).encode(), ("127.0.0.1", target))
+                    time.sleep(0.02)
+        def legacy_hits():
+            self.api("POST", "/security-events-c2test*/_refresh")
+            hits = self.api("POST", "/security-events-c2test*/_search", json={"size": 200, "query": {"match_all": {}}})["hits"]["hits"]
+            return [h["_source"] for h in hits if h["_source"].get("labels", {}).get("source_id") == "legacy-a3-e2e"]
+        self.wait("legacy A3 normalized indexing", lambda: len(legacy_hits()) == len(events))
+        actual = {d["event"]["id"]: d for d in legacy_hits()}
+        assert len(actual) == len(events)
+        for event in events:
+            doc = actual[event["event"]["id"]]
+            assert doc["event_id"] == event["event"]["id"]
+            assert doc["event"]["original"] == event["event"]["original"]
+            assert doc["labels"]["ingest_mode"] == "stream"
+        self.case("legacy_normalized_a3_replay", indexed=len(events), sent=2 * len(events))
+        path = self.root / "sources/rejected-stream.log"
+        path.write_text("2026-10-25T00:00:00Z demo sshd[123]: Failed password for demo from 192.0.2.10 port 12345 ssh2")
+        result = onboard(SourceSpec(kind="file", location=str(path), ingest_mode="stream", dry_run=False, dataset_hint="linux.auth"),
+                         InspectionPolicy(allowed_roots=(path.parent,)),
+                         ExecutionConfig(a3_udp_url=self.a3_url, index_prefix="security-events-c2test",
+                                         search_pattern="security-events-c2test*", audit_path=self.root / "negative-audit.jsonl",
+                                         verify_attempts=2, verify_interval=0.2),
+                         recognizer=load_b1_recognizer("group_B.B1.recognizer:recognise"),
+                         known_pipelines={"linux_auth": "linux-auth"})
+        assert result.status == "failed" and result.indexed_count == 0, result.model_dump()
+        assert "VERIFICATION_FAILED" in result.error_codes and result.acknowledged_count == 0
+        self.case("a3_unapproved_pipeline_never_verified")
+
     def compare_c4(self, ref, output):
         path = "group_C/threat_hunting/c4_repeatability/compare_c2_results.py"
         data = subprocess.check_output(["git", "show", ref + ":" + path], cwd=REPO)
@@ -216,9 +366,12 @@ class HuntDemo(Integration):
         metrics = module["compare"](json.loads(a.read_text()), json.loads(b.read_text()))
         (output / "c4-comparison.json").write_text(json.dumps(metrics, indent=2) + "\n")
         (output / "c4-comparison.md").write_text(module["report"](metrics, "attack/result.json", "attack-repeat/result.json"))
-        assert len(metrics) == 7 and all(v["match"] for v in metrics.values()), metrics
-        self.report["c4"] = {"matched": 7, "checks": 7}
-        self.case("c4_repeatability_all_seven_fields")
+        assert len(metrics) == 7
+        matched = sum(v["match"] for v in metrics.values())
+        if not self.llm_env_file:
+            assert matched == 7, metrics
+        self.report["c4"] = {"matched": matched, "checks": 7}
+        self.case("c4_repeatability_comparison", matched=matched, total=7)
 
 
 def main():
@@ -230,16 +383,22 @@ def main():
     parser.add_argument("--es-mcp-module", choices=("dev.es_mcp_standin.server", "es_mcp_server.server"),
                         default="dev.es_mcp_standin.server")
     parser.add_argument("--require-c3-agreement", action="store_true", help="require expected verdicts and full query replay")
+    parser.add_argument("--llm-env", type=Path, help="explicit private provider config; enables bounded live agent checks")
+    parser.add_argument("--a3-stream", action="store_true", help="send bounded raw records through actual A3 UDP receiver")
     parser.add_argument("--c4-ref", help="optional pinned C4 comparator snapshot")
     args = parser.parse_args()
+    if not args.hunt_python.is_file():
+        parser.error("--hunt-python must point to an existing Group C interpreter")
     if args.require_c3_agreement and not args.c3_ref:
         parser.error("--require-c3-agreement needs --c3-ref")
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     test = HuntDemo("8b86c10eb5ee5248f087aa6c8273c8fadb82758c")
+    test.llm_env_file = args.llm_env
+    test.stream_mode = args.a3_stream
     test.es_mcp_module = args.es_mcp_module
     test.require_c3_agreement = args.require_c3_agreement
-    test.report["scope"] = "isolated B3/A2/B1/HTTPS ES/MCP/C2; " + args.es_mcp_module + "; no live LLM; optional C3/C4"
+    test.report["scope"] = "isolated B3/A2/B1/HTTPS ES/MCP/C2; " + args.es_mcp_module + ("; bounded live LLM" if args.llm_env else "; no live LLM") + "; optional C3/C4"
     status = 1
     try:
         test.source_files()
@@ -253,6 +412,8 @@ def main():
         test.hunts(output)
         if args.c4_ref:
             test.compare_c4(args.c4_ref, output)
+        if args.a3_stream and not args.llm_env:
+            test.extra_stream_cases()
         test.report["status"] = "passed"
         status = 0
     except Exception as error:

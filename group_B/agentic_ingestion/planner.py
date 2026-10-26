@@ -54,7 +54,8 @@ def plan_inspection(
         raise ValueError("source kind does not match the inspection")
     reasons = []
     warnings = ["Indexing and Elasticsearch verification have not been performed."]
-    allowed = ("stream",) if source.kind == "stream" else ("pull", "push")
+    allowed = (("stream",) if source.kind == "stream" else
+               ("pull", "push", "stream") if source.ingest_mode == "stream" else ("pull", "push"))
     default = {"file": "pull", "http": "push", "stream": "stream"}[source.kind]
     mode = default if source.ingest_mode == "auto" else source.ingest_mode
     if mode not in allowed and mode != "direct_es":
@@ -62,7 +63,7 @@ def plan_inspection(
     if mode == "direct_es":
         warnings.append("Direct Elasticsearch transport is an explicit local fallback only.")
     if source.kind == "stream":
-        reasons.append("A3 currently expects normalized events; the B3 stream handoff needs agreement.")
+        reasons.append("Continuous UDP capture is unsupported; use a bounded file or HTTP snapshot with stream mode.")
     if route_advisor is not None and source.ingest_mode == "auto":
         try:
             proposed = route_advisor.propose({

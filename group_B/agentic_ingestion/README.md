@@ -193,9 +193,14 @@ The isolated ES 8.19.23 suite covers real simulation, installation, indexing,
 verification and replay. See `group_B/tests/LIVE_ES_RESULTS.md` for evidence.
 The unchanged A1/A2 configurations also passed with actual Logstash pull/push
 over authenticated HTTPS in an isolated environment; see
-`group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. The actual shared deployment,
-the A3 boundary, live LLM behavior and the complete team demo remain.
+`group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. Tests use temporary local
+services; no shared Elasticsearch deployment or credential exchange is required.
 
 Live C2/C3 snapshot integration: [results and unresolved correlation claim](../tests/C2_C3_INTEGRATION_RESULTS.md).
 
 Updated delivered-C1 validation: [unified C1–C4 results](../tests/UNIFIED_C1_C4_RESULTS.md).
+
+Bounded A3 raw forwarding is now available with explicit `--mode stream` for
+file/HTTP snapshots. See [the v1 B3/A3 contract](../B3_A3_CONTRACT.md) for the
+opt-in receiver setting, pipeline allowlist, packet limit and timestamp policy.
+Continuous UDP-source capture remains blocked.

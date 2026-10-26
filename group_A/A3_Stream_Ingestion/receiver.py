@@ -3,6 +3,7 @@ import socket
 import json
 import os
 import uuid
+import re
 import urllib.request
 import urllib.error
 
@@ -10,7 +11,7 @@ from event_utils import validate_event
 
 # UDP receiver settings
 HOST = "127.0.0.1"
-PORT = 9999
+PORT = int(os.getenv("A3_UDP_PORT", "9999"))
 
 # A2 Logstash HTTP endpoint
 LOGSTASH_URL = os.getenv(
@@ -72,6 +73,27 @@ def forward_event(event):
         return response.status
 
 
+def validate_incoming(event):
+    """Legacy normalized events remain supported; B3 raw forwarding is opt-in."""
+    labels = event.get("labels") if isinstance(event, dict) else None
+    if not isinstance(labels, dict) or labels.get("envelope") != "b3.raw.v1":
+        return validate_event(event)
+    if os.getenv("A3_ALLOW_B3_RAW", "false").lower() != "true":
+        raise ValueError("B3 raw envelopes are disabled")
+    allowed = {x.strip() for x in os.getenv("A3_B3_PIPELINES", "").split(",") if x.strip()}
+    if labels.get("ingest_pipeline") not in allowed:
+        raise ValueError("B3 pipeline is not approved by the receiver")
+    details = event.get("event")
+    if (not isinstance(details, dict) or not isinstance(event.get("message"), str)
+            or not event["message"].strip() or "\x00" in event["message"]
+            or not re.fullmatch(r"[a-f0-9]{64}", str(details.get("id", "")))
+            or event.get("event_id") != details["id"]
+            or not re.fullmatch(r"b3-[a-f0-9]{24}", str(labels.get("source_id", "")))
+            or not isinstance(labels.get("run_id"), str) or not labels["run_id"].strip()):
+        raise ValueError("Invalid B3 raw envelope")
+    return event
+
+
 def main():
     """Receive UDP events, validate them, and forward them to A2."""
 
@@ -87,11 +109,13 @@ def main():
 
     try:
         while True:
-            data, address = server.recvfrom(4096)
+            data, address = server.recvfrom(4097)
 
             try:
+                if len(data) > 4096:
+                    raise ValueError("UDP envelope exceeds 4096 bytes")
                 event = json.loads(data.decode("utf-8"))
-                event = validate_event(event)
+                event = validate_incoming(event)
 
                 received_count += 1
 
