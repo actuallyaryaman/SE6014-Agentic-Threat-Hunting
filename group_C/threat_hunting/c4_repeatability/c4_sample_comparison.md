@@ -1,28 +1,42 @@
 # C4 C2 Repeatability Comparison
 
-- Run A: `/mnt/data/c4_sample_runs/attack.json`
-- Run B: `/mnt/data/c4_sample_runs/attack-repeat.json`
+- Run A: `sample_runs/runs/pytest-primary/result.json`
+- Run B: `sample_runs/runs/pytest-primary-2/result.json`
 
 | Check | Result |
 |---|---|
-| Hypothesis | MATCH |
-| Time Range | MATCH |
-| Verdict | MATCH |
-| Coverage | MATCH |
-| Evidence Ids | MATCH |
-| Cited Event Ids | MATCH |
-| Queries | MATCH |
+| hypothesis | MATCH |
+| time_range | MATCH |
+| verdict | MATCH |
+| coverage | MATCH |
+| claims_and_evidence_links | MATCH |
+| evidence_contents | MATCH |
+| queries_and_values | MATCH |
+| actions | MATCH |
+| agent | MATCH |
+| candidates | MATCH |
+| dynamic_steps | MATCH |
+| findings | MATCH |
+| intake | MATCH |
+| lesson_flags | MATCH |
+| lessons_used | MATCH |
+| limitations | MATCH |
+| manifest | MATCH |
+| notes | MATCH |
+| question | MATCH |
+| schema_version | MATCH |
+| self_check | MATCH |
+| skeptic | MATCH |
+| step_results | MATCH |
+| techniques | MATCH |
 
-**Matched checks:** 7/7
+**Matched checks: 24/24**
 
 ## Differences
 
-No differences in the compared fields. Run IDs and execution metadata are ignored.
+No meaningful differences detected in the compared C2 fields.
 
-## Interpretation
+## Notes
 
-This compares saved C2 results only. Matching outputs indicate agreement in the checked fields, not correctness of the underlying threat-hunting conclusion.
-
-## Recommended repeatability controls
-
-Use the same dataset snapshot, hypothesis, time window, model settings, code version, and tool configuration. Save both original result files and investigate any changed query, evidence, coverage, or verdict.
+Only execution IDs (run_id, call_id, query_id) and manifest execution duration/audit-file paths are ignored. Event timestamps, claim facts, evidence links, evidence contents, and query requests/values are preserved.
+This compares saved C2 outputs; it does not rerun hunts or establish correctness.
