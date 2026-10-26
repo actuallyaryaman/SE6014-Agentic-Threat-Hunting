@@ -1,0 +1,80 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "call_id": {
+      "title": "Call Id",
+      "type": "string"
+    },
+    "ts": {
+      "default": "",
+      "title": "Ts",
+      "type": "string"
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+    },
+    "dsl": {
+      "anyOf": [
+        {},
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dsl"
+    },
+    "total": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total"
+    },
+    "returned_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Returned Ids",
+      "type": "array"
+    },
+    "result_hash": {
+      "default": "",
+      "title": "Result Hash",
+      "type": "string"
+    },
+    "ok": {
+      "default": true,
+      "title": "Ok",
+      "type": "boolean"
+    },
+    "error": {
+      "default": "",
+      "title": "Error",
+      "type": "string"
+    },
+    "digest": {
+      "default": "",
+      "title": "Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "call_id",
+    "tool"
+  ],
+  "title": "AuditRecord",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se6014/group_C/audit_record.schema.json"
+}

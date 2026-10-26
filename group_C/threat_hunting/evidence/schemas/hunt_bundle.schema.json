@@ -1,0 +1,886 @@
+{
+  "$defs": {
+    "AuditRecord": {
+      "additionalProperties": true,
+      "properties": {
+        "call_id": {
+          "title": "Call Id",
+          "type": "string"
+        },
+        "ts": {
+          "default": "",
+          "title": "Ts",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "dsl": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dsl"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        },
+        "returned_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Returned Ids",
+          "type": "array"
+        },
+        "result_hash": {
+          "default": "",
+          "title": "Result Hash",
+          "type": "string"
+        },
+        "ok": {
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "error": {
+          "default": "",
+          "title": "Error",
+          "type": "string"
+        },
+        "digest": {
+          "default": "",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "call_id",
+        "tool"
+      ],
+      "title": "AuditRecord",
+      "type": "object"
+    },
+    "C2Verdict": {
+      "additionalProperties": true,
+      "description": "The verdict C2 drafted from its playbook rules. C3 reviews it and never replaces it silently.",
+      "properties": {
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "confidence": {
+          "default": "",
+          "title": "Confidence",
+          "type": "string"
+        },
+        "requires_analyst_review": {
+          "default": false,
+          "title": "Requires Analyst Review",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "review_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Review Reasons",
+          "type": "array"
+        }
+      },
+      "title": "C2Verdict",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": true,
+      "properties": {
+        "claim_id": {
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "technique": {
+          "title": "Technique",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "facts": {
+          "additionalProperties": true,
+          "title": "Facts",
+          "type": "object"
+        },
+        "confidence": {
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "step_id": {
+          "default": "",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "events",
+          "enum": [
+            "events",
+            "aggregate",
+            "ioc"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "first_seen": {
+          "default": "",
+          "title": "First Seen",
+          "type": "string"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "replay": {
+          "additionalProperties": true,
+          "title": "Replay",
+          "type": "object"
+        },
+        "context_only": {
+          "default": false,
+          "title": "Context Only",
+          "type": "boolean"
+        },
+        "origin": {
+          "default": "playbook",
+          "enum": [
+            "playbook",
+            "llm"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "status": {
+          "default": "unverified",
+          "enum": [
+            "unverified",
+            "self_checked",
+            "verified",
+            "unsupported",
+            "contradicted"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "c2_status": {
+          "default": "",
+          "title": "C2 Status",
+          "type": "string"
+        },
+        "verifier_notes": {
+          "default": "",
+          "title": "Verifier Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text",
+        "technique"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": true,
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "call_id": {
+          "title": "Call Id",
+          "type": "string"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "index": {
+          "default": "",
+          "title": "Index",
+          "type": "string"
+        },
+        "event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Ids",
+          "type": "array"
+        },
+        "total_hits": {
+          "default": 0,
+          "title": "Total Hits",
+          "type": "integer"
+        },
+        "excerpt": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Excerpt",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "call_id",
+        "step_id"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "HuntNotes": {
+      "additionalProperties": true,
+      "properties": {
+        "entity_missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Entity Missing",
+          "type": "array"
+        },
+        "untested": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/UntestedCheck"
+            },
+            "type": "array"
+          },
+          "title": "Untested",
+          "type": "object"
+        },
+        "coverage": {
+          "additionalProperties": {
+            "$ref": "#/$defs/IndexCoverage"
+          },
+          "title": "Coverage",
+          "type": "object"
+        },
+        "coverage_gaps": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Coverage Gaps",
+          "type": "object"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "dated": {
+          "default": true,
+          "title": "Dated",
+          "type": "boolean"
+        },
+        "data_sources": {
+          "additionalProperties": true,
+          "title": "Data Sources",
+          "type": "object"
+        },
+        "selected_sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Selected Sources",
+          "type": "array"
+        },
+        "out_of_scope": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Out Of Scope"
+        },
+        "in_scope_without_playbook": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In Scope Without Playbook"
+        },
+        "min_support": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Min Support",
+          "type": "object"
+        },
+        "technique_sources": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Technique Sources",
+          "type": "object"
+        },
+        "missing_fields": {
+          "additionalProperties": true,
+          "title": "Missing Fields",
+          "type": "object"
+        },
+        "info": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Info",
+          "type": "array"
+        }
+      },
+      "title": "HuntNotes",
+      "type": "object"
+    },
+    "HuntPlan": {
+      "additionalProperties": true,
+      "properties": {
+        "hypothesis": {
+          "title": "Hypothesis",
+          "type": "string"
+        },
+        "techniques": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Techniques",
+          "type": "array"
+        },
+        "required_techniques": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Techniques",
+          "type": "array"
+        },
+        "context_techniques": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Context Techniques",
+          "type": "array"
+        },
+        "entities": {
+          "additionalProperties": true,
+          "title": "Entities",
+          "type": "object"
+        },
+        "required_sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Sources",
+          "type": "array"
+        },
+        "time_range": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Time Range",
+          "type": "object"
+        },
+        "window_minutes": {
+          "default": 60,
+          "title": "Window Minutes",
+          "type": "integer"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PlanStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "refutation_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refutation Criteria",
+          "type": "array"
+        },
+        "planner": {
+          "default": "rules",
+          "title": "Planner",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hypothesis"
+      ],
+      "title": "HuntPlan",
+      "type": "object"
+    },
+    "IndexCoverage": {
+      "additionalProperties": true,
+      "properties": {
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "buckets": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Buckets",
+          "type": "array"
+        },
+        "empty_buckets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Empty Buckets",
+          "type": "array"
+        },
+        "n_buckets": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Buckets"
+        },
+        "coverage_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage Ratio"
+        },
+        "bucket_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bucket Minutes"
+        },
+        "first": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last"
+        }
+      },
+      "title": "IndexCoverage",
+      "type": "object"
+    },
+    "PlanStep": {
+      "additionalProperties": true,
+      "properties": {
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "technique": {
+          "title": "Technique",
+          "type": "string"
+        },
+        "tool": {
+          "default": "search",
+          "title": "Tool",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "role": {
+          "default": "indicator",
+          "enum": [
+            "indicator",
+            "benign_check",
+            "context"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "claim_template": {
+          "default": "",
+          "title": "Claim Template",
+          "type": "string"
+        },
+        "analysis": {
+          "additionalProperties": true,
+          "title": "Analysis",
+          "type": "object"
+        },
+        "must_have": {
+          "default": false,
+          "title": "Must Have",
+          "type": "boolean"
+        },
+        "requires": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requires",
+          "type": "array"
+        },
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array"
+        },
+        "need": {
+          "default": "",
+          "title": "Need",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "technique"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    },
+    "TraceCall": {
+      "additionalProperties": true,
+      "description": "One line of runs/<id>/trace.jsonl. Analytics-server calls show up only here and not in the audit log.",
+      "properties": {
+        "seq": {
+          "default": 0,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "server": {
+          "default": "",
+          "title": "Server",
+          "type": "string"
+        },
+        "tool": {
+          "default": "",
+          "title": "Tool",
+          "type": "string"
+        },
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "request_hash": {
+          "default": "",
+          "title": "Request Hash",
+          "type": "string"
+        },
+        "call_id": {
+          "default": "",
+          "title": "Call Id",
+          "type": "string"
+        },
+        "ok": {
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        },
+        "phase": {
+          "default": "",
+          "title": "Phase",
+          "type": "string"
+        },
+        "step_id": {
+          "default": "",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "title": "TraceCall",
+      "type": "object"
+    },
+    "UntestedCheck": {
+      "additionalProperties": true,
+      "properties": {
+        "step_id": {
+          "default": "",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "need": {
+          "default": "",
+          "title": "Need",
+          "type": "string"
+        },
+        "role": {
+          "default": "indicator",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "title": "UntestedCheck",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "Everything C3 needs from one hunt. C2 writes it at the end of a run.",
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "plan": {
+      "$ref": "#/$defs/HuntPlan"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "audit": {
+      "items": {
+        "$ref": "#/$defs/AuditRecord"
+      },
+      "title": "Audit",
+      "type": "array"
+    },
+    "step_results": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Step Results",
+      "type": "object"
+    },
+    "dynamic_steps": {
+      "items": {
+        "$ref": "#/$defs/PlanStep"
+      },
+      "title": "Dynamic Steps",
+      "type": "array"
+    },
+    "weak_signals": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Weak Signals",
+      "type": "object"
+    },
+    "notes": {
+      "$ref": "#/$defs/HuntNotes"
+    },
+    "hunt_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Hunt Notes",
+      "type": "array"
+    },
+    "baselines": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Baselines",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "meta": {
+      "additionalProperties": true,
+      "title": "Meta",
+      "type": "object"
+    },
+    "c2_verdict": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/C2Verdict"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "c2_self_check": {
+      "additionalProperties": true,
+      "title": "C2 Self Check",
+      "type": "object"
+    },
+    "trace": {
+      "items": {
+        "$ref": "#/$defs/TraceCall"
+      },
+      "title": "Trace",
+      "type": "array"
+    },
+    "analytics_audit": {
+      "items": {
+        "$ref": "#/$defs/AuditRecord"
+      },
+      "title": "Analytics Audit",
+      "type": "array"
+    },
+    "queries": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Queries",
+      "type": "array"
+    },
+    "c2_findings": {
+      "additionalProperties": true,
+      "title": "C2 Findings",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "plan"
+  ],
+  "title": "HuntBundle",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "se6014/group_C/hunt_bundle.schema.json"
+}

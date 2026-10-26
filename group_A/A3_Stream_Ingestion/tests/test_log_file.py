@@ -11,7 +11,7 @@ class TestLogFile(unittest.TestCase):
     def setUp(self):
         self.file_path = (
             Path(__file__).resolve().parent.parent
-            / "data"
+            / "Data"
             / "fixed_events.jsonl"
         )
 

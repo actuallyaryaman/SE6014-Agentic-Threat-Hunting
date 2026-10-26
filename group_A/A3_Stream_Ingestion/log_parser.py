@@ -1,8 +1,8 @@
 
 import re
 import uuid
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
 
 
 def parse_linux_auth(line):
@@ -10,13 +10,11 @@ def parse_linux_auth(line):
 
     pattern = (
         r"^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+"
-        r"(?P<time>\d{2}:\d{2}:\d{2})\s+"
-        r"(?P<host>\S+)\s+sshd:\s+"
+        r"(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<host>\S+)\s+sshd:\s+"
         r"(?P<message>.+)$"
     )
 
     match = re.match(pattern, line)
-
     if not match:
         raise ValueError("Unsupported Linux authentication log format")
 
@@ -27,7 +25,6 @@ def parse_linux_auth(line):
         r"Failed password for (?:invalid user )?(\S+) from (\S+)",
         message,
     )
-
     accepted = re.search(
         r"Accepted \S+ for (\S+) from (\S+)",
         message,
@@ -35,29 +32,21 @@ def parse_linux_auth(line):
 
     if failed:
         username, source_ip = failed.groups()
-        action = "user_login"
-        outcome = "failure"
-        log_level = "warning"
-
+        action, outcome, log_level = "user_login", "failure", "warning"
     elif accepted:
         username, source_ip = accepted.groups()
-        action = "user_login"
-        outcome = "success"
-        log_level = "info"
-
+        action, outcome, log_level = "user_login", "success", "info"
     else:
         raise ValueError("Unsupported SSH authentication event")
 
     current_year = datetime.now(timezone.utc).year
-
     timestamp_text = (
         f"{current_year} {details['month']} "
         f"{details['day']} {details['time']}"
     )
 
     timestamp = datetime.strptime(
-        timestamp_text,
-        "%Y %b %d %H:%M:%S",
+        timestamp_text, "%Y %b %d %H:%M:%S"
     ).replace(tzinfo=timezone.utc)
 
     return {
@@ -71,18 +60,10 @@ def parse_linux_auth(line):
             "original": line,
         },
         "message": message,
-        "host": {
-            "name": details["host"],
-        },
-        "user": {
-            "name": username,
-        },
-        "source": {
-            "ip": source_ip,
-        },
-        "log": {
-            "level": log_level,
-        },
+        "host": {"name": details["host"]},
+        "user": {"name": username},
+        "source": {"ip": source_ip},
+        "log": {"level": log_level},
     }
 
 
@@ -98,7 +79,6 @@ def parse_apache_access(line):
     )
 
     match = re.match(pattern, line)
-
     if not match:
         raise ValueError("Unsupported Apache access log format")
 
@@ -106,8 +86,7 @@ def parse_apache_access(line):
 
     try:
         timestamp = datetime.strptime(
-            details["time"],
-            "%d/%b/%Y:%H:%M:%S %z",
+            details["time"], "%d/%b/%Y:%H:%M:%S %z"
         )
     except ValueError as error:
         raise ValueError("Invalid Apache timestamp") from error
@@ -133,24 +112,14 @@ def parse_apache_access(line):
             f"HTTP {details['method']} {details['path']} "
             f"returned {status}"
         ),
-        "host": {
-            "name": "web-server",
-        },
-        "source": {
-            "ip": details["ip"],
-        },
+        "host": {"name": "web-server"},
+        "source": {"ip": details["ip"]},
         "http": {
-            "request": {
-                "method": details["method"],
-            },
-            "response": {
-                "status_code": status,
-            },
+            "request": {"method": details["method"]},
+            "response": {"status_code": status},
             "version": details["protocol"].replace("HTTP/", ""),
         },
-        "url": {
-            "path": details["path"],
-        },
+        "url": {"path": details["path"]},
     }
 
 
@@ -159,13 +128,12 @@ def parse_firewall_log(line):
 
     pattern = (
         r"^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+"
-        r"(?P<time>\d{2}:\d{2}:\d{2})\s+"
-        r"(?P<host>\S+)\s+firewall:\s+"
-        r"Blocked connection from (?P<src>\S+) to (?P<dst>\S+)$"
+        r"(?P<time>\d{2}:\d{2}:\d{2})\s+(?P<host>\S+)\s+"
+        r"firewall:\s+Blocked connection from "
+        r"(?P<src>\S+) to (?P<dst>\S+)$"
     )
 
     match = re.match(pattern, line)
-
     if not match:
         raise ValueError("Unsupported firewall log format")
 
@@ -178,8 +146,7 @@ def parse_firewall_log(line):
     )
 
     timestamp = datetime.strptime(
-        timestamp_text,
-        "%Y %b %d %H:%M:%S",
+        timestamp_text, "%Y %b %d %H:%M:%S"
     ).replace(tzinfo=timezone.utc)
 
     return {
@@ -196,18 +163,10 @@ def parse_firewall_log(line):
             f"Firewall blocked connection from "
             f"{details['src']} to {details['dst']}"
         ),
-        "host": {
-            "name": details["host"],
-        },
-        "source": {
-            "ip": details["src"],
-        },
-        "destination": {
-            "ip": details["dst"],
-        },
-        "log": {
-            "level": "warning",
-        },
+        "host": {"name": details["host"]},
+        "source": {"ip": details["src"]},
+        "destination": {"ip": details["dst"]},
+        "log": {"level": "warning"},
     }
 
 
@@ -262,6 +221,14 @@ def parse_windows_event(line):
         category = ["host"]
         action = "event"
 
+    # Use the record's unique number when available.
+    # Never use EventID as the unique event identifier.
+    record_number = record.get("RecordNumber")
+    if record_number is not None and str(record_number).strip():
+        unique_event_id = str(record_number)
+    else:
+        unique_event_id = str(uuid.uuid4())
+
     event = {
         "@timestamp": (
             parsed_timestamp.astimezone(timezone.utc)
@@ -269,7 +236,7 @@ def parse_windows_event(line):
             .replace("+00:00", "Z")
         ),
         "event": {
-            "id": str(record.get("RecordNumber", event_id)),
+            "id": unique_event_id,
             "code": str(event_id),
             "dataset": dataset,
             "category": category,
@@ -279,12 +246,10 @@ def parse_windows_event(line):
         "message": message,
     }
 
-    # Add optional host information when available.
     hostname = record.get("Hostname") or record.get("host")
     if hostname:
         event["host"] = {"name": hostname}
 
-    # Preserve useful network details for Sysmon Event ID 3.
     if event_id == 3:
         if record.get("SourceIp"):
             event["source"] = {"ip": record["SourceIp"]}

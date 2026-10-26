@@ -1,0 +1,1266 @@
+{
+ "schema_version": "0.1",
+ "run_id": "share-lsass-lateral",
+ "hypothesis": "An attacker on WS-01 dumped credentials from LSASS and then moved laterally to other hosts on 2026-10-01.",
+ "time_range": {
+  "from": "2026-10-01T08:00:00Z",
+  "to": "2026-10-01T18:00:00Z"
+ },
+ "verdict": {
+  "label": "SUPPORTED",
+  "confidence": "high",
+  "requires_analyst_review": true,
+  "reasons": [
+   "Every required technique has at least the minimum number of independent self-checked indicators."
+  ]
+ },
+ "techniques": [
+  {
+   "technique": "T1003.001",
+   "name": "OS Credential Dumping: LSASS Memory",
+   "required": true,
+   "sources": [
+    "sysmon"
+   ],
+   "usable_sources": [
+    "sysmon"
+   ],
+   "accepted_claims": 3,
+   "supporting_steps": [
+    "T1003.001-b",
+    "T1003.001-c",
+    "T1003.001-d"
+   ],
+   "min_support": 2,
+   "supported": true,
+   "any_signal": true,
+   "covered": true,
+   "gaps": []
+  },
+  {
+   "technique": "T1021.002",
+   "name": "Remote Services: SMB/Windows Admin Shares",
+   "required": true,
+   "sources": [
+    "sysmon"
+   ],
+   "usable_sources": [
+    "sysmon"
+   ],
+   "accepted_claims": 2,
+   "supporting_steps": [
+    "T1021.002-a",
+    "T1021.002-b-WS-01"
+   ],
+   "min_support": 2,
+   "supported": true,
+   "any_signal": true,
+   "covered": true,
+   "gaps": []
+  },
+  {
+   "technique": "T1059.001",
+   "name": "Command and Scripting Interpreter: PowerShell",
+   "required": false,
+   "sources": [
+    "sysmon"
+   ],
+   "usable_sources": [
+    "sysmon"
+   ],
+   "accepted_claims": 2,
+   "supporting_steps": [
+    "T1059.001-a",
+    "T1059.001-b"
+   ],
+   "min_support": 1,
+   "supported": true,
+   "any_signal": true,
+   "covered": true,
+   "gaps": []
+  },
+  {
+   "technique": "T1071",
+   "name": "Application Layer Protocol (C2)",
+   "required": false,
+   "sources": [
+    "firewall",
+    "sysmon"
+   ],
+   "usable_sources": [
+    "firewall",
+    "sysmon"
+   ],
+   "accepted_claims": 2,
+   "supporting_steps": [
+    "T1071-a",
+    "T1071-b"
+   ],
+   "min_support": 1,
+   "supported": true,
+   "any_signal": true,
+   "covered": true,
+   "gaps": []
+  },
+  {
+   "technique": "T1190",
+   "name": "Exploit Public-Facing Application",
+   "required": false,
+   "sources": [
+    "web"
+   ],
+   "usable_sources": [
+    "web"
+   ],
+   "accepted_claims": 4,
+   "supporting_steps": [
+    "T1190-a",
+    "T1190-b",
+    "T1190-c",
+    "T1190-d"
+   ],
+   "min_support": 1,
+   "supported": true,
+   "any_signal": true,
+   "covered": true,
+   "gaps": []
+  }
+ ],
+ "claims": [
+  {
+   "claim_id": "C-001",
+   "text": "A non-baseline process (C:\\Windows\\System32\\rundll32.exe) opened lsass.exe on WS-01 with access mask 0x1fffff",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-b"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.executable": "C:\\Windows\\System32\\rundll32.exe",
+    "winlog.event_data.GrantedAccess": "0x1fffff"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-b",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:15:01.000Z",
+   "event_ids": [
+    "security-events-c2test/d61e808b952abcd27667"
+   ],
+   "replay": {},
+   "context_only": false,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-002",
+   "text": "A process command line on WS-01 matches LSASS-dump tooling: rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\Windows\\Temp\\lsass.dmp full",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-c"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\Windows\\Temp\\lsass.dmp full"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-c",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:15:00.000Z",
+   "event_ids": [
+    "security-events-c2test/9fee9747c346e791cea2"
+   ],
+   "replay": {},
+   "context_only": false,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-003",
+   "text": "A memory dump file C:\\Windows\\Temp\\lsass.dmp was created on WS-01 by rundll32.exe",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-d"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "file.path": "C:\\Windows\\Temp\\lsass.dmp",
+    "process.name": "rundll32.exe"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-d",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:15:03.000Z",
+   "event_ids": [
+    "security-events-c2test/86cbf8d1742ceb058606"
+   ],
+   "replay": {},
+   "context_only": false,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-004",
+   "text": "Remote-service execution binary PSEXESVC.exe ran on FS-01 (parent services.exe)",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-a"
+   ],
+   "facts": {
+    "host.name": "FS-01",
+    "process.name": "PSEXESVC.exe"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-a",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:27:00.000Z",
+   "event_ids": [
+    "security-events-c2test/869b97c6cc01e6c1a7e6"
+   ],
+   "replay": {},
+   "context_only": false,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-005",
+   "text": "PowerShell with encoded/hidden arguments ran on WS-01 (parent process WINWORD.EXE)",
+   "technique": "T1059.001",
+   "evidence_ids": [
+    "E-T1059.001-a"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.parent.name": "WINWORD.EXE"
+   },
+   "confidence": "medium",
+   "step_id": "T1059.001-a",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:10:00.000Z",
+   "event_ids": [
+    "security-events-c2test/c14ba9cd6af68d8a0792"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-006",
+   "text": "Office application WINWORD.EXE spawned powershell.exe on WS-01",
+   "technique": "T1059.001",
+   "evidence_ids": [
+    "E-T1059.001-b"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.parent.name": "WINWORD.EXE",
+    "process.name": "powershell.exe"
+   },
+   "confidence": "medium",
+   "step_id": "T1059.001-b",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:10:00.000Z",
+   "event_ids": [
+    "security-events-c2test/c14ba9cd6af68d8a0792"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-007",
+   "text": "External destination 198.51.100.77 was contacted 6 times through the firewall (possible beaconing)",
+   "technique": "T1071",
+   "evidence_ids": [
+    "E-T1071-a",
+    "E-T1071-a-dd-198.51.100.77"
+   ],
+   "facts": {
+    "bucket_key": "198.51.100.77",
+    "count": "6"
+   },
+   "confidence": "medium",
+   "step_id": "T1071-a",
+   "kind": "aggregate",
+   "first_seen": "2026-10-01T13:10:09.000Z",
+   "event_ids": [
+    "security-events-c2test/2502c22c30ed22a26dce",
+    "security-events-c2test/3892dbe0c6c19d926695",
+    "security-events-c2test/16b7cba1aeb58d692de1",
+    "security-events-c2test/3cf18b6573968b4326e3",
+    "security-events-c2test/1d7c770270495a2d2166",
+    "security-events-c2test/970384d0b16ab80a1244"
+   ],
+   "replay": {
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2026-10-01T08:00:00Z",
+     "time_to": "2026-10-01T18:00:00Z",
+     "agg": "terms",
+     "field": "destination.ip",
+     "size": 10,
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "firewall",
+        "firewall.log"
+       ]
+      },
+      {
+       "field": "event.action",
+       "op": "eq",
+       "value": "allowed"
+      }
+     ],
+     "must_not": [
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "10.0.0.0/8"
+      },
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "172.16.0.0/12"
+      },
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "192.168.0.0/16"
+      }
+     ]
+    },
+    "bucket_key": "198.51.100.77",
+    "count": 6,
+    "sum": null,
+    "distinct": null,
+    "event_field": "destination.ip"
+   },
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-008",
+   "text": "Destination 198.51.100.77 matches a threat-intel entry (known C2 infrastructure)",
+   "technique": "T1071",
+   "evidence_ids": [
+    "E-T1071-a-ioc-198.51.100.77"
+   ],
+   "facts": {
+    "ioc": "198.51.100.77"
+   },
+   "confidence": "medium",
+   "step_id": "T1071-a-ioc",
+   "kind": "ioc",
+   "first_seen": "",
+   "event_ids": [],
+   "replay": {
+    "tool": "check_ioc",
+    "value": "198.51.100.77"
+   },
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-009",
+   "text": "powershell.exe on WS-01 connected to external 198.51.100.77:443",
+   "technique": "T1071",
+   "evidence_ids": [
+    "E-T1071-b"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.name": "powershell.exe",
+    "destination.ip": "198.51.100.77",
+    "destination.port": "443"
+   },
+   "confidence": "medium",
+   "step_id": "T1071-b",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:10:09.000Z",
+   "event_ids": [
+    "security-events-c2test/7f69d9602946373f2aa9"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-010",
+   "text": "External address 203.0.113.50 uploaded to /upload.php (HTTP 200)",
+   "technique": "T1190",
+   "evidence_ids": [
+    "E-T1190-a"
+   ],
+   "facts": {
+    "source.ip": "203.0.113.50",
+    "url.path": "/upload.php",
+    "http.response.status_code": "200"
+   },
+   "confidence": "medium",
+   "step_id": "T1190-a",
+   "kind": "events",
+   "first_seen": "2026-10-01T12:59:00.000Z",
+   "event_ids": [
+    "security-events-c2test/df0e3822560f73ed0c72"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-011",
+   "text": "External address 203.0.113.50 requested /uploads/cmd.php inside an upload directory (possible web shell)",
+   "technique": "T1190",
+   "evidence_ids": [
+    "E-T1190-b"
+   ],
+   "facts": {
+    "source.ip": "203.0.113.50",
+    "url.path": "/uploads/cmd.php"
+   },
+   "confidence": "medium",
+   "step_id": "T1190-b",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:01:00.000Z",
+   "event_ids": [
+    "security-events-c2test/f7f81f36826d7e6bb947",
+    "security-events-c2test/1b122200378d98e758e3",
+    "security-events-c2test/7137388616a58a7f1840"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-012",
+   "text": "External address 203.0.113.50 sent SQL-injection style requests to /product.php",
+   "technique": "T1190",
+   "evidence_ids": [
+    "E-T1190-c"
+   ],
+   "facts": {
+    "source.ip": "203.0.113.50",
+    "url.path": "/product.php"
+   },
+   "confidence": "medium",
+   "step_id": "T1190-c",
+   "kind": "events",
+   "first_seen": "2026-10-01T12:55:00.000Z",
+   "event_ids": [
+    "security-events-c2test/3e37f3b9652c8afe80cd",
+    "security-events-c2test/4f17eee52ee79d8f70e5",
+    "security-events-c2test/ae1872713221f3549a20",
+    "security-events-c2test/0bd9b40eff457e7d71dd"
+   ],
+   "replay": {},
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-013",
+   "text": "External address 203.0.113.50 produced 27 error responses (404/500), consistent with scanning",
+   "technique": "T1190",
+   "evidence_ids": [
+    "E-T1190-d",
+    "E-T1190-d-dd-203.0.113.50"
+   ],
+   "facts": {
+    "bucket_key": "203.0.113.50",
+    "count": "27"
+   },
+   "confidence": "medium",
+   "step_id": "T1190-d",
+   "kind": "aggregate",
+   "first_seen": "2026-10-01T12:50:00.000Z",
+   "event_ids": [
+    "security-events-c2test/6571e866b4377b3b3fbf",
+    "security-events-c2test/905f8ab8ac4eb166eccf",
+    "security-events-c2test/3f55177049e120b3bc4b",
+    "security-events-c2test/b5e6616339d036ee0662",
+    "security-events-c2test/da8e39cc25be57bb97cc",
+    "security-events-c2test/7c68db86f50e95ffde5d",
+    "security-events-c2test/b46f4951ffdfc9f40c38",
+    "security-events-c2test/f596fd6d7650d747f303",
+    "security-events-c2test/892d271ed0420d7519d2",
+    "security-events-c2test/7708b564a2b018009f5c",
+    "security-events-c2test/48ad46ea56cd0e4b503c",
+    "security-events-c2test/89c979e536360b2daa8d",
+    "security-events-c2test/75a04d99aa3c0e41df5b",
+    "security-events-c2test/73539dc0cd19730b32b9",
+    "security-events-c2test/cb094e31c0294833b336",
+    "security-events-c2test/38446c2f9ff01f28c53a",
+    "security-events-c2test/7ff91578381e96e5700f",
+    "security-events-c2test/8f412caac1e1669844d5",
+    "security-events-c2test/f570ad05ad9dce3340cc",
+    "security-events-c2test/db1bafd264c65c938841",
+    "security-events-c2test/99592d851354b98f7123",
+    "security-events-c2test/7fe7439e33cf03bf88bf",
+    "security-events-c2test/21791fedff14bfbbfbe4",
+    "security-events-c2test/99d422a4969fda64cd38",
+    "security-events-c2test/3e37f3b9652c8afe80cd",
+    "security-events-c2test/4f17eee52ee79d8f70e5",
+    "security-events-c2test/0bd9b40eff457e7d71dd"
+   ],
+   "replay": {
+    "tool": "aggregate",
+    "params": {
+     "index": "security-events-c2test*",
+     "time_from": "2026-10-01T08:00:00Z",
+     "time_to": "2026-10-01T18:00:00Z",
+     "agg": "terms",
+     "field": "source.ip",
+     "size": 10,
+     "must_not": [
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.0.0/8"
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "172.16.0.0/12"
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "192.168.0.0/16"
+      }
+     ],
+     "filters": [
+      {
+       "field": "event.dataset",
+       "op": "in",
+       "value": [
+        "apache.access",
+        "nginx.access"
+       ]
+      },
+      {
+       "field": "http.response.status_code",
+       "op": "in",
+       "value": [
+        404,
+        500
+       ]
+      }
+     ]
+    },
+    "bucket_key": "203.0.113.50",
+    "count": 27,
+    "sum": null,
+    "distinct": null,
+    "event_field": "source.ip"
+   },
+   "context_only": true,
+   "status": "self_checked",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-014",
+   "text": "WS-01 connected to 10.0.2.10 on lateral-movement ports 135,445,5985 for the first time after 2026-10-01T13:10:00.000Z (6 connections, not in baseline)",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-b-WS-01"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "destination.ip": "10.0.2.10",
+    "destination.port": [
+     "135",
+     "445",
+     "5985"
+    ],
+    "n_connections": "6"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-b-WS-01",
+   "kind": "events",
+   "first_seen": "2026-10-01T13:31:05.000Z",
+   "event_ids": [
+    "security-events-c2test/4fd3803234efbfa02678",
+    "security-events-c2test/5cca58c289c0a4fda188",
+    "security-events-c2test/7abf95e3edfd294659c6",
+    "security-events-c2test/80c64fb9af1d00a5a189",
+    "security-events-c2test/0197e9b97af3904c49bc",
+    "security-events-c2test/ebd69a3cf967e2131e7c"
+   ],
+   "replay": {},
+   "context_only": false,
+   "status": "self_checked",
+   "verifier_notes": ""
+  }
+ ],
+ "evidence": [
+  {
+   "evidence_id": "E-T1003.001-a",
+   "call_id": "share-lsass-lateral-0022",
+   "step_id": "T1003.001-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 139,
+   "excerpt": [
+    {
+     "key": "C:\\Windows\\System32\\svchost.exe",
+     "count": 50
+    },
+    {
+     "key": "C:\\Windows\\System32\\wininit.exe",
+     "count": 50
+    },
+    {
+     "key": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+     "count": 38
+    },
+    {
+     "key": "C:\\Windows\\System32\\rundll32.exe",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1003.001-b",
+   "call_id": "share-lsass-lateral-0023",
+   "step_id": "T1003.001-b",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/d61e808b952abcd27667"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.executable": "C:\\Windows\\System32\\rundll32.exe",
+     "@timestamp": "2026-10-01T13:15:01.000Z",
+     "winlog.event_data.GrantedAccess": "0x1fffff",
+     "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
+     "host.name": "WS-01"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1003.001-c",
+   "call_id": "share-lsass-lateral-0024",
+   "step_id": "T1003.001-c",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/9fee9747c346e791cea2"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.name": "rundll32.exe",
+     "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\Windows\\Temp\\lsass.dmp full",
+     "@timestamp": "2026-10-01T13:15:00.000Z",
+     "host.name": "WS-01",
+     "user.name": "CORP\\alice"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1003.001-d",
+   "call_id": "share-lsass-lateral-0025",
+   "step_id": "T1003.001-d",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/86cbf8d1742ceb058606"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.name": "rundll32.exe",
+     "@timestamp": "2026-10-01T13:15:03.000Z",
+     "file.path": "C:\\Windows\\Temp\\lsass.dmp",
+     "host.name": "WS-01"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1021.002-a",
+   "call_id": "share-lsass-lateral-0026",
+   "step_id": "T1021.002-a",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/869b97c6cc01e6c1a7e6"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.parent.name": "services.exe",
+     "process.name": "PSEXESVC.exe",
+     "@timestamp": "2026-10-01T13:27:00.000Z",
+     "host.name": "FS-01",
+     "user.name": "CORP\\SYSTEM"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1059.001-a",
+   "call_id": "share-lsass-lateral-0027",
+   "step_id": "T1059.001-a",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/c14ba9cd6af68d8a0792"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.parent.name": "WINWORD.EXE",
+     "process.name": "powershell.exe",
+     "@timestamp": "2026-10-01T13:10:00.000Z",
+     "host.name": "WS-01",
+     "user.name": "CORP\\alice"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1059.001-b",
+   "call_id": "share-lsass-lateral-0028",
+   "step_id": "T1059.001-b",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/c14ba9cd6af68d8a0792"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.parent.name": "WINWORD.EXE",
+     "process.name": "powershell.exe",
+     "@timestamp": "2026-10-01T13:10:00.000Z",
+     "host.name": "WS-01"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1071-a",
+   "call_id": "share-lsass-lateral-0029",
+   "step_id": "T1071-a",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 2611,
+   "excerpt": [
+    {
+     "key": "198.51.100.77",
+     "count": 6
+    },
+    {
+     "key": "142.250.4.201",
+     "count": 2
+    },
+    {
+     "key": "142.250.5.56",
+     "count": 2
+    },
+    {
+     "key": "142.250.6.217",
+     "count": 2
+    },
+    {
+     "key": "142.250.13.124",
+     "count": 2
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1071-a-dd-198.51.100.77",
+   "call_id": "share-lsass-lateral-0030",
+   "step_id": "T1071-a-dd-198.51.100.77",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/2502c22c30ed22a26dce",
+    "security-events-c2test/3892dbe0c6c19d926695",
+    "security-events-c2test/16b7cba1aeb58d692de1",
+    "security-events-c2test/3cf18b6573968b4326e3",
+    "security-events-c2test/1d7c770270495a2d2166",
+    "security-events-c2test/970384d0b16ab80a1244"
+   ],
+   "total_hits": 6,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-01T13:10:09.000Z",
+     "destination.ip": "198.51.100.77"
+    },
+    {
+     "@timestamp": "2026-10-01T13:12:09.000Z",
+     "destination.ip": "198.51.100.77"
+    },
+    {
+     "@timestamp": "2026-10-01T13:14:09.000Z",
+     "destination.ip": "198.51.100.77"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1071-a-ioc-198.51.100.77",
+   "call_id": "share-lsass-lateral-an0009",
+   "step_id": "T1071-a-ioc",
+   "index": "",
+   "event_ids": [],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "type": "ip",
+     "value": "198.51.100.77",
+     "source": "internal-ti-feed",
+     "note": "known C2 infrastructure"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1071-b",
+   "call_id": "share-lsass-lateral-0031",
+   "step_id": "T1071-b",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/7f69d9602946373f2aa9"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "process.name": "powershell.exe",
+     "destination.port": 443,
+     "destination.ip": "198.51.100.77",
+     "@timestamp": "2026-10-01T13:10:09.000Z",
+     "host.name": "WS-01"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1190-a",
+   "call_id": "share-lsass-lateral-0032",
+   "step_id": "T1190-a",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/df0e3822560f73ed0c72"
+   ],
+   "total_hits": 1,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-01T12:59:00.000Z",
+     "http.response.status_code": 200,
+     "source.ip": "203.0.113.50",
+     "url.path": "/upload.php"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1190-b",
+   "call_id": "share-lsass-lateral-0033",
+   "step_id": "T1190-b",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/f7f81f36826d7e6bb947",
+    "security-events-c2test/1b122200378d98e758e3",
+    "security-events-c2test/7137388616a58a7f1840"
+   ],
+   "total_hits": 3,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-01T13:01:00.000Z",
+     "source.ip": "203.0.113.50",
+     "url.path": "/uploads/cmd.php",
+     "url.query": "c=whoami"
+    },
+    {
+     "@timestamp": "2026-10-01T13:02:00.000Z",
+     "source.ip": "203.0.113.50",
+     "url.path": "/uploads/cmd.php",
+     "url.query": "c=ipconfig+/all"
+    },
+    {
+     "@timestamp": "2026-10-01T13:03:00.000Z",
+     "source.ip": "203.0.113.50",
+     "url.path": "/uploads/cmd.php",
+     "url.query": "c=net+user"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1190-c",
+   "call_id": "share-lsass-lateral-0034",
+   "step_id": "T1190-c",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/3e37f3b9652c8afe80cd",
+    "security-events-c2test/4f17eee52ee79d8f70e5",
+    "security-events-c2test/ae1872713221f3549a20",
+    "security-events-c2test/0bd9b40eff457e7d71dd"
+   ],
+   "total_hits": 4,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-01T12:55:00.000Z",
+     "http.response.status_code": 500,
+     "source.ip": "203.0.113.50",
+     "url.path": "/product.php"
+    },
+    {
+     "@timestamp": "2026-10-01T12:55:07.000Z",
+     "http.response.status_code": 500,
+     "source.ip": "203.0.113.50",
+     "url.path": "/product.php"
+    },
+    {
+     "@timestamp": "2026-10-01T12:55:14.000Z",
+     "http.response.status_code": 200,
+     "source.ip": "203.0.113.50",
+     "url.path": "/product.php"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1190-d",
+   "call_id": "share-lsass-lateral-0035",
+   "step_id": "T1190-d",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 368,
+   "excerpt": [
+    {
+     "key": "203.0.113.50",
+     "count": 27
+    },
+    {
+     "key": "198.18.22.190",
+     "count": 2
+    },
+    {
+     "key": "198.18.43.148",
+     "count": 2
+    },
+    {
+     "key": "198.18.0.4",
+     "count": 1
+    },
+    {
+     "key": "198.18.0.58",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1190-d-dd-203.0.113.50",
+   "call_id": "share-lsass-lateral-0036",
+   "step_id": "T1190-d-dd-203.0.113.50",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/6571e866b4377b3b3fbf",
+    "security-events-c2test/905f8ab8ac4eb166eccf",
+    "security-events-c2test/3f55177049e120b3bc4b",
+    "security-events-c2test/b5e6616339d036ee0662",
+    "security-events-c2test/da8e39cc25be57bb97cc",
+    "security-events-c2test/7c68db86f50e95ffde5d",
+    "security-events-c2test/b46f4951ffdfc9f40c38",
+    "security-events-c2test/f596fd6d7650d747f303",
+    "security-events-c2test/892d271ed0420d7519d2",
+    "security-events-c2test/7708b564a2b018009f5c",
+    "security-events-c2test/48ad46ea56cd0e4b503c",
+    "security-events-c2test/89c979e536360b2daa8d",
+    "security-events-c2test/75a04d99aa3c0e41df5b",
+    "security-events-c2test/73539dc0cd19730b32b9",
+    "security-events-c2test/cb094e31c0294833b336",
+    "security-events-c2test/38446c2f9ff01f28c53a",
+    "security-events-c2test/7ff91578381e96e5700f",
+    "security-events-c2test/8f412caac1e1669844d5",
+    "security-events-c2test/f570ad05ad9dce3340cc",
+    "security-events-c2test/db1bafd264c65c938841",
+    "security-events-c2test/99592d851354b98f7123",
+    "security-events-c2test/7fe7439e33cf03bf88bf",
+    "security-events-c2test/21791fedff14bfbbfbe4",
+    "security-events-c2test/99d422a4969fda64cd38",
+    "security-events-c2test/3e37f3b9652c8afe80cd",
+    "security-events-c2test/4f17eee52ee79d8f70e5",
+    "security-events-c2test/0bd9b40eff457e7d71dd"
+   ],
+   "total_hits": 27,
+   "excerpt": [
+    {
+     "@timestamp": "2026-10-01T12:50:00.000Z",
+     "source.ip": "203.0.113.50"
+    },
+    {
+     "@timestamp": "2026-10-01T12:50:04.000Z",
+     "source.ip": "203.0.113.50"
+    },
+    {
+     "@timestamp": "2026-10-01T12:50:08.000Z",
+     "source.ip": "203.0.113.50"
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1021.002-base-WS-01",
+   "call_id": "share-lsass-lateral-0037",
+   "step_id": "T1021.002-base-WS-01",
+   "index": "security-events-c2test*",
+   "event_ids": [],
+   "total_hits": 83,
+   "excerpt": [
+    {
+     "key": "10.0.2.20",
+     "count": 83
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1021.002-b-WS-01",
+   "call_id": "share-lsass-lateral-0038",
+   "step_id": "T1021.002-b-WS-01",
+   "index": "security-events-c2test*",
+   "event_ids": [
+    "security-events-c2test/91e24b09ed48d4e47dbe",
+    "security-events-c2test/3806d9d49cfcb8a46304",
+    "security-events-c2test/eb01a99d622e20d9f9af",
+    "security-events-c2test/4fd3803234efbfa02678",
+    "security-events-c2test/5cca58c289c0a4fda188",
+    "security-events-c2test/7abf95e3edfd294659c6",
+    "security-events-c2test/80c64fb9af1d00a5a189",
+    "security-events-c2test/1512293d5791812264db",
+    "security-events-c2test/0197e9b97af3904c49bc",
+    "security-events-c2test/a8fe37702535064f9fcf",
+    "security-events-c2test/ebd69a3cf967e2131e7c",
+    "security-events-c2test/eee47cbc6304cb386e4f",
+    "security-events-c2test/2e9dce089a5e88b50ba7",
+    "security-events-c2test/d91a68d7b3782a138833",
+    "security-events-c2test/4a5e1988ad16f5c98f85",
+    "security-events-c2test/d251258168665699e247",
+    "security-events-c2test/36a5fcc748c8043cbaea",
+    "security-events-c2test/7528dce659548b717f68",
+    "security-events-c2test/2530d6931baf95d6440a",
+    "security-events-c2test/e804bc0d756845475018",
+    "security-events-c2test/c3a6404bcdb2ba327ddf",
+    "security-events-c2test/99662362fc9086e06b8f",
+    "security-events-c2test/e72f31c79fcc9a20fb52",
+    "security-events-c2test/b941f1ed48f4772b064d",
+    "security-events-c2test/a1d904671f26ff11ebe7",
+    "security-events-c2test/4659464002e9b1765d82",
+    "security-events-c2test/45e96aa03fa389246bd9",
+    "security-events-c2test/1fee20e0231eb25b219b",
+    "security-events-c2test/833a46ee97ba37a579b0",
+    "security-events-c2test/99f972dacb601f4aa261",
+    "security-events-c2test/a78f89dbc84e821d8665",
+    "security-events-c2test/1995cab10ae54fd43d5c",
+    "security-events-c2test/5c523183f6ec00f46605",
+    "security-events-c2test/3cba30817f12ab1b2aea"
+   ],
+   "total_hits": 34,
+   "excerpt": [
+    {
+     "process.name": "System",
+     "destination.port": 445,
+     "destination.ip": "10.0.2.20",
+     "@timestamp": "2026-10-01T13:26:05.000Z",
+     "host.name": "WS-01"
+    },
+    {
+     "process.name": "System",
+     "destination.port": 445,
+     "destination.ip": "10.0.2.20",
+     "@timestamp": "2026-10-01T13:27:05.000Z",
+     "host.name": "WS-01"
+    },
+    {
+     "process.name": "System",
+     "destination.port": 445,
+     "destination.ip": "10.0.2.20",
+     "@timestamp": "2026-10-01T13:28:40.948Z",
+     "host.name": "WS-01"
+    }
+   ]
+  }
+ ],
+ "step_results": {
+  "T1003.001-a": {
+   "call_id": "share-lsass-lateral-0022",
+   "status": "ok",
+   "total": 139,
+   "tool": "aggregate"
+  },
+  "T1003.001-b": {
+   "call_id": "share-lsass-lateral-0023",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1003.001-c": {
+   "call_id": "share-lsass-lateral-0024",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1003.001-d": {
+   "call_id": "share-lsass-lateral-0025",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1021.002-a": {
+   "call_id": "share-lsass-lateral-0026",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1059.001-a": {
+   "call_id": "share-lsass-lateral-0027",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1059.001-b": {
+   "call_id": "share-lsass-lateral-0028",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1071-a": {
+   "call_id": "share-lsass-lateral-0029",
+   "status": "ok",
+   "total": 2611,
+   "tool": "aggregate"
+  },
+  "T1071-a-dd-198.51.100.77": {
+   "call_id": "share-lsass-lateral-0030",
+   "status": "ok",
+   "total": 6,
+   "tool": "search",
+   "complete": true
+  },
+  "T1071-b": {
+   "call_id": "share-lsass-lateral-0031",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1190-a": {
+   "call_id": "share-lsass-lateral-0032",
+   "status": "ok",
+   "total": 1,
+   "tool": "search",
+   "complete": true
+  },
+  "T1190-b": {
+   "call_id": "share-lsass-lateral-0033",
+   "status": "ok",
+   "total": 3,
+   "tool": "search",
+   "complete": true
+  },
+  "T1190-c": {
+   "call_id": "share-lsass-lateral-0034",
+   "status": "ok",
+   "total": 4,
+   "tool": "search",
+   "complete": true
+  },
+  "T1190-d": {
+   "call_id": "share-lsass-lateral-0035",
+   "status": "ok",
+   "total": 368,
+   "tool": "aggregate"
+  },
+  "T1190-d-dd-203.0.113.50": {
+   "call_id": "share-lsass-lateral-0036",
+   "status": "ok",
+   "total": 27,
+   "tool": "search",
+   "complete": true
+  },
+  "T1021.002-base-WS-01": {
+   "call_id": "share-lsass-lateral-0037",
+   "status": "ok",
+   "total": 83,
+   "tool": "aggregate"
+  },
+  "T1021.002-b-WS-01": {
+   "call_id": "share-lsass-lateral-0038",
+   "status": "ok",
+   "total": 34,
+   "tool": "search",
+   "complete": true
+  }
+ },
+ "self_check": {
+  "claims": 14,
+  "self_checked": 14,
+  "failed": []
+ },
+ "coverage": {
+  "data_sources": {
+   "sysmon": 6315,
+   "firewall": 4386,
+   "web": 3858,
+   "auth": 631
+  },
+  "coverage": {
+   "firewall": {
+    "total": 4386,
+    "n_buckets": 10,
+    "empty_buckets": [],
+    "coverage_ratio": 1.0
+   },
+   "sysmon": {
+    "total": 6315,
+    "n_buckets": 10,
+    "empty_buckets": [],
+    "coverage_ratio": 1.0
+   },
+   "web": {
+    "total": 3858,
+    "n_buckets": 10,
+    "empty_buckets": [],
+    "coverage_ratio": 1.0
+   }
+  },
+  "gaps": [],
+  "missing_fields": {},
+  "entity_missing": []
+ },
+ "limitations": [
+  "Findings depend on the playbooks used; techniques without a playbook are not tested.",
+  "Baselines are synthetic allowlists and must be tuned per environment.",
+  "NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.",
+  "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."
+ ],
+ "notes": [
+  "WS-01 -> 10.0.2.20 on lateral ports is part of the baseline; not reported as new"
+ ],
+ "manifest": {
+  "run_id": "share-lsass-lateral",
+  "backend": "rules (no usable LLM configured)",
+  "planner": "rules",
+  "code_hash": "9ce8da031ba9c31d",
+  "tool_calls": 47,
+  "seconds": 1.5,
+  "python": "3.12.3",
+  "temperature": "provider default",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true,
+   "complete_results": true,
+   "canonical_params": true
+  },
+  "perturb_seed": null,
+  "index": "security-events-c2test*",
+  "mcp_servers": {
+   "es": "python -m dev.es_mcp_standin.server",
+   "analytics": "python -m analytics_server.server"
+  }
+ }
+}
