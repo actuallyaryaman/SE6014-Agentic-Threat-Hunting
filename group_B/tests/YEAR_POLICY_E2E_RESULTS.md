@@ -104,3 +104,10 @@ PDF rendering are outside these checks. A3 raw envelopes remain opt-in and
 allowlisted; deploy the changed B1 pipeline definitions before yearless onboarding.
 C2/C3 are tested pinned snapshots, not merged into this branch. Ay/Dat still
 need to review/reproduce locally and coordinate the reviewed component merges.
+
+## Later B1 reconciliation
+
+[Noor integration results](NOOR_B1_INTEGRATION_RESULTS.md) supersede the
+blanket B1 missing-label rejection described in the original run above.
+B1 legacy callers retain fallback behavior; B3 onboarding and raw envelopes
+remain strict. The fresh combined rules/live-ES checks pass.

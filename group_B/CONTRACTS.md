@@ -192,8 +192,10 @@ Safety defaults:
 
 Yearless Linux/firewall syslog requires confirmed `log_year` (integer 1970–9999)
 and `timezone`. Transport preserves string `labels.log_year` and
-`labels.log_timezone`; B1 parsing consumes both in Elasticsearch. Missing labels
-produce `_parse_failure`, never an inferred current-year timestamp. B3 verifies
+`labels.log_timezone`; B1 parsing consumes both in Elasticsearch. Missing labels on `b3.raw.v1`
+produce `_parse_failure`, never an inferred current-year timestamp. Existing
+non-B3 callers retain B1's current-year/UTC fallback when labels are absent;
+this compatibility behavior does not relax B3's required onboarding policy. B3 verifies
 the exact UTC result and rejects replay with conflicting year/timezone metadata.
 A source must contain one confirmed year; split files spanning multiple years.
 Ambiguous/nonexistent DST times require offset-bearing input or correction.

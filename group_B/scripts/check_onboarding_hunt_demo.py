@@ -365,7 +365,7 @@ class HuntDemo(Integration):
             changed = onboard(source.model_copy(update={"log_year": 2028}), policy, config, **options)
             assert changed.status == "failed" and "EXISTING_DOCUMENT_CONFLICT" in changed.error_codes
             missing = self.api("POST", "/_ingest/pipeline/" + result.pipeline_id + "/_simulate", json={
-                "docs": [{"_source": {"message": line}}]})["docs"][0]["doc"]["_source"]
+                "docs": [{"_source": {"message": line, "labels": {"envelope": "b3.raw.v1"}}}]})["docs"][0]["doc"]["_source"]
             assert "_parse_failure" in missing["tags"] and "labels.log_year" in missing["error"]["message"]
             self.case("year_policy_" + name, indexed=2, identical_records_distinct_ids=True,
                       log_year=2024, log_timezone=zone, expected_timestamp=expected_time,

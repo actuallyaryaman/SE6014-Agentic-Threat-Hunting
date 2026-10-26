@@ -100,3 +100,7 @@ the confirmed year and parses it in the supplied IANA timezone in Elasticsearch.
 B3 verifies exact UTC timestamps, labels, original records and replay IDs.
 No year is inferred from ingestion time. Sources spanning years must be split;
 ambiguous DST wall times require correction or an explicit offset.
+
+B1's non-B3 legacy callers may omit policy labels and retain the original
+current-year/UTC fallback. B3 onboarding never uses that fallback; the raw
+envelope path rejects missing year/timezone labels inside Elasticsearch too.
