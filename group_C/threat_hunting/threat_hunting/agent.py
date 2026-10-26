@@ -45,6 +45,8 @@ Rules:
 - Follow leads: pivot on the entities in the findings (IPs, hosts, users, processes) across the other datasets, look at what
   happened before and after, and look for evidence that would refute the hypothesis as well as confirm it.
 - Never repeat a query. Stop when more queries would not change the conclusion.
+- When the hypothesis names hosts, only events on those hosts can become findings: give a query meant to produce findings
+  a host.name filter. Hits on other hosts are kept as context and never become findings.
 - Add "claim" only when the hits are suspicious evidence for or against the hypothesis, never for context or inventory
   queries. At most 5 findings per action are kept; a claim that would create more is dropped, so make it specific.
   For search: {"template": "text with {field} placeholders", "group_by": [fields]}; every placeholder must be a field the
@@ -91,7 +93,42 @@ class Ctx:
         self.earliest = self.latest - timedelta(days=config.MAX_WINDOW_DAYS)
         self.flagged = {f["event_id"] for f in (guard or {}).get("findings", [])}
         self.ran = {request_hash(s.tool, {k: v for k, v in s.params.items() if v is not None}): s.step_id for s in plan.steps + st.dynamic_steps}
+        # the hypothesis's host scope: findings may only cite events on these hosts (PR #29: an unscoped follow-up query
+        # turned a BENIGN-SSH login into a claim of a DEMO-SSH hunt)
+        self.hosts = {h.lower() for h in plan.entities.get("hosts", [])}
 
+
+def _scoped_to(params: dict, hosts: set[str]) -> bool:
+    """True when the query itself is limited to the named hosts (a host.name eq/in filter with only those values)."""
+    for f in params.get("filters", []):
+        if f.get("field") == "host.name" and f.get("op", "eq") in ("eq", "in"):
+            vals = f["value"] if isinstance(f.get("value"), list) else [f.get("value")]
+            if vals and {str(v).lower() for v in vals} <= hosts:
+                return True
+    return False
+
+
+def in_scope(step: PlanStep, res: dict, hosts: set[str]) -> tuple[dict, dict | None, str | None]:
+    """Keep only what may become a finding under the hypothesis's host scope: (usable result, out-of-scope summary, note).
+    Search hits on other hosts (or with no host) and aggregations not limited to the named hosts stay context."""
+    if not hosts or _scoped_to(step.params, hosts):
+        return res, None, None
+    if step.tool == "search":
+        keep = [h for h in res["hits"] if str(h["fields"].get("host.name", "")).lower() in hosts]
+        other = [h for h in res["hits"] if h not in keep]
+        if not other:
+            return res, None, None
+        names = sorted({str(h["fields"].get("host.name") or "(no host)") for h in other})
+        return ({**res, "hits": keep}, {"hits": len(other), "hosts": names[:10]},
+                f"{len(other)} hit(s) on hosts outside the hypothesis ({', '.join(names[:5])}) were kept as context, not findings")
+    if step.params.get("field") == "host.name" and isinstance(res.get("result"), list):
+        keep = [b for b in res["result"] if str(b["key"]).lower() in hosts]
+        other = sorted(str(b["key"]) for b in res["result"] if b not in keep)
+        note = f"buckets for hosts outside the hypothesis ({', '.join(other[:5])}) were kept as context" if other else None
+        return {**res, "result": keep}, ({"buckets": len(other), "hosts": other[:10]} if other else None), note
+    return ({**res, "result": []}, {"aggregation": "not limited to the hypothesis's hosts"},
+            f"this aggregation is not limited to the hypothesis's hosts {sorted(hosts)}, so it made no findings; add a "
+            "host.name filter (or aggregate on host.name) to turn its buckets into findings")
 
 def _reject(msg: str):
     return None, msg
@@ -119,7 +156,10 @@ def _claim(c, act: str, p: dict, ctx: Ctx) -> tuple[str, dict, str | None]:
                 query.check_field(f, ctx.known)
         except query.ToolError as e:
             return "", {}, f"claim: {e}"
-        p["fields"] = sorted(set(p["fields"]) | set(gb) | (ph - {"n"}) | {"@timestamp"})
+        # every placeholder is grouped on, so a claim's text is true for every event it cites; with a host scope the host
+        # is grouped on too, so out-of-scope hosts never share a claim with in-scope ones
+        gb = list(dict.fromkeys([*gb, *sorted(ph - {"n"}), *(["host.name"] if ctx.hosts and "host.name" in ctx.known else [])]))
+        p["fields"] = sorted(set(p["fields"]) | set(gb) | {"@timestamp"})
         return template, {"group_by": gb, "min_count": max(1, int(c.get("min_count", 1) or 1))}, None
     if act == "aggregate" and p["agg"] in ("terms", "rare_terms"):
         if ph - {"bucket_key", "count", "sum", "distinct"}:
@@ -262,6 +302,9 @@ async def run_action(mcp, st: hunter.HuntState, step, ctx: Ctx) -> dict:
             usable = {**res, "hits": [h for h in res["hits"] if need <= set(h["fields"])]}
             if len(usable["hits"]) < len(res["hits"]):
                 notes.append(f"{len(res['hits']) - len(usable['hits'])} hit(s) lack a claim field and were not used for findings")
+        usable, outside, note = in_scope(step, usable, ctx.hosts)
+        if note:
+            notes.append(note)
         hunter.extract_claims(st, step, usable)
         if len(st.claims) - before > MAX_CLAIMS_PER_ACTION:
             notes.append(f"the claim matched {len(st.claims) - before} groups and was dropped: a finding must be specific "
@@ -273,6 +316,8 @@ async def run_action(mcp, st: hunter.HuntState, step, ctx: Ctx) -> dict:
     out = summarize(res, step, ctx.flagged, new)
     if notes:
         out["claim_note"] = "; ".join(notes)
+    if step.claim_template and outside:
+        out["out_of_scope"] = outside
     return out
 
 
@@ -367,7 +412,8 @@ async def investigate(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, gu
         sid = step["step_id"] if isinstance(step, dict) else step.step_id
         rec.update(status="error" if "error" in last else "ran", step_id=sid, total=last.get("total"),
                    params=step["value"] if isinstance(step, dict) else {k: v for k, v in step.params.items() if k != "index"},
-                   claims=[c["claim_id"] for c in last.get("new_findings", [])], **({"error": last["error"]} if "error" in last else {}))
+                   claims=[c["claim_id"] for c in last.get("new_findings", [])], **({"error": last["error"]} if "error" in last else {}),
+                   **({"out_of_scope": last["out_of_scope"]} if "out_of_scope" in last else {}))
         out["steps"].append(rec)
         history.append({k: rec.get(k) for k in ("n", "action", "technique", "purpose", "status", "total", "claims")})
         progress.log(f"   turn {n}/{max_turns}: {rec['action']} [{rec['technique']}] {rec['purpose'][:70]} → {rec['status']}, "

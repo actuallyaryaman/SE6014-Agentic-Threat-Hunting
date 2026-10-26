@@ -1,7 +1,8 @@
 """Create the isolated C2 test artifacts in a local Elasticsearch and load the synthetic scenarios through B1's pipelines.
 
 Touches only: ingest pipelines c2test-*, index template c2test-security-events, indices security-events-c2test and
-security-events-c2test-new (sources without a playbook, already ECS JSON) and the API key c2test-hunt-ro (read +
+security-events-c2test-new (sources without a playbook, already ECS JSON), security-events-c2test-twohost (PR #29's
+DEMO-SSH / BENIGN-SSH lines) and the API key c2test-hunt-ro (read +
 view_index_metadata on security-events-c2test*). Admin credentials come from ES_ADMIN_USER /
 ES_ADMIN_PASSWORD and are never printed. ES_URL, the read-only key, HUNT_INDEX and ES_CA_CERT (when set) are written to
 .env.test (mode 0600).
@@ -17,6 +18,12 @@ DEV = ROOT / "dev"
 ENV_FILE = ROOT / ".env.test"
 INDEX, TEMPLATE, KEY_NAME = "security-events-c2test", "c2test-security-events", "c2test-hunt-ro"
 NEW_INDEX, ECS_PIPELINE = "security-events-c2test-new", "c2test-ecs-json"
+TWO_INDEX = "security-events-c2test-twohost"     # PR #29's DEMO-SSH / BENIGN-SSH lines (host-scope regression test)
+
+
+def doc_id(log_type: str, i: int, line: str) -> str:
+    """Deterministic document id, so tests can name the events they expect."""
+    return hashlib.sha256(f"{log_type}|{i}|{line}".encode()).hexdigest()[:20]
 # already-normalised ECS JSON lines: parse, keep the line as event.original, nothing else
 ECS_PROCESSORS = [{"json": {"field": "message", "add_to_root": True}}, {"set": {"field": "event.original", "copy_from": "message"}},
                   {"remove": {"field": "message"}}]
@@ -67,8 +74,7 @@ def setup():
     es.indices.create(index=INDEX)
     for fname, lt in FILES.items():
         lines = [l for l in (raw / fname).read_text().splitlines() if l.strip()]
-        actions = ({"_index": INDEX, "_id": hashlib.sha256(f"{lt}|{i}|{l}".encode()).hexdigest()[:20], "_source": {"message": l}}
-                   for i, l in enumerate(lines))
+        actions = ({"_index": INDEX, "_id": doc_id(lt, i, l), "_source": {"message": l}} for i, l in enumerate(lines))
         ok, errors = helpers.bulk(es, actions, pipeline=f"c2test-{PIPELINES[lt]}", raise_on_error=False, chunk_size=1000)
         reasons = sorted({e["index"]["error"]["reason"][:160] for e in errors})[:3] if errors else []
         print(f"loaded {fname}: {ok}/{len(lines)} indexed" + (f"; {len(errors)} rejected: {reasons}" if errors else ""))
@@ -81,7 +87,14 @@ def setup():
                                     "_source": {"message": l}} for i, l in enumerate(lines)),
                               pipeline=ECS_PIPELINE, raise_on_error=False, chunk_size=1000)
     print(f"loaded {generate.NEW_INDEX_FILE} into {NEW_INDEX}: {ok}/{len(lines)} indexed" + (f"; {len(errors)} rejected" if errors else ""))
-    es.indices.refresh(index=[INDEX, NEW_INDEX])
+    if es.indices.exists(index=TWO_INDEX):
+        es.indices.delete(index=TWO_INDEX)
+    es.indices.create(index=TWO_INDEX)
+    lines = generate.two_host_lines()
+    ok, errors = helpers.bulk(es, ({"_index": TWO_INDEX, "_id": doc_id("auth", i, l), "_source": {"message": l}} for i, l in enumerate(lines)),
+                              pipeline=f"c2test-{PIPELINES['auth']}", raise_on_error=False)
+    print(f"loaded {generate.TWO_HOST_FILE} into {TWO_INDEX}: {ok}/{len(lines)} indexed" + (f"; {len(errors)} rejected" if errors else ""))
+    es.indices.refresh(index=[INDEX, NEW_INDEX, TWO_INDEX])
     r = es.search(index=INDEX, size=0, aggs={"ds": {"terms": {"field": "event.dataset"}}, "no_ts": {"missing": {"field": "@timestamp"}}})
     print("docs per event.dataset:", {b["key"]: b["doc_count"] for b in r["aggregations"]["ds"]["buckets"]},
           "| without @timestamp:", r["aggregations"]["no_ts"]["doc_count"])
@@ -101,7 +114,7 @@ def setup():
 
 def teardown():
     es, _ = admin()
-    es.indices.delete(index=[INDEX, NEW_INDEX], ignore_unavailable=True)
+    es.indices.delete(index=[INDEX, NEW_INDEX, TWO_INDEX], ignore_unavailable=True)
     try:
         es.indices.delete_index_template(name=TEMPLATE)
     except NotFoundError:

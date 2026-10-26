@@ -262,6 +262,18 @@ def gen_auth(truth):
     return [r[1] for r in rows]
 
 
+TWO_HOST_FILE = "two_host_ssh.log"        # PR #29's seeded lines, for security-events-c2test-twohost (host-scope regression)
+
+
+def two_host_lines() -> list[str]:
+    """Exactly the lines PR #29's live check ingests: the attack on DEMO-SSH and a few benign failures on BENIGN-SSH."""
+    lines = [f"2026-10-25T00:10:{i:02d}Z DEMO-SSH sshd[123]: Failed password for demo from 203.0.113.99 port {40000 + i} ssh2" for i in range(30)]
+    lines.append("2026-10-25T00:11:00Z DEMO-SSH sshd[123]: Accepted password for demo from 203.0.113.99 port 41000 ssh2")
+    lines += [f"2026-10-25T00:10:{i:02d}Z BENIGN-SSH sshd[456]: Failed password for demo from 198.51.100.20 port {42000 + i} ssh2" for i in range(3)]
+    lines.append("2026-10-25T00:11:00Z BENIGN-SSH sshd[456]: Accepted password for demo from 198.51.100.20 port 43000 ssh2")
+    return lines
+
+
 NEW_INDEX_FILE = "new_sources.jsonl"       # ECS JSON for security-events-c2test-new (sources without a playbook)
 VPN_ATTACKER = "198.51.100.23"
 TUNNEL = "exfil-tunnel.net"
@@ -324,6 +336,7 @@ def main(out_dir: Path | None = None) -> dict[str, int]:
             "firewall.log": gen_fw(truth), "auth_ssh.log": gen_auth(truth)}
     new_truth: list = []
     data[NEW_INDEX_FILE] = [json.dumps(r) for r in gen_new(new_truth)]
+    data[TWO_HOST_FILE] = two_host_lines()
     for name, lines in data.items():
         (out / name).write_text("\n".join(lines) + "\n")
     d = DAY.isoformat()
@@ -345,7 +358,10 @@ def main(out_dir: Path | None = None) -> dict[str, int]:
                           "hypotheses": {"vpn": f"An external IP brute-forced the VPN and then logged in successfully on {d}.",
                                          "dns_tunnel": f"WS-03 tunnelled data out over DNS on {d}."},
                           "expected_verdicts": {"vpn": "SUPPORTED", "dns_tunnel": "INCONCLUSIVE"},
-                          "attack_events": new_truth}}
+                          "attack_events": new_truth},
+          "two_hosts": {"index": "security-events-c2test-twohost", "attack_lines": 31,
+                        "hypotheses": {"attack": "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25.",
+                                       "benign": "An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25."}}}
     (ROOT / "ground_truth.yml").write_text(yaml.safe_dump(gt, sort_keys=False))
     return {name: len(lines) for name, lines in data.items()}
 

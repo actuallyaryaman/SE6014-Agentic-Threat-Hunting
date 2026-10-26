@@ -14,7 +14,8 @@ pytestmark = [pytest.mark.es, pytest.mark.skipif(not config.ES_API_KEY or not NE
 
 TUNNEL = {"thought": "Tunnelling shows as one domain with very many distinct names", "action": "aggregate", "technique": "T1071.004",
           "purpose": "Registered domains queried with many distinct names (DNS tunnelling)",
-          "params": {"filters": [{"field": "event.dataset", "op": "eq", "value": "dns.query"}], "agg": "terms",
+          "params": {"filters": [{"field": "event.dataset", "op": "eq", "value": "dns.query"},       # scoped to the named host
+                                 {"field": "host.name", "op": "eq", "value": "WS-03"}], "agg": "terms",
                      "field": "dns.question.registered_domain", "distinct_field": "dns.question.name", "size": 10},
           "claim": {"template": "{bucket_key} was queried with {distinct} distinct names in {count} lookups", "bucket_min_distinct": 50}}
 
