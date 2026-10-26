@@ -29,11 +29,14 @@ ES_CA_CERT = os.environ.get("ES_CA_CERT", "")
 HUNT_INDEX = os.environ.get("HUNT_INDEX", "security-events-*")
 HUNT_INDEX_PREFIX = os.environ.get("HUNT_INDEX_PREFIX", "security-events-")
 
-# MCP servers the agent talks to (swap in C1's server here when it exists)
-ES_MCP_CMD = os.environ.get("HUNT_ES_MCP_CMD", "python -m dev.es_mcp_standin.server")
+# MCP servers the agent talks to: C1's Elasticsearch server (the dev stand-in, python -m dev.es_mcp_standin.server, offers the
+# same tools and is kept as a fallback) and C2's analytics server
+ES_MCP_CMD = os.environ.get("HUNT_ES_MCP_CMD", "python -m es_mcp_server.server")
 ANALYTICS_MCP_CMD = os.environ.get("HUNT_ANALYTICS_MCP_CMD", "python -m analytics_server.server")
 
 KNOWLEDGE_DIR = ROOT / "threat_hunting" / "knowledge"
+PLAYBOOK_DIR = Path(os.environ.get("HUNT_PLAYBOOK_DIR") or KNOWLEDGE_DIR / "playbooks")   # promoted playbooks (promote.py)
+MEMORY_FILE = Path(os.environ.get("HUNT_MEMORY_FILE") or ROOT / "memory" / "lessons.jsonl")   # analyst lessons (feedback.py)
 AUDIT_DIR = ROOT / "audit"
 RUNS_DIR = ROOT / "runs"
 SCENARIO_DIR = ROOT / "scenarios"
@@ -44,3 +47,8 @@ MAX_TERMS_SIZE = 100
 MAX_BUCKETS = 1000
 MAX_WINDOW_DAYS = 31
 QUERY_TIMEOUT_S = 20
+
+# Agent limits (DESIGN.md 3.2): LLM calls per run, investigator turns, and the window used when the hypothesis names no time
+LLM_MAX_CALLS = int(os.environ.get("HUNT_LLM_MAX_CALLS", "40"))
+AGENT_MAX_STEPS = int(os.environ.get("HUNT_AGENT_MAX_STEPS", "10"))
+DEFAULT_LOOKBACK_H = int(os.environ.get("HUNT_DEFAULT_LOOKBACK_H", "24"))

@@ -2,7 +2,7 @@
 
 A filter is {field, op, value}; op in eq|neq|in|wildcard|prefix|contains|gte|lte|gt|lt|exists. `known` maps field -> ES type
 (from the index mapping, including multi-field subfields such as "url.original.keyword").
-Ported from the prototype's src/mcp_server/guards.py; used by the ES MCP stand-in and usable client-side."""
+Ported from the prototype's src/mcp_server/guards.py; used by both ES MCP servers (C1's and the dev stand-in) and by the agent's validator."""
 from __future__ import annotations
 import difflib, ipaddress, re
 from datetime import datetime, timezone, timedelta

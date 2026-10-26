@@ -262,12 +262,81 @@ def gen_auth(truth):
     return [r[1] for r in rows]
 
 
+TWO_HOST_FILE = "two_host_ssh.log"        # PR #29's seeded lines, for security-events-c2test-twohost (host-scope regression)
+
+
+def two_host_lines() -> list[str]:
+    """Exactly the lines PR #29's live check ingests: the attack on DEMO-SSH and a few benign failures on BENIGN-SSH."""
+    lines = [f"2026-10-25T00:10:{i:02d}Z DEMO-SSH sshd[123]: Failed password for demo from 203.0.113.99 port {40000 + i} ssh2" for i in range(30)]
+    lines.append("2026-10-25T00:11:00Z DEMO-SSH sshd[123]: Accepted password for demo from 203.0.113.99 port 41000 ssh2")
+    lines += [f"2026-10-25T00:10:{i:02d}Z BENIGN-SSH sshd[456]: Failed password for demo from 198.51.100.20 port {42000 + i} ssh2" for i in range(3)]
+    lines.append("2026-10-25T00:11:00Z BENIGN-SSH sshd[456]: Accepted password for demo from 198.51.100.20 port 43000 ssh2")
+    return lines
+
+
+NEW_INDEX_FILE = "new_sources.jsonl"       # ECS JSON for security-events-c2test-new (sources without a playbook)
+VPN_ATTACKER = "198.51.100.23"
+TUNNEL = "exfil-tunnel.net"
+
+
+def ecs(ts, dataset, category, **kw):
+    doc = {"@timestamp": t(ts), "event": {"dataset": dataset, "category": [category], **kw.pop("event", {})}}
+    for k, v in kw.items():
+        doc[k] = v
+    return doc
+
+
+def gen_new(truth):
+    """Two sources no playbook was written for. vpn.auth has auth's ECS fields (it should join the auth playbooks);
+    dns.query has none of the known kinds' (only the investigator can hunt it)."""
+    rows = []
+    vpn_users = ["alice", "bob", "carol", "dave"]
+    for _ in range(300):                       # benign VPN logins from home addresses; a stray failure now and then
+        ts = rand_time(); ok = rnd.random() < 0.85
+        rows.append(ecs(ts, "vpn.auth", "authentication", event={"action": "vpn_login", "outcome": "success" if ok else "failure"},
+                        host={"name": "VPN-GW-01"}, source={"ip": f"198.51.100.{rnd.randint(30, 90)}"}, user={"name": rnd.choice(vpn_users)}))
+    for i in range(40):                        # attack: password guessing against the VPN, then a login as jdoe
+        ts = at(16, 0) + timedelta(seconds=i * 3)
+        rows.append(ecs(ts, "vpn.auth", "authentication", event={"action": "vpn_login", "outcome": "failure"}, host={"name": "VPN-GW-01"},
+                        source={"ip": VPN_ATTACKER}, user={"name": rnd.choice(["jdoe", "admin"])}))
+    rows.append(ecs(at(16, 3), "vpn.auth", "authentication", event={"action": "vpn_login", "outcome": "success"}, host={"name": "VPN-GW-01"},
+                    source={"ip": VPN_ATTACKER}, user={"name": "jdoe"}))
+    hosts = {"WS-01": "10.0.1.15", "WS-02": "10.0.1.16", "WS-03": "10.0.1.17", "WS-04": "10.0.1.18"}
+    names = [f"host{n}.corp.local" for n in range(1, 16)] + ["www.microsoft.com", "login.microsoftonline.com", "github.com",
+                                                             "api.github.com", "update.windowsupdate.com", "www.google.com"]
+    for _ in range(900):                       # benign lookups
+        ts = rand_time(); h = rnd.choice(list(hosts)); n = rnd.choice(names)
+        rows.append(ecs(ts, "dns.query", "network", event={"action": "dns_query", "type": ["protocol"]}, host={"name": h},
+                        source={"ip": hosts[h]}, destination={"ip": "10.0.2.53"},
+                        dns={"question": {"name": n, "registered_domain": ".".join(n.split(".")[-2:]), "type": "A"}, "response_code": "NOERROR"}))
+    alphabet = "abcdefghijklmnopqrstuvwxyz234567"
+    for i in range(120):                       # attack: data leaves WS-03 in TXT queries to random subdomains, every 30 s
+        ts = at(14, 0) + timedelta(seconds=i * 30)
+        sub = "".join(rnd.choice(alphabet) for _ in range(40))
+        rows.append(ecs(ts, "dns.query", "network", event={"action": "dns_query", "type": ["protocol"]}, host={"name": "WS-03"},
+                        source={"ip": hosts["WS-03"]}, destination={"ip": "10.0.2.53"},
+                        dns={"question": {"name": f"{sub}.{TUNNEL}", "registered_domain": TUNNEL, "type": "TXT"}, "response_code": "NOERROR"}))
+    truth += [
+        {"id": "GT-V1", "scenario": "vpn", "technique": "T1110", "dataset": "vpn.auth",
+         "match": {"source.ip": VPN_ATTACKER, "event.outcome": "failure"}, "expected_min": 40},
+        {"id": "GT-V2", "scenario": "vpn", "technique": "T1078", "dataset": "vpn.auth",
+         "match": {"source.ip": VPN_ATTACKER, "event.outcome": "success"}, "expected_min": 1},
+        {"id": "GT-D1", "scenario": "dns_tunnel", "technique": "T1071.004", "dataset": "dns.query",
+         "match": {"host.name": "WS-03", "dns.question.registered_domain": TUNNEL}, "expected_min": 120},
+    ]
+    rows.sort(key=lambda r: r["@timestamp"])
+    return rows
+
+
 def main(out_dir: Path | None = None) -> dict[str, int]:
     out = out_dir or ROOT / "raw"
     out.mkdir(parents=True, exist_ok=True)
     truth: list = []
     data = {"sysmon_events.jsonl": [json.dumps(r) for r in gen_sysmon(truth)], "web_access.log": gen_web(truth),
             "firewall.log": gen_fw(truth), "auth_ssh.log": gen_auth(truth)}
+    new_truth: list = []
+    data[NEW_INDEX_FILE] = [json.dumps(r) for r in gen_new(new_truth)]
+    data[TWO_HOST_FILE] = two_host_lines()
     for name, lines in data.items():
         (out / name).write_text("\n".join(lines) + "\n")
     d = DAY.isoformat()
@@ -283,7 +352,16 @@ def main(out_dir: Path | None = None) -> dict[str, int]:
           "benign_decoys": ["MsMpEng.exe/svchost.exe/wininit.exe access to lsass.exe (Sysmon EID 10)",
                             "Internal Nessus scan from 10.0.9.5", "Prompt-injection text in a web user agent (192.0.2.77)",
                             "wuauclt.exe child of services.exe on FS-01", "WS-01/WS-02 SMB to FS-01 all day (lateral baseline)"],
-          "attack_events": truth}
+          "attack_events": truth,
+          # a second index, security-events-c2test-new, so the ground truth above is unaffected (DESIGN.md 5.5)
+          "new_sources": {"index": "security-events-c2test-new", "benign_window": {"from": t(D0), "to": t(at(13, 0))},
+                          "hypotheses": {"vpn": f"An external IP brute-forced the VPN and then logged in successfully on {d}.",
+                                         "dns_tunnel": f"WS-03 tunnelled data out over DNS on {d}."},
+                          "expected_verdicts": {"vpn": "SUPPORTED", "dns_tunnel": "INCONCLUSIVE"},
+                          "attack_events": new_truth},
+          "two_hosts": {"index": "security-events-c2test-twohost", "attack_lines": 31,
+                        "hypotheses": {"attack": "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25.",
+                                       "benign": "An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25."}}}
     (ROOT / "ground_truth.yml").write_text(yaml.safe_dump(gt, sort_keys=False))
     return {name: len(lines) for name, lines in data.items()}
 

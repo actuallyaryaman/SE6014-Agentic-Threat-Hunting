@@ -27,20 +27,25 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
             c = cov.get(s)
             if c and c["n_buckets"] and 1 - c["coverage_ratio"] > GAP_THRESHOLD:
                 gaps.append(f"'{s}' has empty time buckets ({len(c['empty_buckets'])}/{c['n_buckets']})")
+        if notes.get("mapping_missing"):
+            gaps.append("the index mapping could not be read, so a filter may have matched nothing silently")
         steps = [s for s in plan.steps + st.dynamic_steps if s.technique == t and s.role == "indicator"]
         errored = [s.step_id for s in steps if st.step_results.get(s.step_id, {}).get("status") != "ok"]
         if errored:
             gaps.append(f"steps did not complete: {errored}")
-        ok = [c for c in st.claims if c.technique == t and c.status in ACCEPTED and c.kind != "ioc"]
+        accepted = [c for c in st.claims if c.technique == t and c.status in ACCEPTED and c.kind != "ioc"]
+        ok = [c for c in accepted if c.origin != "llm"]
+        leads = [c.claim_id for c in accepted if c.origin == "llm"]        # LLM-proposed queries: worth review, never support
         distinct = sorted({c.step_id for c in ok})
         need = MIN_SUPPORT.get(t, 1)
         rows.append({"technique": t, "name": plan.entities["technique_names"].get(t, t), "required": t in plan.required_techniques,
                      "sources": srcs, "usable_sources": usable, "accepted_claims": len(ok), "supporting_steps": distinct, "min_support": need,
-                     "supported": len(distinct) >= need, "any_signal": bool(ok), "covered": not gaps, "gaps": gaps})
+                     "supported": len(distinct) >= need, "any_signal": bool(ok or leads), "leads": leads, "covered": not gaps, "gaps": gaps})
     return rows
 
 
-def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None) -> list[str]:
+def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None,
+                   doubts: list[dict] | None = None, leads: list[str] | None = None, lesson_flags: dict | None = None) -> list[str]:
     """DESIGN.md 4.2: when a human must review before anyone acts on the verdict."""
     out = []
     if verdict == "SUPPORTED":
@@ -54,19 +59,41 @@ def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check:
         out.append(f"{len(guard['findings'])} event(s) in the window contain prompt-injection-like text")
     if check and check.get("failed"):
         out.append(f"{len(check['failed'])} claim(s) failed the self-check")
+    leads = leads if leads is not None else [c for r in req for c in r.get("leads", [])]
+    if leads:
+        out.append(f"{len(leads)} lead(s) from LLM-proposed queries ({', '.join(leads)}) need review")
+    for a in doubts or []:
+        out.append(f"benign explanation not ruled out for {a['claim_id']}: {a['explanation']}")
+    for cid, ids in sorted((lesson_flags or {}).items()):
+        out.append(f"{cid} matches analyst lesson(s) {', '.join(ids)} labelled benign: check before acting")
     return out
 
 
-def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None) -> dict:
+def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None,
+           skeptic: dict | None = None, lesson_flags: dict | None = None) -> dict:
     rows = technique_table(plan, st, notes)
     req = [r for r in rows if r["required"]]
     reasons = []
+    # every accepted finding from an LLM-proposed query, whatever its technique (draft mode may test techniques outside the plan)
+    leads = sorted(c.claim_id for c in st.claims if c.origin == "llm" and c.status in ACCEPTED and c.kind != "ioc")
+    lead_note = (f"LLM-proposed queries found {len(leads)} self-checked finding(s) ({', '.join(leads)}); they are worth a manual "
+                 "review but cannot decide the verdict without a vetted playbook.")
     if not req:
         verdict = "INCONCLUSIVE"
         reasons.append("No playbook matched the hypothesis, so nothing could be tested.")
+        if leads:
+            reasons.append(lead_note)
     elif all(not r["usable_sources"] for r in req):
-        verdict = "INSUFFICIENT_DATA"
+        verdict = "INCONCLUSIVE" if leads else "INSUFFICIENT_DATA"
         reasons += [f"{r['technique']}: {'; '.join(r['gaps'])}" for r in req]
+        if leads:
+            reasons.append(lead_note)
+    elif all(g.get("kind") == "llm" for g in plan.entities.get("requirement_groups") or [{}]):
+        verdict = "INCONCLUSIVE"
+        found = [r["technique"] for r in req if r["any_signal"]]
+        reasons.append("The hypothesis names no behaviour the playbooks test; the language model chose "
+                       + ", ".join(r["technique"] for r in req) + ". "
+                       + (f"Findings for {', '.join(found)} are leads to review, not a verdict." if found else "None of them shows activity."))
     elif notes["entity_missing"]:
         reasons.append(f"No telemetry exists for named entities {notes['entity_missing']}; absence of events cannot be interpreted.")
         verdict = "INCONCLUSIVE"
@@ -81,6 +108,9 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
         for r in req:
             if not r["supported"]:
                 reasons.append(f"{r['technique']}: {len(r['supporting_steps'])}/{r['min_support']} independent indicators; gaps: {r['gaps'] or 'none'}")
+                if r.get("leads"):
+                    reasons.append(f"{r['technique']}: only LLM-proposed queries found related events ({', '.join(r['leads'])}); "
+                                   "they are leads to review, not proof.")
     if any(n.startswith("budget exhausted") for n in st.notes):
         reasons.append(f"The tool-call budget ({st.max_calls}) was exhausted before every step ran.")
     if notes["entity_missing"] and any(c.status in ACCEPTED for c in st.claims):
@@ -89,6 +119,12 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None
     n_steps = len({s for r in req for s in r["supporting_steps"]})
     full = bool(req) and all(r["covered"] for r in req)
     conf = "high" if verdict == "SUPPORTED" and full and n_steps >= 2 else "medium" if verdict in ("SUPPORTED", "NOT_SUPPORTED") else "low"
-    review = review_reasons(verdict, conf, req, notes, check, guard)
-    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons,
+    # DESIGN.md 3.3: a benign explanation the data supports caps confidence; the skeptic never raises it or changes the label
+    doubts = [a for a in (skeptic or {}).get("alternatives", []) if a.get("outcome") == "supported"]
+    if doubts and verdict == "SUPPORTED":
+        conf = "medium" if conf == "high" else conf
+        reasons.append(f"A benign explanation the skeptic proposed holds for {', '.join(sorted({a['claim_id'] for a in doubts}))}; "
+                       "confidence is at most medium.")
+    review = review_reasons(verdict, conf, req, notes, check, guard, doubts, leads, lesson_flags)
+    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "leads": leads,
             "requires_analyst_review": bool(review), "review_reasons": review}

@@ -54,7 +54,7 @@ def test_result_lists_every_query_and_dynamic_step(primary):
     trace = (config.RUNS_DIR / primary["run_id"] / "trace.jsonl").read_text().splitlines()
     q = primary["queries"]
     assert len(q) == len(trace) == primary["manifest"]["tool_calls"]
-    assert {x["phase"] for x in q} == {"planning", "hunt", "guardrail"}
+    assert {x["phase"] for x in q} == {"planning", "hunt", "guardrail", "act"}
     hunt = [x for x in q if x["phase"] == "hunt"]
     assert all(x["step_id"] for x in hunt) and all(x["dsl"] for x in hunt if x["server"] == "es")
     dyn = {s["step_id"] for s in primary["dynamic_steps"]}
@@ -124,3 +124,15 @@ def test_two_runs_are_identical(primary):
     events = lambda r: sorted(e for c in r["claims"] for e in c["event_ids"])
     assert label(again) == label(primary) and reqs(again) == reqs(primary) and events(again) == events(primary)
     assert [c["text"] for c in again["claims"]] == [c["text"] for c in primary["claims"]]
+    # timings vary per run, so they live outside result.json (C4 compares result.json files)
+    assert "phase_seconds" not in again["manifest"] and (config.RUNS_DIR / again["run_id"] / "timings.json").exists()
+
+
+def test_detection_drafts_replay_the_hunt_evidence(primary):
+    """DESIGN.md 3.4: one Sigma draft per supporting step; the replay must return the cited events; nothing is deployed."""
+    det = primary["actions"]["detections"]
+    assert {d["from_step"] for d in det} >= {"T1003.001-b", "T1003.001-c", "T1021.002-a"}
+    assert all(d["validation"]["ok"] for d in det) and all((config.ROOT / d["file"]).exists() for d in det)
+    pivot = next(d for d in det if d["from_step"].startswith("T1021.002-b"))
+    assert pivot["host_scope_removed"] and pivot["validation"]["other_hits"] > 0      # the rule lacks the hunt's baseline logic
+    assert primary["actions"]["response"] == []                                       # proposals need the responder LLM
