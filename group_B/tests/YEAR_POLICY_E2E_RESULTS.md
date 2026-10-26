@@ -111,3 +111,10 @@ need to review/reproduce locally and coordinate the reviewed component merges.
 blanket B1 missing-label rejection described in the original run above.
 B1 legacy callers retain fallback behavior; B3 onboarding and raw envelopes
 remain strict. The fresh combined rules/live-ES checks pass.
+
+## Later agent-mode contract verification
+
+[The contract-aligned run](DAT_AGENT_CONTRACT_RESULTS.md) supersedes the earlier
+benign-control blocker diagnosis: agent leads legitimately produce Inconclusive.
+The corrected harness and Dat scope-fix commit passed the live evidence checks;
+LLM repeatability differences remain explicitly reported.

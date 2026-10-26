@@ -40,3 +40,10 @@ python -m unittest discover -s group_B/B1/Tests -v
 
 No credentials need to be exchanged. Noor's GitHub PR remains open; this local
 history integration does not merge it into GitHub main.
+
+## Later agent-mode contract verification
+
+[The contract-aligned run](DAT_AGENT_CONTRACT_RESULTS.md) supersedes the earlier
+benign-control blocker diagnosis: agent leads legitimately produce Inconclusive.
+The corrected harness and Dat scope-fix commit passed the live evidence checks;
+LLM repeatability differences remain explicitly reported.

@@ -101,3 +101,10 @@ full-budget agent behavior were not established by these SSH-focused runs.
 The existing C1 mapping-permission caveat is separate; these runs used the
 required read plus view_index_metadata privileges. Cross-team review and
 merging the tested Group C PRs are still needed.
+
+## Later agent-mode contract verification
+
+[The contract-aligned run](DAT_AGENT_CONTRACT_RESULTS.md) supersedes the earlier
+benign-control blocker diagnosis: agent leads legitimately produce Inconclusive.
+The corrected harness and Dat scope-fix commit passed the live evidence checks;
+LLM repeatability differences remain explicitly reported.
