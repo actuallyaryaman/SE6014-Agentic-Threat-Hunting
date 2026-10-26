@@ -56,9 +56,11 @@ ingestion route, not from the pipelines.
 
 ## Known limitations
 
-- **Timestamps without a year** (firewall, classic Linux syslog): the pipeline assumes the current
-  year at ingest, in UTC. A line from 31 December ingested on 1 January gets the wrong year.
-  Prefer sources that send ISO 8601 timestamps with an offset (the Linux auth pipeline accepts them).
+- **Timestamps without a year** (firewall, classic Linux syslog): by default the pipeline assumes the
+  current year at ingest, in UTC, so a line from 31 December ingested on 1 January gets the wrong year.
+  The ingestion route can send `labels.log_year` (four digits, supplied or confirmed during onboarding) and the
+  pipelines then use that year. ISO 8601 timestamps already carry a year and are never changed by it. A
+  `labels.log_year` that is not a four-digit year makes the record a `_parse_failure` (it is still indexed).
 - Windows `event.category` is set only for a small list of event IDs (Sysmon 1, 3, 11, 12 to 14;
   Security 5145, 4624, 4625, 4688). Other events have no category.
 - The firewall pipeline matches only the `Allowed|Blocked connection from X to Y` shape.
