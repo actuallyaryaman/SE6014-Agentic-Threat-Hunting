@@ -44,12 +44,51 @@ def test_prompt_injection_in_logs_does_not_change_claims_or_verdict(primary):
     assert label(primary) == "SUPPORTED"
 
 
+def test_prompt_injection_is_reported_as_a_finding_and_forces_review(primary):
+    f = primary["findings"]["prompt_injection"]
+    assert [x["source.ip"] for x in f["findings"]] == ["192.0.2.77"] and "user_agent.original" in f["findings"][0]["fields"]
+    assert "1 event(s) in the window contain prompt-injection-like text" in primary["verdict"]["review_reasons"]
+
+
+def test_result_lists_every_query_and_dynamic_step(primary):
+    trace = (config.RUNS_DIR / primary["run_id"] / "trace.jsonl").read_text().splitlines()
+    q = primary["queries"]
+    assert len(q) == len(trace) == primary["manifest"]["tool_calls"]
+    assert {x["phase"] for x in q} == {"planning", "hunt", "guardrail"}
+    hunt = [x for x in q if x["phase"] == "hunt"]
+    assert all(x["step_id"] for x in hunt) and all(x["dsl"] for x in hunt if x["server"] == "es")
+    dyn = {s["step_id"] for s in primary["dynamic_steps"]}
+    assert "T1021.002-b-WS-01" in dyn and any("-dd-" in s for s in dyn)
+    cited = {e for c in primary["claims"] for e in c["evidence_ids"]}
+    known = {e["evidence_id"] for e in primary["evidence"]}
+    assert cited <= known
+
+
+def test_analytics_calls_are_audited(primary):
+    audit = (config.AUDIT_DIR / f"{primary['run_id']}-analytics.jsonl").read_text().splitlines()
+    calls = [x for x in primary["queries"] if x["server"] == "analytics"]
+    assert len(audit) == len(calls) > 0
+    assert {json.loads(l)["call_id"] for l in audit} == {x["query_id"] for x in calls}
+
+
 def test_ssh_bruteforce_then_login_is_supported():
     r = run(H["ssh"], "ssh")
     assert label(r) == "SUPPORTED", r["verdict"]
     s = score(r, "ssh")
     assert s["event_recall"] == 1.0 and s["event_precision"] == 1.0, s
     assert any("203.0.113.99" in c["text"] and "logged in successfully" in c["text"] for c in r["claims"])
+    t1078 = [c for c in r["claims"] if c["technique"] == "T1078"]
+    assert t1078 and all(set(c["facts"]) == {"source.ip", "user.name", "host.name"} for c in t1078)   # only fields of its cited events
+
+
+def test_ssh_login_after_bruteforce_is_refutable_when_there_is_none():
+    """PR #24 / C3 finding: T1078 must have an indicator step even when no brute-force candidate exists."""
+    r = run("An external IP brute-forced SSH on DC-01 and then logged in successfully on 2026-10-01.", "ssh-benign")
+    assert label(r) == "NOT_SUPPORTED", r["verdict"]
+    plan = json.loads((config.RUNS_DIR / r["run_id"] / "plan.json").read_text())
+    assert [s["role"] for s in plan["steps"] if s["technique"] == "T1078"] == ["indicator"]
+    row = next(t for t in r["techniques"] if t["technique"] == "T1078")
+    assert row["covered"] and not row["gaps"]
 
 
 def test_bruteforce_on_a_host_without_one_is_not_supported():

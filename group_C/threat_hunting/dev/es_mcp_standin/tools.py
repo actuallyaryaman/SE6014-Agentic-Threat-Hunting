@@ -7,7 +7,7 @@ from datetime import timedelta
 from elasticsearch import Elasticsearch
 from threat_hunting import config
 from threat_hunting.query import (ToolError, build_query, cap_size, check_field, check_index, check_range, compact, exact_field,
-                                  flatten, parse_time, tiebreak_field)
+                                  flatten, interval_seconds, parse_time, tiebreak_field)
 from .audit import Audit
 
 AGGS = {"terms", "rare_terms", "cardinality", "stats", "date_histogram", "sum", "max"}
@@ -136,7 +136,7 @@ class HuntTools:
                 raise ToolError("field is required")
             fx = exact_field(check_field(field, known), known) if field else None
             if agg == "terms":
-                a = {"terms": {"field": fx, "size": min(size, 100)}}
+                a = {"terms": {"field": fx, "size": min(size, config.MAX_TERMS_SIZE)}}
                 if sum_field and distinct_field:
                     raise ToolError("use either sum_field or distinct_field")
                 if sum_field:
@@ -149,6 +149,9 @@ class HuntTools:
             elif agg == "rare_terms": a = {"rare_terms": {"field": fx, "max_doc_count": 2}}
             elif agg == "date_histogram":
                 lo, hi = check_range(time_from, time_to)
+                n = (parse_time(hi) - parse_time(lo)).total_seconds() / interval_seconds(interval)
+                if n > config.MAX_BUCKETS:
+                    raise ToolError(f"date_histogram would return {int(n)} buckets (max {config.MAX_BUCKETS}); use a larger interval")
                 hi_incl = (parse_time(hi) - timedelta(milliseconds=1)).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"   # no extra bucket at the end
                 a = {"date_histogram": {"field": "@timestamp", "fixed_interval": interval, "min_doc_count": 0,
                                         "extended_bounds": {"min": lo, "max": hi_incl}}}

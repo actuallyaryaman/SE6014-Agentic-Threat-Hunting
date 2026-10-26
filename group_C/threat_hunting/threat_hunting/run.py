@@ -5,7 +5,7 @@ Ported from the prototype's src/hunt/run.py (the verifier and reporter stay with
 from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
-from . import config, planner, hunter, selfcheck, verdict
+from . import config, guardrails, planner, hunter, selfcheck, verdict
 from .llm import get_llm
 from .mcp_client import McpHunt
 
@@ -19,6 +19,22 @@ def _hash_files(paths) -> str:
     return h.hexdigest()[:16]
 
 
+def _queries(trace: Path, plan, st, guard: dict, n_plan: int, n_hunt: int) -> list[dict]:
+    """Every MCP call of the run, in order, with its phase, the step it belongs to and the exact request (from trace.jsonl)."""
+    purpose = {s.step_id: s.purpose for s in plan.steps + st.dynamic_steps} | {guardrails.STEP_ID: "Prompt-injection sweep over the hunt window"}
+    steps = {**st.call_steps, **({guard["call_id"]: guard["step_id"]} if guard.get("call_id") else {})}
+    out = []
+    for line in trace.read_text().splitlines():
+        r = json.loads(line)
+        sid = steps.get(r["call_id"])
+        out.append({"query_id": r["call_id"] or f"seq-{r['seq']}", "seq": r["seq"],
+                    "phase": "planning" if r["seq"] <= n_plan else "hunt" if r["seq"] <= n_hunt else "guardrail",
+                    "step_id": sid, "purpose": purpose.get(sid),
+                    "server": r["server"], "tool": r["tool"], "request": r["args"], "request_hash": r["request_hash"], "dsl": r.get("dsl"),
+                    "ok": r["ok"], "total": r["total"], **({"error": r["error"]} if "error" in r else {})})
+    return out
+
+
 async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 120, perturb_seed: int | None = None,
                    controls: dict | None = None) -> dict:
     controls = {**DEFAULT_CONTROLS, **(controls or {})}
@@ -27,6 +43,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "trace.jsonl").unlink(missing_ok=True)
     (config.AUDIT_DIR / f"{run_id}.jsonl").unlink(missing_ok=True)
+    (config.AUDIT_DIR / f"{run_id}-analytics.jsonl").unlink(missing_ok=True)
     t0 = time.time()
     async with McpHunt(run_id) as mcp:
         plan, notes = await planner.plan_hunt(mcp, hypothesis)
@@ -46,28 +63,35 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
             order = {s.step_id: i for i, s in enumerate(canonical)}
             plan.steps.sort(key=lambda s: order[s.step_id])
         (run_dir / "plan.json").write_text(plan.model_dump_json(indent=1))
+        n_plan = mcp.calls
         st = await hunter.execute(mcp, plan, max_calls, controls["complete_results"])
-        tool_calls = mcp.calls
+        n_hunt = mcp.calls
+        guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
+        tool_calls, ignored_tools = mcp.calls, mcp.ignored
     check = selfcheck.check(st)
-    d = verdict.decide(plan, st, notes)
+    d = verdict.decide(plan, st, notes, check, guard)
+    queries = _queries(run_dir / "trace.jsonl", plan, st, guard, n_plan, n_hunt)
     llm = get_llm("planner")
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
             "code_hash": _hash_files(src_files), "tool_calls": tool_calls, "seconds": round(time.time() - t0, 1),
             "python": platform.python_version(), "temperature": os.environ.get("LLM_TEMPERATURE") or "provider default",
             "controls": controls, "perturb_seed": perturb_seed, "index": config.HUNT_INDEX,
-            "mcp_servers": {"es": config.ES_MCP_CMD, "analytics": config.ANALYTICS_MCP_CMD}}
+            "mcp_servers": {"es": config.ES_MCP_CMD, "analytics": config.ANALYTICS_MCP_CMD}, "ignored_tools": ignored_tools,
+            "audit_files": [f"audit/{run_id}.jsonl", f"audit/{run_id}-analytics.jsonl"]}
     limitations = ["Findings depend on the playbooks used; techniques without a playbook are not tested.",
                    "Baselines are synthetic allowlists and must be tuned per environment.",
                    "NOT_SUPPORTED means no evidence within the covered sources, fields and window, not proof of absence.",
                    "Claims passed C2's structural self-check only; independent re-verification against Elasticsearch is C3's."] + \
                   [f"data gap: {g}" for g in notes["gaps"]] + \
                   [f"missing fields: {k}: {v}" for k, v in notes["missing_fields"].items()]
-    result = {"schema_version": "0.1", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range,
+    result = {"schema_version": "0.2", "run_id": run_id, "hypothesis": hypothesis, "time_range": plan.time_range,
               "verdict": {"label": d["verdict"], "confidence": d["confidence"], "requires_analyst_review": d["requires_analyst_review"],
-                          "reasons": d["reasons"]},
+                          "review_reasons": d["review_reasons"], "reasons": d["reasons"]},
               "techniques": d["rows"], "claims": [c.model_dump() for c in st.claims], "evidence": [e.model_dump() for e in st.evidence],
-              "step_results": st.step_results, "self_check": check,
+              "findings": {"prompt_injection": guard},
+              "step_results": st.step_results, "dynamic_steps": [s.model_dump() for s in st.dynamic_steps], "queries": queries,
+              "self_check": check,
               "coverage": {k: notes.get(k) for k in ("data_sources", "coverage", "gaps", "missing_fields", "entity_missing")},
               "limitations": limitations, "notes": st.notes, "manifest": meta}
     (run_dir / "result.json").write_text(json.dumps(result, indent=1, default=str))

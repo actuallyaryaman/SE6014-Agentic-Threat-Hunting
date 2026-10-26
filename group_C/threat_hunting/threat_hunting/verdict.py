@@ -40,14 +40,31 @@ def technique_table(plan: HuntPlan, st: HuntState, notes: dict) -> list[dict]:
     return rows
 
 
-def decide(plan: HuntPlan, st: HuntState, notes: dict) -> dict:
+def review_reasons(verdict: str, conf: str, req: list[dict], notes: dict, check: dict | None, guard: dict | None) -> list[str]:
+    """DESIGN.md 4.2: when a human must review before anyone acts on the verdict."""
+    out = []
+    if verdict == "SUPPORTED":
+        out.append("SUPPORTED verdicts always require analyst review")
+    if conf == "low":
+        out.append("low confidence")
+    gaps = sorted({g for r in req for g in r["gaps"]} | set(notes.get("gaps", [])))
+    if gaps:
+        out.append(f"coverage gaps: {'; '.join(gaps)}")
+    if guard and guard.get("findings"):
+        out.append(f"{len(guard['findings'])} event(s) in the window contain prompt-injection-like text")
+    if check and check.get("failed"):
+        out.append(f"{len(check['failed'])} claim(s) failed the self-check")
+    return out
+
+
+def decide(plan: HuntPlan, st: HuntState, notes: dict, check: dict | None = None, guard: dict | None = None) -> dict:
     rows = technique_table(plan, st, notes)
     req = [r for r in rows if r["required"]]
     reasons = []
     if not req:
-        return {"verdict": "INCONCLUSIVE", "confidence": "low", "rows": rows,
-                "reasons": ["No playbook matched the hypothesis, so nothing could be tested."], "requires_analyst_review": False}
-    if all(not r["usable_sources"] for r in req):
+        verdict = "INCONCLUSIVE"
+        reasons.append("No playbook matched the hypothesis, so nothing could be tested.")
+    elif all(not r["usable_sources"] for r in req):
         verdict = "INSUFFICIENT_DATA"
         reasons += [f"{r['technique']}: {'; '.join(r['gaps'])}" for r in req]
     elif notes["entity_missing"]:
@@ -68,8 +85,10 @@ def decide(plan: HuntPlan, st: HuntState, notes: dict) -> dict:
         reasons.append(f"The tool-call budget ({st.max_calls}) was exhausted before every step ran.")
     if notes["entity_missing"] and any(c.status in ACCEPTED for c in st.claims):
         reasons.append("Context findings exist but concern other entities than the ones named in the hypothesis.")
-    # DESIGN.md 4.1: high = supported, fully covered, and corroborated by more than one independent query
+    # DESIGN.md 4.1 / INTERFACES.md 4.3: high = supported, fully covered, and backed by >= 2 independent self-checked steps
     n_steps = len({s for r in req for s in r["supporting_steps"]})
-    full = all(r["covered"] for r in req)
+    full = bool(req) and all(r["covered"] for r in req)
     conf = "high" if verdict == "SUPPORTED" and full and n_steps >= 2 else "medium" if verdict in ("SUPPORTED", "NOT_SUPPORTED") else "low"
-    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons, "requires_analyst_review": verdict == "SUPPORTED"}
+    review = review_reasons(verdict, conf, req, notes, check, guard)
+    return {"verdict": verdict, "confidence": conf, "rows": rows, "reasons": reasons,
+            "requires_analyst_review": bool(review), "review_reasons": review}

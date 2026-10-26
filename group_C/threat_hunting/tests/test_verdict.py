@@ -31,6 +31,24 @@ def test_supported_and_flagged_for_review():
     plan, st = _state([_claim("T1110-a"), _claim("T1078-b", technique="T1078")], steps_ok=("T1110-a", "T1078-b"), required=("T1110", "T1078"))
     d = verdict.decide(plan, st, _notes())
     assert d["verdict"] == "SUPPORTED" and d["confidence"] == "high" and d["requires_analyst_review"]
+    assert d["review_reasons"] == ["SUPPORTED verdicts always require analyst review"]
+
+
+def test_clean_not_supported_needs_no_review():
+    plan, st = _state()
+    d = verdict.decide(plan, st, _notes())
+    assert d["verdict"] == "NOT_SUPPORTED" and not d["requires_analyst_review"] and d["review_reasons"] == []
+
+
+def test_low_confidence_gaps_injection_and_failed_claims_force_review():
+    plan, st = _state()
+    d = verdict.decide(plan, st, _notes(missing_fields={"T1110/auth": ["event.outcome"]}))
+    assert d["requires_analyst_review"] and "low confidence" in d["review_reasons"]
+    assert any(r.startswith("coverage gaps") for r in d["review_reasons"])
+    d = verdict.decide(plan, st, _notes(), guard={"findings": [{"event_id": "i/e"}]})
+    assert d["verdict"] == "NOT_SUPPORTED" and d["review_reasons"] == ["1 event(s) in the window contain prompt-injection-like text"]
+    d = verdict.decide(plan, st, _notes(), check={"failed": [{"claim_id": "C-1"}]})
+    assert d["review_reasons"] == ["1 claim(s) failed the self-check"]
 
 
 def test_single_query_support_is_medium_confidence():

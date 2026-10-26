@@ -162,8 +162,9 @@ def steps_for(technique: str, tf: str, tt: str, scope: dict) -> list[PlanStep]:
     if technique == "T1078":
         return [
             _s("T1078-a", technique, "aggregate", {**T, "agg": "terms", "field": "source.ip", "size": 20, "filters": fail + host},
-               "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
-               role="context", analysis={"bucket_min_count": BASE["bruteforce_min_failures"]}),
+               "Brute-force candidates (sources with many failed SSH logins). The Hunter then searches for successful logins after them; "
+               "no candidate means no login after a brute force can exist, so this step is what tests T1078 when nothing is found",
+               analysis={"bucket_min_count": BASE["bruteforce_min_failures"]}),
         ]
     if technique == "T1046":
         return [

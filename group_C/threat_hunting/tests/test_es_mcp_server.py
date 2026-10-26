@@ -1,6 +1,7 @@
 """C1 promotion contract tests, including real MCP stdio and C2 routing."""
 import asyncio
 import json
+import os
 import sys
 from unittest.mock import Mock
 
@@ -13,7 +14,7 @@ from dev.es_mcp_standin import server as standin
 from tests.c1_mcp_fixture import FakeElasticsearch, INDEX, ORIGINAL, TIMESTAMP
 from threat_hunting import config
 from threat_hunting.hunter import HuntState, run_step
-from threat_hunting.mcp_client import McpHunt
+from threat_hunting.mcp_client import ALLOWED, McpHunt
 from threat_hunting.models import HuntPlan, PlanStep
 
 REQUIRED_TOOLS = {"describe_data", "search", "count", "aggregate", "get_event",
@@ -98,6 +99,21 @@ def test_filters_and_error_envelope_are_preserved(backend):
     asyncio.run(check())
 
 
+@pytest.mark.parametrize("build", [server.build, standin.build], ids=["c1", "standin"])
+def test_date_histogram_bucket_cap(backend, build):
+    """INTERFACES 1.4: at most 1000 date-histogram buckets, enforced before Elasticsearch is called (both servers)."""
+    async def check():
+        mcp = build("buckets")
+        ok = decode(await mcp.call_tool("aggregate", {**WINDOW, "agg": "date_histogram", "interval": "1h"}))
+        assert "error" not in ok
+        week = {**WINDOW, "time_to": "2026-10-08T00:00:00Z"}
+        calls = len(backend.requests)
+        refused = decode(await mcp.call_tool("aggregate", {**week, "agg": "date_histogram", "interval": "1m"}))
+        assert "buckets" in refused["error"] and len(backend.requests) == calls
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("url, ca", [("https://localhost:9200", "cluster-ca.crt"),
                                      ("https://localhost:9200", ""),
                                      ("http://127.0.0.1:9200", "")])
@@ -148,7 +164,9 @@ def test_real_c2_client_and_hunter_consume_c1_responses(monkeypatch, tmp_path):
     async def check():
         async with asyncio.timeout(30):
             async with McpHunt("c1-client", servers={"es": "python -m tests.c1_mcp_fixture"}) as client:
-                assert set(client.route) == REQUIRED_TOOLS
+                # threat T7: C2 routes only the tools it uses; the rest are listed, never called
+                assert set(client.route) == set(ALLOWED["es"])
+                assert {f"es.{t}" for t in REQUIRED_TOOLS - set(ALLOWED["es"])} <= set(client.ignored)
                 discovery = await client.call("describe_data", index_pattern=INDEX)
                 assert discovery["sources"][0]["dataset"] == "linux.auth"
                 step = PlanStep(step_id="s1", technique="T1110", tool="search", purpose="C1 compatibility",
@@ -164,11 +182,20 @@ def test_real_c2_client_and_hunter_consume_c1_responses(monkeypatch, tmp_path):
                 assert counted["total"] == 1
                 aggregated = await client.call("aggregate", **WINDOW, agg="terms", field="host.name")
                 assert aggregated["result"] == [{"key": "WS-01", "count": 1}]
-                event = await client.call("get_event", index=INDEX, event_id="doc-1")
-                assert event["event"]["event.original"] == ORIGINAL
-                await client.call("save_finding", claim="Client test", evidence_ids=[f"{INDEX}/doc-1"])
-                assert (await client.call("get_audit_log"))["n"] == 6
         trace = [json.loads(line) for line in client.trace_path.read_text().splitlines()]
-        assert len(trace) == 7 and all(r["ok"] and r["request_hash"] for r in trace)
+        assert len(trace) == 4 and all(r["ok"] and r["request_hash"] for r in trace)
+        # get_event, save_finding, get_audit_log: used by C3 and operators over their own MCP connection
+        params = StdioServerParameters(command=sys.executable, args=["-m", "tests.c1_mcp_fixture"], cwd=str(config.ROOT),
+                                       env={**os.environ, "HUNT_RUN_ID": "c1-verifier"})
+        async with asyncio.timeout(30):
+            async with stdio_client(params) as (reader, writer):
+                async with ClientSession(reader, writer) as session:
+                    await session.initialize()
+                    async def call(tool, **args):          # a client session returns CallToolResult; decode takes its content
+                        return (await session.call_tool(tool, args)).content
+                    event = decode(await call("get_event", index=INDEX, event_id="doc-1"))
+                    assert event["event"]["event.original"] == ORIGINAL
+                    decode(await call("save_finding", claim="Client test", evidence_ids=[f"{INDEX}/doc-1"]))
+                    assert decode(await call("get_audit_log"))["n"] == 2
 
     asyncio.run(check())
