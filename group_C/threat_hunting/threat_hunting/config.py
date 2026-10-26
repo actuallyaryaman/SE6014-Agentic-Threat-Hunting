@@ -29,8 +29,9 @@ ES_CA_CERT = os.environ.get("ES_CA_CERT", "")
 HUNT_INDEX = os.environ.get("HUNT_INDEX", "security-events-*")
 HUNT_INDEX_PREFIX = os.environ.get("HUNT_INDEX_PREFIX", "security-events-")
 
-# MCP servers the agent talks to (swap in C1's server here when it exists)
-ES_MCP_CMD = os.environ.get("HUNT_ES_MCP_CMD", "python -m dev.es_mcp_standin.server")
+# MCP servers the agent talks to: C1's Elasticsearch server (the dev stand-in, python -m dev.es_mcp_standin.server, offers the
+# same tools and is kept as a fallback) and C2's analytics server
+ES_MCP_CMD = os.environ.get("HUNT_ES_MCP_CMD", "python -m es_mcp_server.server")
 ANALYTICS_MCP_CMD = os.environ.get("HUNT_ANALYTICS_MCP_CMD", "python -m analytics_server.server")
 
 KNOWLEDGE_DIR = ROOT / "threat_hunting" / "knowledge"

@@ -48,21 +48,22 @@ cd "$REPO/group_C/threat_hunting" && .venv/bin/python -m pytest -q -m "not es"
 ```
 
 ## 4. The four hunts (C2 agent through C1's MCP server)
+C1's `es_mcp_server` is the default ES MCP server, so the commands need no server setting.
 Case 1, attack:
 ```bash
-cd "$REPO/group_C/threat_hunting" && HUNT_ES_MCP_CMD="python -m es_mcp_server.server" HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25." --run-id c-attack
+cd "$REPO/group_C/threat_hunting" && HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2026-10-25." --run-id c-attack
 ```
 Case 2, benign host:
 ```bash
-cd "$REPO/group_C/threat_hunting" && HUNT_ES_MCP_CMD="python -m es_mcp_server.server" HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25." --run-id c-benign
+cd "$REPO/group_C/threat_hunting" && HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on BENIGN-SSH and then logged in successfully on 2026-10-25." --run-id c-benign
 ```
 Case 3, a host with no logs:
 ```bash
-cd "$REPO/group_C/threat_hunting" && HUNT_ES_MCP_CMD="python -m es_mcp_server.server" HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on NO-SUCH-HOST and then logged in successfully on 2026-10-25." --run-id c-missing-host
+cd "$REPO/group_C/threat_hunting" && HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on NO-SUCH-HOST and then logged in successfully on 2026-10-25." --run-id c-missing-host
 ```
 Case 4, a date with no data:
 ```bash
-cd "$REPO/group_C/threat_hunting" && HUNT_ES_MCP_CMD="python -m es_mcp_server.server" HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2030-01-01." --run-id c-empty-window
+cd "$REPO/group_C/threat_hunting" && HUNT_FORCE_RULES=1 .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on DEMO-SSH and then logged in successfully on 2030-01-01." --run-id c-empty-window
 ```
 Summary:
 ```bash
@@ -72,7 +73,7 @@ cd "$REPO/group_C/threat_hunting" && for r in attack benign missing-host empty-w
 ## 4b. The same hunts in agent mode (needs the LLM settings from step 2)
 Without `HUNT_FORCE_RULES=1`, the intake LLM reads the hypothesis, the investigator follows leads with its own validated queries, the skeptic tests benign explanations and the responder drafts detection rules and response proposals (DESIGN.md §3.2–3.4). Each hunt takes 1–3 minutes.
 ```bash
-cd "$REPO/group_C/threat_hunting" && for c in "attack DEMO-SSH 2026-10-25" "benign BENIGN-SSH 2026-10-25" "missing-host NO-SUCH-HOST 2026-10-25" "empty-window DEMO-SSH 2030-01-01"; do set -- $c; HUNT_ES_MCP_CMD="python -m es_mcp_server.server" .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on $2 and then logged in successfully on $3." --run-id a-$1 2>/dev/null | head -1; done
+cd "$REPO/group_C/threat_hunting" && for c in "attack DEMO-SSH 2026-10-25" "benign BENIGN-SSH 2026-10-25" "missing-host NO-SUCH-HOST 2026-10-25" "empty-window DEMO-SSH 2030-01-01"; do set -- $c; .venv/bin/python -m threat_hunting.run "An external IP brute-forced SSH on $2 and then logged in successfully on $3." --run-id a-$1 2>/dev/null | head -1; done
 ```
 What the agent did, per hunt (its steps, leads, skeptic tests and drafts):
 ```bash

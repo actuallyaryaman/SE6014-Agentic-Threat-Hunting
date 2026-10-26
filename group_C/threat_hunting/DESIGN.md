@@ -41,7 +41,7 @@ The code in this folder started as a port of the C2 parts of the author's protot
 | Hunt-analytics MCP server (§6) | `gap_check`, `lookup_attack`, `check_ioc` done, with an audit file; `burst_detect`, `beacon_score`, `rare_values` planned |
 | Switchable controls (§9.2) | Eight controls (`--control`), four of them for the agent; profiles and time budgets (§3.8), `--no-playbook`, `--warmup`, `--replay` not yet |
 | Structured intake `HuntSpec`, completeness gate, ATT&CK variant catalogue (§3.1, §5.1, §5.3) | Not yet: the planner builds the plan from rules and the `SOURCES` / `REQUIRED_FIELDS` tables in `playbooks.py` |
-| C1 ES MCP server | Delivered by C1 as `es_mcp_server/` (same tools, TLS verification always on); tested end to end with C2 and C3 on Elastic 8.19.23. The stand-in `dev/es_mcp_standin/` is still the default command |
+| C1 ES MCP server | Delivered by C1 as `es_mcp_server/` (same tools, TLS verification always on); tested end to end with C2 and C3 on Elastic 8.19.23, and the default ES server since v0.6. The stand-in `dev/es_mcp_standin/` is kept as a fallback |
 
 Deviations from this design found while porting: the team's firewall log has no ports or byte counts, so beaconing is counted per destination, host scanning counts distinct internal destinations, and exfiltration hunts return `INSUFFICIENT_DATA`; lateral movement is detected from Sysmon EID 3 instead of the firewall.
 
@@ -331,7 +331,7 @@ The requirement is that *search, aggregation and every other capability the hunt
 
 | Server | Owner | Tools | Notes |
 |---|---|---|---|
-| **ES MCP server** | C1: `es_mcp_server/` (stand-in: `dev/es_mcp_standin/`) | `describe_data`, `search`, `count`, `aggregate` (used by the agent); `get_event` (used by C3) | Holds the read-only ES key. Structured filters only. Contract in INTERFACES.md §1.2 |
+| **ES MCP server** | C1: `es_mcp_server/`, the default (fallback: the stand-in `dev/es_mcp_standin/`) | `describe_data`, `search`, `count`, `aggregate` (used by the agent); `get_event` (used by C3) | Holds the read-only ES key. Structured filters only. Contract in INTERFACES.md §1.2 |
 | **hunt-analytics MCP server** | **C2** | `gap_check`, `lookup_attack`, `check_ioc` (done); `burst_detect`, `beacon_score`, `rare_values` (planned) | **Pure functions** over data that the agent obtained from C1's tools (histogram buckets, timestamps, term counts). Holds no ES credentials and has no network access. Built with the official MCP Python SDK. Contract in INTERFACES.md §1.6 |
 
 What stays inside the agent, and why: planning, the completeness gate, decision-rule evaluation and the self-check are the agent's own **reasoning and control logic**, not capabilities of the log platform. The tool list C2 depends on is short and stable, so C1 can adopt the analytics tools into the ES server later without changes to the agent.
@@ -523,7 +523,7 @@ group_C/threat_hunting/
 ├── analytics_server/           # C2's hunt-analytics MCP server (pure functions; no ES access)
 ├── hunt_server/                # C2 as an MCP server: run_hunt, get_hunt, list_hunts, follow_up (§3.7)
 ├── es_mcp_server/              # C1's Elasticsearch MCP server
-├── dev/                        # temporary: es_mcp_standin/ (C1 stand-in), b1_pipelines/, index_template.json, setup_test_es.py
+├── dev/                        # es_mcp_standin/ (fallback ES server), b1_pipelines/, index_template.json, setup_test_es.py
 ├── scenarios/                  # synthetic data generator; output and ground truth are git-ignored
 └── tests/                      # offline unit tests (scripted LLM) + end-to-end hunts (-m es) + live LLM hunts (-m llm, opt-in)
 ```

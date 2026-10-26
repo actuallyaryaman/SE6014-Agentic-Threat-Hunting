@@ -10,7 +10,7 @@ Takes a plain-language hypothesis and hunts for it in Elasticsearch **only throu
 | `analytics_server/` | C2's MCP server: `gap_check`, `lookup_attack`, `check_ioc` (pure functions, no ES credentials) |
 | `hunt_server/` | C2 as an MCP server: `run_hunt`, `get_hunt`, `list_hunts`, `follow_up` (for Claude Code, Claude Desktop or other agents) |
 | `es_mcp_server/` | C1's maintained Elasticsearch MCP server; [install, configure and validate](es_mcp_server/README.md) |
-| `dev/es_mcp_standin/` | The read-only ES MCP server C1's was promoted from; still the default command until C1 switches it |
+| `dev/es_mcp_standin/` | The read-only ES MCP server C1's was promoted from; same tools, kept as a fallback (`HUNT_ES_MCP_CMD=python -m dev.es_mcp_standin.server`) |
 | `dev/b1_pipelines/` | B1's pipelines vendored from PR #12 (`fee53b1`) + `windows_ext.json` (request R3a) |
 | `dev/setup_test_es.py`, `dev/index_template.json` | Isolated test setup (`c2test-*` pipelines, `security-events-c2test` and `security-events-c2test-new` indices, read-only key) |
 | `scenarios/generate.py` | Deterministic synthetic data with planted attacks and ground truth, plus a VPN and a DNS source no playbook names |
@@ -88,7 +88,7 @@ Live LLM tests (API calls, a few minutes):
 HUNT_LIVE_LLM=1 python -m pytest -q -m llm
 ```
 
-To use C1's server instead of the stand-in, set `HUNT_ES_MCP_CMD=python -m es_mcp_server.server` (see [C1 setup and tests](es_mcp_server/README.md)); the stand-in remains the default. Either server must offer the tools in INTERFACES.md §1.2: the agent refuses to start if a required tool or parameter is missing, and never routes tools outside its allowlist. To run the four reference hunts against team data, follow [RUN_HUNTS.md](RUN_HUNTS.md). Without an LLM configured, every role uses its rules; `HUNT_FORCE_RULES=1` forces that.
+Hunts use C1's server, `python -m es_mcp_server.server`, by default (see [C1 setup and tests](es_mcp_server/README.md)); set `HUNT_ES_MCP_CMD=python -m dev.es_mcp_standin.server` to fall back to the stand-in. Either server must offer the tools in INTERFACES.md §1.2: the agent refuses to start if a required tool or parameter is missing, and never routes tools outside its allowlist. To run the four reference hunts against team data, follow [RUN_HUNTS.md](RUN_HUNTS.md). Without an LLM configured, every role uses its rules; `HUNT_FORCE_RULES=1` forces that.
 
 ## Test results (2026-10-25, team stack Elastic 8.19.23 over HTTPS, 15,190 synthetic events through B1's pipelines + 1,361 in the new-source index; 121 tests)
 

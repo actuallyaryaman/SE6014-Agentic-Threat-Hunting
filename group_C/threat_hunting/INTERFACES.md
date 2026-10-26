@@ -19,7 +19,7 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 
 | # | From | Request | Priority | Needed by | C2 stand-in until then |
 |---|---|---|---|---|---|
-| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | **Delivered** as `es_mcp_server/` (tools §1.2); the target envelope §1.3 is still open. Stand-in `dev/es_mcp_standin/` remains the default command |
+| R1 | **C1** | MCP tool set + response/error envelope (§1) | High | M4 | **Delivered** as `es_mcp_server/` (tools §1.2); the target envelope §1.3 is still open. It is C2's default ES server; the stand-in `dev/es_mcp_standin/` is a fallback |
 | R2 | **C1** | Server-side query safety limits (§1.4) | High | M4 | Same limits enforced in C2's compiler |
 | R3 | **Group B (B1)** | Dataset names, index naming, per-dataset field list with ES types (§2) | High | M2/M5 | Assumed ECS mapping below |
 | R3a | **Group B (B1)** | `windows-json` pipeline: set `@timestamp` from `EventTime`/`UtcTime` (today **no** Windows event gets one, so time-bounded hunts never see them) and map `CommandLine`, `ParentImage`, `SourceImage`, `TargetImage`, `GrantedAccess`, `TargetFilename` | High | M5 | `dev/b1_pipelines/windows_ext.json` appended in the test setup |
@@ -41,7 +41,7 @@ This document lists **what the threat-hunting agent (C2) needs from each member*
 - **Credentials:** the MCP server holds the ES credentials. **The agent never sees them.** The agent passes ES settings only to the ES server; the analytics server gets none.
 - **Tool allowlist (threat T7):** at start-up the agent routes only the tools it uses (`describe_data`, `search`, `count`, `aggregate` on the ES server; `gap_check`, `lookup_attack`, `check_ioc` on the analytics server) and checks that each one declares the parameters it relies on. A missing tool or parameter, or one tool name offered by two servers, stops the run. Any other tool a server offers is never routed and is listed in `manifest.ignored_tools`. Allowlist: `ALLOWED` in `threat_hunting/mcp_client.py`.
 
-### 1.2 Tools the agent calls (implemented by C1's `es_mcp_server/` and by the stand-in `dev/es_mcp_standin/`)
+### 1.2 Tools the agent calls (implemented by C1's `es_mcp_server/`, the default, and by the fallback stand-in `dev/es_mcp_standin/`)
 
 Filters use a structured language, never raw DSL: `{field, op, value}` with `op` in `eq|neq|in|wildcard|prefix|contains|gte|lte|gt|lt|exists`; `filters` are ANDed, `must_not` excluded, `any_of` needs one match. The server compiles them with `threat_hunting/query.py` (index allowlist `security-events-*`, mandatory time range, size cap 200, no scripts, CIDR only on `ip` fields).
 
@@ -54,11 +54,11 @@ Filters use a structured language, never raw DSL: `{field, op, value}` with `op`
 | `get_event` | `index` (exact), `event_id` | `{event}` including `event.original`. **Used by C3 to verify evidence** |
 | `save_finding`, `get_audit_log` | | Audit helpers |
 
-`time_from`/`time_to` are **mandatory** and become a `range` filter on `@timestamp`, so a query without a time bound is impossible. C1's server offers exactly these names and shapes; select it with `HUNT_ES_MCP_CMD=python -m es_mcp_server.server` (the stand-in stays the default until C1 says otherwise). (The v0.2 proposal of `list_indices` / `get_field_mapping` / raw-DSL `search` is superseded by this list.)
+`time_from`/`time_to` are **mandatory** and become a `range` filter on `@timestamp`, so a query without a time bound is impossible. C1's server offers exactly these names and shapes and is the default (`HUNT_ES_MCP_CMD=python -m es_mcp_server.server`); `HUNT_ES_MCP_CMD=python -m dev.es_mcp_standin.server` falls back to the stand-in. (The v0.2 proposal of `list_indices` / `get_field_mapping` / raw-DSL `search` is superseded by this list.)
 
 ### 1.3 Response envelope (all tools)
 
-*Today the stand-in returns `{call_id, tool, dsl, total, …}` or `{call_id, tool, error}`. The agent records every call in `runs/<id>/trace.jsonl` with the arguments, the returned `dsl` and its own `request_hash` (sha256 of tool + canonical arguments), and copies that list into `result.json` `queries[]` (§4.1). The envelope below remains the target for C1.*
+*Today both servers return `{call_id, tool, dsl, total, …}` or `{call_id, tool, error}`. The agent records every call in `runs/<id>/trace.jsonl` with the arguments, the returned `dsl` and its own `request_hash` (sha256 of tool + canonical arguments), and copies that list into `result.json` `queries[]` (§4.1). The envelope below remains the target for C1.*
 
 ```json
 {
