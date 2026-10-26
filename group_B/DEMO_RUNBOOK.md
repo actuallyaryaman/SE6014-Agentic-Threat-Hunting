@@ -180,3 +180,11 @@ Comparison completion does not imply all fields match: inspect `all_match`
 and `differing_fields` in the summary. Add `--require-c4-match` when every
 C4 field, including execution metadata, must match for the run to pass.
 See [the compatibility results](tests/C4_COMPATIBILITY_RESULTS.md).
+
+
+The corrected local C4 implementation is pinned at
+`315cb6c784d32fdeabfa41546c285d329f556d3e`; use that value for `--c4-ref`
+after fetching this integration branch. It handles valid zero-claim results
+and excludes phase execution timings while preserving meaningful differences.
+Both rules and live modes now enforce seeded scenario verdicts and exact
+attack citations. See [the corrected recheck](tests/C4_CORRECTIONS_RESULTS.md).
