@@ -1,0 +1,1491 @@
+{
+ "schema_version": "1.0.0",
+ "run_id": "hunt-gap-003",
+ "plan": {
+  "hypothesis": "An attacker on WS-01 dumped credentials from LSASS and then moved laterally to other hosts on 2026-10-16.",
+  "techniques": [
+   "T1003.001",
+   "T1021.002",
+   "T1078"
+  ],
+  "required_techniques": [
+   "T1003.001",
+   "T1021.002"
+  ],
+  "context_techniques": [
+   "T1078"
+  ],
+  "entities": {
+   "hosts": [
+    "WS-01"
+   ],
+   "technique_names": {
+    "T1003.001": "OS Credential Dumping: LSASS Memory",
+    "T1021.002": "Remote Services: SMB/Windows Admin Shares",
+    "T1078": "Valid Accounts",
+    "T1048": "Exfiltration Over Alternative Protocol"
+   },
+   "requirement_groups": [
+    {
+     "label": "T1003.001",
+     "kind": "technique",
+     "techniques": [
+      "T1003.001"
+     ]
+    },
+    {
+     "label": "T1021.002",
+     "kind": "technique",
+     "techniques": [
+      "T1021.002"
+     ]
+    }
+   ]
+  },
+  "required_sources": [
+   "logs-sysmon-sysmon-endpoints",
+   "logs-firewall-fw-edge",
+   "logs-windows-security-dc"
+  ],
+  "time_range": {
+   "from": "2026-10-16T08:00:00Z",
+   "to": "2026-10-16T18:00:00Z"
+  },
+  "window_minutes": 60,
+  "steps": [
+   {
+    "step_id": "T1003.001-a",
+    "technique": "T1003.001",
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "agg": "terms",
+     "field": "process.executable",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 10
+      },
+      {
+       "field": "winlog.event_data.TargetImage",
+       "op": "wildcard",
+       "value": "*lsass.exe"
+      }
+     ]
+    },
+    "purpose": "who opens lsass.exe (baseline check)",
+    "role": "benign_check",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   },
+   {
+    "step_id": "T1003.001-b",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 10
+      },
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "winlog.event_data.TargetImage",
+       "op": "wildcard",
+       "value": "*lsass.exe"
+      }
+     ],
+     "must_not": [
+      {
+       "field": "process.executable",
+       "op": "in",
+       "value": [
+        "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+        "C:\\Windows\\System32\\svchost.exe"
+       ]
+      }
+     ]
+    },
+    "purpose": "non-baseline process opens lsass.exe",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 10 (process access)"
+   },
+   {
+    "step_id": "T1003.001-c",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "process.command_line",
+       "op": "wildcard",
+       "value": "*comsvcs.dll*MiniDump*"
+      }
+     ]
+    },
+    "purpose": "command line of a known LSASS-dump technique",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 1 (process creation)"
+   },
+   {
+    "step_id": "T1003.001-d",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 11
+      },
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "file.path",
+       "op": "wildcard",
+       "value": "*lsass.dmp"
+      }
+     ]
+    },
+    "purpose": "memory dump file written",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 11 (file create)"
+   },
+   {
+    "step_id": "T1021.002-a",
+    "technique": "T1021.002",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "process.name",
+       "op": "eq",
+       "value": "PSEXESVC.exe"
+      },
+      {
+       "field": "process.parent.name",
+       "op": "eq",
+       "value": "services.exe"
+      }
+     ]
+    },
+    "purpose": "remote service binary started by services.exe",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 1 on servers"
+   },
+   {
+    "step_id": "T1021.002-b",
+    "technique": "T1021.002",
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-firewall-fw-edge",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "agg": "terms",
+     "field": "destination.ip",
+     "filters": [
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      },
+      {
+       "field": "destination.port",
+       "op": "in",
+       "value": [
+        135,
+        445,
+        5985
+       ]
+      }
+     ],
+     "must_not": [
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "10.0.2.20"
+      }
+     ]
+    },
+    "purpose": "new connections from the host on lateral-movement ports",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {
+     "bucket_min_count": 3
+    },
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "firewall connection logs"
+   },
+   {
+    "step_id": "T1021.002-c",
+    "technique": "T1021.002",
+    "tool": "search",
+    "params": {
+     "index": "logs-windows-security-dc",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 5145
+      },
+      {
+       "field": "winlog.event_data.ShareName",
+       "op": "wildcard",
+       "value": "*ADMIN$"
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      }
+     ]
+    },
+    "purpose": "admin share accessed from the host",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Windows Security 5145"
+   },
+   {
+    "step_id": "T1078-a",
+    "technique": "T1078",
+    "tool": "search",
+    "params": {
+     "index": "logs-windows-security-dc",
+     "time_from": "2026-10-16T08:00:00Z",
+     "time_to": "2026-10-16T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 4624
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      }
+     ]
+    },
+    "purpose": "network logons from the host",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   }
+  ],
+  "success_criteria": [
+   "T1003.001 (OS Credential Dumping: LSASS Memory): at least 2 independent verified indicator(s)",
+   "T1021.002 (Remote Services: SMB/Windows Admin Shares): at least 2 independent verified indicator(s)"
+  ],
+  "refutation_criteria": [
+   "T1003.001: all required sources covered for the full window AND zero verified indicators",
+   "T1021.002: all required sources covered for the full window AND zero verified indicators"
+  ],
+  "planner": "rules"
+ },
+ "evidence": [
+  {
+   "evidence_id": "E-T1003.001-a",
+   "call_id": "hunt-gap-003-0001",
+   "step_id": "T1003.001-a",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1003.001-b",
+   "call_id": "hunt-gap-003-0002",
+   "step_id": "T1003.001-b",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1003.001-c",
+   "call_id": "hunt-gap-003-0003",
+   "step_id": "T1003.001-c",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1003.001-d",
+   "call_id": "hunt-gap-003-0004",
+   "step_id": "T1003.001-d",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1021.002-a",
+   "call_id": "hunt-gap-003-0005",
+   "step_id": "T1021.002-a",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1021.002-b",
+   "call_id": "hunt-gap-003-0006",
+   "step_id": "T1021.002-b",
+   "index": "logs-firewall-fw-edge",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1021.002-c",
+   "call_id": "hunt-gap-003-0007",
+   "step_id": "T1021.002-c",
+   "index": "logs-windows-security-dc",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1078-a",
+   "call_id": "hunt-gap-003-0008",
+   "step_id": "T1078-a",
+   "index": "logs-windows-security-dc",
+   "event_ids": [],
+   "total_hits": 0,
+   "excerpt": []
+  }
+ ],
+ "claims": [],
+ "audit": [
+  {
+   "call_id": "hunt-gap-003-0001",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "agg": "terms",
+    "field": "process.executable",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 10
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*lsass.exe"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 10
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.TargetImage": {
+          "value": "*lsass.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "process.executable",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[]"
+   ],
+   "result_hash": "bc3a60a2ff2488b0",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [], \"total\": 0}"
+  },
+  {
+   "call_id": "hunt-gap-003-0002",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 10
+     },
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*lsass.exe"
+     }
+    ],
+    "must_not": [
+     {
+      "field": "process.executable",
+      "op": "in",
+      "value": [
+       "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+       "C:\\Windows\\System32\\svchost.exe"
+      ]
+     }
+    ],
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 10
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.TargetImage": {
+          "value": "*lsass.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ],
+      "must_not": [
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "process.executable": {
+             "value": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "term": {
+            "process.executable": {
+             "value": "C:\\Windows\\System32\\svchost.exe",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0003",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "process.command_line",
+      "op": "wildcard",
+      "value": "*comsvcs.dll*MiniDump*"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "process.command_line": {
+          "value": "*comsvcs.dll*MiniDump*",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0004",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 11
+     },
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "file.path",
+      "op": "wildcard",
+      "value": "*lsass.dmp"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 11
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "file.path": {
+          "value": "*lsass.dmp",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0005",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "process.name",
+      "op": "eq",
+      "value": "PSEXESVC.exe"
+     },
+     {
+      "field": "process.parent.name",
+      "op": "eq",
+      "value": "services.exe"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "process.name": {
+          "value": "PSEXESVC.exe",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "process.parent.name": {
+          "value": "services.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0006",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "logs-firewall-fw-edge",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "agg": "terms",
+    "field": "destination.ip",
+    "filters": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     },
+     {
+      "field": "destination.port",
+      "op": "in",
+      "value": [
+       135,
+       445,
+       5985
+      ]
+     }
+    ],
+    "must_not": [
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "10.0.2.20"
+     }
+    ],
+    "any_of": null,
+    "size": 20,
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "destination.port": 135
+           }
+          },
+          {
+           "term": {
+            "destination.port": 445
+           }
+          },
+          {
+           "term": {
+            "destination.port": 5985
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ],
+      "must_not": [
+       {
+        "term": {
+         "destination.ip": {
+          "value": "10.0.2.20",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "destination.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "[]"
+   ],
+   "result_hash": "bc3a60a2ff2488b0",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [], \"total\": 0}"
+  },
+  {
+   "call_id": "hunt-gap-003-0007",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-windows-security-dc",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 5145
+     },
+     {
+      "field": "winlog.event_data.ShareName",
+      "op": "wildcard",
+      "value": "*ADMIN$"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 5145
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.ShareName": {
+          "value": "*ADMIN$",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0008",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-windows-security-dc",
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 4624
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-16T08:00:00Z",
+          "lt": "2026-10-16T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 4624
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 0,
+   "returned_ids": [],
+   "result_hash": "3e6758e523312177",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [], \"returned\": 0, \"total\": 0, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-gap-003-0009",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "coverage_check",
+   "params": {
+    "indices": [
+     "logs-sysmon-sysmon-endpoints",
+     "logs-firewall-fw-edge",
+     "logs-windows-security-dc"
+    ],
+    "time_from": "2026-10-16T08:00:00Z",
+    "time_to": "2026-10-16T18:00:00Z",
+    "bucket_minutes": 60
+   },
+   "dsl": {
+    "logs-sysmon-sysmon-endpoints": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-16T08:00:00Z",
+        "lt": "2026-10-16T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-16T08:00:00Z",
+         "max": "2026-10-16T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    },
+    "logs-firewall-fw-edge": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-16T08:00:00Z",
+        "lt": "2026-10-16T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-16T08:00:00Z",
+         "max": "2026-10-16T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    },
+    "logs-windows-security-dc": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-16T08:00:00Z",
+        "lt": "2026-10-16T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-16T08:00:00Z",
+         "max": "2026-10-16T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    }
+   },
+   "total": 0,
+   "returned_ids": [
+    "{\"logs-firewall-fw-edge\": 0, \"logs-sysmon-sysmon-endpoints\": 0, \"logs-windows-security-dc\": 0}"
+   ],
+   "result_hash": "bc54e8324d912ca9",
+   "ok": true,
+   "error": "",
+   "digest": "{\"coverage\": {\"logs-firewall-fw-edge\": {\"buckets\": [{\"docs\": 0, \"start\": \"2026-10-16T08:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T09:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T11:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T12:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T15:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-16T08:00:00.000Z\", \"2026-10-16T09:00:00.000Z\", \"2026-10-16T10:00:00.000Z\", \"2026-10-16T11:00:00.000Z\", \"2026-10-16T12:00:00.000Z\", \"2026-10-16T13:00:00.000Z\", \"2026-10-16T14:00:00.000Z\", \"2026-10-16T15:00:00.000Z\", \"2026-10-16T16:00:00.000Z\", \"2026-10-16T17:00:00.000Z\"], \"total\": 0}, \"logs-sysmon-sysmon-endpoints\": {\"buckets\": [{\"docs\": 0, \"start\": \"2026-10-16T08:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T09:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T11:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T12:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T15:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-16T08:00:00.000Z\", \"2026-10-16T09:00:00.000Z\", \"2026-10-16T10:00:00.000Z\", \"2026-10-16T11:00:00.000Z\", \"2026-10-16T12:00:00.000Z\", \"2026-10-16T13:00:00.000Z\", \"2026-10-16T14:00:00.000Z\", \"2026-10-16T15:00:00.000Z\", \"2026-10-16T16:00:00.000Z\", \"2026-10-16T17:00:00.000Z\"], \"total\": 0}, \"logs-windows-security-dc\": {\"buckets\": [{\"docs\": 0, \"start\": \"2026-10-16T08:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T09:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T11:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T12:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T15:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-16T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-16T08:00:00.000Z\", \"2026-10-16T09:00:00.000Z\", \"2026-10-16T10:00:00.000Z\", \"2026-10-16T11:00:00.000Z\", \"2026-10-16T12:00:00.000Z\", \"2026-10-16T13:00:00.000Z\", \"2026-10-16T14:00:00.000Z\", \"2026-10-16T15:00:00.000Z\", \"2026-10-16T16:00:00.000Z\", \"2026-10-16T17:00:00.000Z\"], \"total\": 0}}, \"total\": 0}"
+  }
+ ],
+ "step_results": {
+  "T1003.001-a": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1003.001-b": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1003.001-c": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1003.001-d": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1021.002-a": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1021.002-b": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1021.002-c": {
+   "status": "ok",
+   "total": 0
+  },
+  "T1078-a": {
+   "status": "ok",
+   "total": 0
+  }
+ },
+ "dynamic_steps": [],
+ "weak_signals": {},
+ "notes": {
+  "entity_missing": [],
+  "untested": {},
+  "coverage": {
+   "logs-sysmon-sysmon-endpoints": {
+    "total": 0,
+    "buckets": [
+     {
+      "start": "2026-10-16T08:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T09:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T10:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T12:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T13:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T16:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-16T08:00:00.000Z",
+     "2026-10-16T09:00:00.000Z",
+     "2026-10-16T10:00:00.000Z",
+     "2026-10-16T11:00:00.000Z",
+     "2026-10-16T12:00:00.000Z",
+     "2026-10-16T13:00:00.000Z",
+     "2026-10-16T14:00:00.000Z",
+     "2026-10-16T15:00:00.000Z",
+     "2026-10-16T16:00:00.000Z",
+     "2026-10-16T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   },
+   "logs-firewall-fw-edge": {
+    "total": 0,
+    "buckets": [
+     {
+      "start": "2026-10-16T08:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T09:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T10:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T12:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T13:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T16:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-16T08:00:00.000Z",
+     "2026-10-16T09:00:00.000Z",
+     "2026-10-16T10:00:00.000Z",
+     "2026-10-16T11:00:00.000Z",
+     "2026-10-16T12:00:00.000Z",
+     "2026-10-16T13:00:00.000Z",
+     "2026-10-16T14:00:00.000Z",
+     "2026-10-16T15:00:00.000Z",
+     "2026-10-16T16:00:00.000Z",
+     "2026-10-16T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   },
+   "logs-windows-security-dc": {
+    "total": 0,
+    "buckets": [
+     {
+      "start": "2026-10-16T08:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T09:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T10:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T12:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T13:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T16:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-16T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-16T08:00:00.000Z",
+     "2026-10-16T09:00:00.000Z",
+     "2026-10-16T10:00:00.000Z",
+     "2026-10-16T11:00:00.000Z",
+     "2026-10-16T12:00:00.000Z",
+     "2026-10-16T13:00:00.000Z",
+     "2026-10-16T14:00:00.000Z",
+     "2026-10-16T15:00:00.000Z",
+     "2026-10-16T16:00:00.000Z",
+     "2026-10-16T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   }
+  },
+  "coverage_gaps": {
+   "logs-sysmon-sysmon-endpoints": "10/10 hourly buckets have no events",
+   "logs-firewall-fw-edge": "10/10 hourly buckets have no events",
+   "logs-windows-security-dc": "10/10 hourly buckets have no events"
+  },
+  "gaps": [
+   "logs-sysmon-sysmon-endpoints: 10/10 hourly buckets have no events",
+   "logs-firewall-fw-edge: 10/10 hourly buckets have no events",
+   "logs-windows-security-dc: 10/10 hourly buckets have no events"
+  ],
+  "dated": true,
+  "data_sources": {
+   "logs-sysmon-sysmon-endpoints": 0,
+   "logs-firewall-fw-edge": 0,
+   "logs-windows-security-dc": 0
+  },
+  "selected_sources": [],
+  "out_of_scope": null,
+  "in_scope_without_playbook": null,
+  "min_support": {
+   "T1003.001": 2,
+   "T1021.002": 2
+  },
+  "technique_sources": {},
+  "missing_fields": {},
+  "info": []
+ },
+ "hunt_notes": [],
+ "baselines": [
+  "LSASS access allowlist: ['C:\\\\Program Files\\\\Windows Defender\\\\MsMpEng.exe', 'C:\\\\Windows\\\\System32\\\\svchost.exe']",
+  "10.0.1.15 -> 10.0.2.20 on 445 is daily file-share traffic"
+ ],
+ "limitations": [],
+ "meta": {
+  "run_id": "hunt-gap-003",
+  "planner": "rules",
+  "backend": "rules (simulated hunter)",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true
+  },
+  "fixture": "c3-sample"
+ },
+ "c2_verdict": null,
+ "c2_self_check": {},
+ "trace": [],
+ "analytics_audit": [],
+ "queries": [],
+ "c2_findings": {}
+}

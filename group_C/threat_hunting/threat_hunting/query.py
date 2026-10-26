@@ -17,6 +17,13 @@ class ToolError(ValueError):
     pass
 
 
+def interval_seconds(interval: str) -> float:
+    m = re.fullmatch(r"(\d+)(ms|s|m|h|d)", interval or "")
+    if not m or int(m.group(1)) == 0:
+        raise ToolError(f"interval must look like 30s, 15m, 1h or 1d (got {interval!r})")
+    return int(m.group(1)) * {"ms": 0.001, "s": 1, "m": 60, "h": 3600, "d": 86400}[m.group(2)]
+
+
 def check_index(index: str, prefix: str | None = None) -> str:
     prefix = prefix or config.HUNT_INDEX_PREFIX
     p = re.escape(prefix) + _PART

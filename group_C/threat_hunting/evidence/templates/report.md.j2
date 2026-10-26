@@ -1,0 +1,193 @@
+{% set tr = r.plan.time_range %}
+# Threat hunt report: {{ r.run_id }}
+
+**Hypothesis:** {{ r.hypothesis | md }}
+
+| | |
+|---|---|
+| **Verdict** | {{ d.verdict }} |
+| Confidence | {{ d.confidence }} |
+{% if d.review and d.review.c2_label %}
+| C2's draft verdict | {{ d.review.c2_label }}{{ " (" ~ d.review.c2_confidence ~ " confidence)" if d.review.c2_confidence }}. C3 review: {{ d.review.outcome | replace("_", " ") }} |
+{% endif %}
+| Analyst review required | {{ ("yes: " ~ d.review_reasons | join("; ")) if d.analyst_review else "no" }} |
+| Time window (UTC) | {{ tr.get("from", "?") }} to {{ tr.get("to", "?") }} |
+| Planner | {{ r.plan.planner }} |
+| Verification | {{ r.verification_mode }}, {{ r.verification.verified }}/{{ r.verification.claims }} claims verified, replay {{ r.verification.replay.identical }}/{{ r.verification.replay.replayed }} identical |
+
+## 1. Summary
+
+{{ r.summary | md }}
+
+**Why this verdict**
+
+{% for x in d.reasons %}
+- {{ x | md }}
+{% endfor %}
+{% if d.next_steps %}
+
+**What would settle it**
+
+{% for x in d.next_steps %}
+- {{ x | md }}
+{% endfor %}
+{% endif %}
+
+## 2. Hunt plan
+
+Techniques tested (required first): {% for t in r.plan.required_techniques + r.plan.context_techniques %}`{{ t }}` {{ names.get(t, "") }}{{ " (context)" if t in r.plan.context_techniques else "" }}{{ ", " if not loop.last }}{% endfor %}
+
+
+Success criteria:
+
+{% for x in r.plan.success_criteria %}
+- {{ x | md }}
+{% else %}
+- _none recorded_
+{% endfor %}
+
+Refutation criteria:
+
+{% for x in r.plan.refutation_criteria %}
+- {{ x | md }}
+{% else %}
+- _none recorded_
+{% endfor %}
+
+Entities named in the hypothesis: {{ (r.plan.entities.get("hosts") or ["none"]) | join(", ") }}{% if r.entity_missing %}. No telemetry for: {{ r.entity_missing | join(", ") }}{% endif %}
+
+
+## 3. Coverage
+
+Data sources in scope: {{ r.data_sources | tojson }}{% if r.selected_sources %} (chosen by the analyst: {{ r.selected_sources | join(", ") }}){% endif %}
+
+
+| Technique | Required | Sources | Steps ok / total | Verified claims | Independent steps | Min needed | Covered | Gaps | Not testable with this data |
+|---|---|---|---|---|---|---|---|---|---|
+{% for t in d.rows %}
+| {{ t.technique }} {{ t.name | md_cell }} | {{ ("yes" ~ (" (one of " ~ t.group ~ ")" if t.group and t.group != t.technique else "")) if t.required else "context" }} | {{ t.sources | join(", ") or "-" }} | {{ r.steps_ok.get(t.technique, "-") }} | {{ t.verified_claims }} | {{ t.supporting_steps | length }} | {{ t.min_support }} | {{ "yes" if t.covered else "NO" }} | {{ (t.gaps | join("; ")) | md_cell or "-" }} | {{ (t.not_tested | map(attribute="need") | unique | join("; ")) | md_cell or "-" }} |
+{% endfor %}
+
+{% if r.coverage %}
+{% if r.dated %}
+Events per index in the requested time. An empty bucket is a gap.
+
+| Index | Events | Buckets | Empty buckets |
+|---|---|---|---|
+{% for idx, c in r.coverage.items() %}
+| {{ idx }} | {{ c.total }} | {{ c.n_buckets if c.n_buckets is not none else c.buckets | length }} | {{ c.empty_buckets | length }} |
+{% endfor %}
+{% else %}
+No time was named, so each source was searched over all of its data.
+
+| Index | Events | First event | Last event |
+|---|---|---|---|
+{% for idx, c in r.coverage.items() %}
+| {{ idx }} | {{ c.total }} | {{ c.first or "-" }} | {{ c.last or "-" }} |
+{% endfor %}
+{% endif %}
+{% endif %}
+
+## 4. Findings (verified claims)
+
+{% for tech, items in findings_by_technique.items() %}
+### {{ tech }} {{ names.get(tech, "") }}
+
+{% for c in items %}
+- **{{ c.claim_id }}** {{ c.text | md }}{% if c.origin == "llm" %} _(from an LLM-proposed query: a lead, not proof)_{% endif %}
+
+  - first seen: {{ c.first_seen or "-" }}, step `{{ c.step_id }}`, evidence {{ c.evidence_ids | join(", ") }}
+{% for q in r.claim_queries.get(c.claim_id, []) %}
+  - query: `{{ q.call_id }}` {{ q.tool }} on `{{ q.index }}`, {{ q.time_from or "?" }} to {{ q.time_to or "?" }} (DSL in Appendix A)
+{% else %}
+  - query: none found in the audit log
+{% endfor %}
+{% if c.event_ids %}
+  - events: {% for e in c.event_ids[:8] %}`{{ e }}`{{ ", " if not loop.last }}{% endfor %}{% if c.event_ids | length > 8 %} (+{{ c.event_ids | length - 8 }} more){% endif %}
+
+{% endif %}
+  - verifier: {{ c.verifier_notes | md }}
+{% endfor %}
+
+{% else %}
+_No verified findings._
+
+{% endfor %}
+{% if r.context_findings %}
+### Related activity (context only, not used for the verdict)
+
+{% for c in r.context_findings %}
+- **{{ c.claim_id }}** `{{ c.technique }}` {{ c.text | md }}
+{% endfor %}
+
+{% endif %}
+## 5. Claims the verifier rejected
+
+{% if r.rejected %}
+| Claim | Status | Technique | Text | Reason |
+|---|---|---|---|---|
+{% for c in r.rejected %}
+| {{ c.claim_id }} | {{ c.status }} | {{ c.technique }} | {{ c.text | md_cell }} | {{ c.verifier_notes | md_cell }} |
+{% endfor %}
+{% else %}
+_No claim was rejected._
+{% endif %}
+{% if r.unverified %}
+
+Not re-verified ({{ r.unverified | length }}): {% for c in r.unverified %}{{ c.claim_id }}{{ ", " if not loop.last }}{% endfor %}. They do not count as evidence.
+{% endif %}
+
+## 6. Benign explanations and baselines considered
+
+{% for b in r.baselines %}
+- {{ b | md }}
+{% else %}
+- _none recorded_
+{% endfor %}
+
+## 7. Verification summary
+
+- Claims: {{ r.verification.claims }} total, {{ r.verification.verified }} verified, {{ r.verification.unsupported }} unsupported, {{ r.verification.contradicted }} contradicted, {{ r.verification.unverified }} not re-verified
+- Query replay: {{ r.verification.replay.identical }} of {{ r.verification.replay.replayed }} identical{% if r.verification.replay.skipped %}, {{ r.verification.replay.skipped | length }} skipped{% endif %}
+
+{% for m in r.verification.replay.mismatches %}
+  - mismatch `{{ m.call_id }}` {{ m.tool }}: was {{ m.was }}, now {{ m.now }}
+{% endfor %}
+{% for f in r.flags %}
+- Flag `{{ f.code }}`: {{ f.message | md }}
+{% endfor %}
+
+## 8. Limitations and data gaps
+
+{% for x in r.limitations %}
+- {{ x | md }}
+{% endfor %}
+
+## Appendix A. Every query executed ({{ r.audit | length }})
+
+| Call | Tool | Index | Total | OK | Result hash |
+|---|---|---|---|---|---|
+{% for a in r.audit %}
+| `{{ a.call_id }}` | {{ a.tool }} | {{ (a.params.get("index") or a.params.get("indices") or "-") | string | md_cell }} | {{ a.total if a.total is not none else "-" }} | {{ "yes" if a.ok else "NO: " ~ (a.error | md_cell) }} | `{{ a.result_hash or "-" }}` |
+{% endfor %}
+
+<details><summary>Elasticsearch DSL per query</summary>
+
+{% for a in r.audit if a.dsl %}
+`{{ a.call_id }}` {{ a.tool }}
+
+```json
+{{ a.dsl | tojson_pretty }}
+```
+
+{% endfor %}
+</details>
+
+## Appendix B. Run metadata
+
+| | |
+|---|---|
+{% for k, v in r.meta.items() %}
+| {{ k }} | {{ v | string | md_cell }} |
+{% endfor %}
+| report generator | {{ r.generator }} |

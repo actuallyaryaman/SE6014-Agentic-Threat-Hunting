@@ -13,3 +13,9 @@ scan_min_errors: 20
 exfil_default_bytes: 104857600      # 100 MB
 bruteforce_min_failures: 20         # failed SSH logins from one source in the window (benign noise: a few per source)
 scan_min_distinct: 20               # distinct destinations contacted by one source in the window
+injection_markers:                  # prompt-injection-like text in log fields (guardrails.injection_sweep); matched case-insensitively
+  - ignore all previous instructions
+  - ignore previous instructions
+  - disregard previous instructions
+  - ignore the above
+  - system prompt

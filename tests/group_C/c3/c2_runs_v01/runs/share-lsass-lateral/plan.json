@@ -1,0 +1,885 @@
+{
+ "hypothesis": "An attacker on WS-01 dumped credentials from LSASS and then moved laterally to other hosts on 2026-10-01.",
+ "techniques": [
+  "T1003.001",
+  "T1021.002",
+  "T1059.001",
+  "T1071",
+  "T1190"
+ ],
+ "required_techniques": [
+  "T1003.001",
+  "T1021.002"
+ ],
+ "context_techniques": [
+  "T1059.001",
+  "T1071",
+  "T1190"
+ ],
+ "entities": {
+  "hosts": [
+   "WS-01"
+  ],
+  "ips": [],
+  "technique_names": {
+   "T1003.001": "OS Credential Dumping: LSASS Memory",
+   "T1021.002": "Remote Services: SMB/Windows Admin Shares",
+   "T1059.001": "Command and Scripting Interpreter: PowerShell",
+   "T1071": "Application Layer Protocol (C2)",
+   "T1190": "Exploit Public-Facing Application"
+  },
+  "entity_missing": []
+ },
+ "required_sources": [
+  "firewall",
+  "sysmon",
+  "web"
+ ],
+ "time_range": {
+  "from": "2026-10-01T08:00:00Z",
+  "to": "2026-10-01T18:00:00Z"
+ },
+ "window_minutes": 60,
+ "steps": [
+  {
+   "step_id": "T1003.001-a",
+   "technique": "T1003.001",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "agg": "terms",
+    "field": "process.executable",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "10"
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*\\lsass.exe"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "size": 20
+   },
+   "purpose": "Baseline: which processes open lsass.exe (all, before filtering benign ones)",
+   "role": "context",
+   "claim_template": "",
+   "analysis": {},
+   "must_have": false
+  },
+  {
+   "step_id": "T1003.001-b",
+   "technique": "T1003.001",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "10"
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*\\lsass.exe"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "size": 100,
+    "must_not": [
+     {
+      "field": "process.executable",
+      "op": "in",
+      "value": [
+       "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+       "C:\\Windows\\System32\\svchost.exe",
+       "C:\\Windows\\System32\\wininit.exe",
+       "C:\\Windows\\System32\\csrss.exe",
+       "C:\\Windows\\System32\\services.exe",
+       "C:\\Windows\\System32\\lsm.exe"
+      ]
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.executable",
+     "winlog.event_data.TargetImage",
+     "winlog.event_data.GrantedAccess"
+    ]
+   },
+   "purpose": "Process-access events on lsass.exe from processes outside the allowlist",
+   "role": "indicator",
+   "claim_template": "A non-baseline process ({process.executable}) opened lsass.exe on {host.name} with access mask {winlog.event_data.GrantedAccess}",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.executable",
+     "winlog.event_data.GrantedAccess"
+    ]
+   },
+   "must_have": true
+  },
+  {
+   "step_id": "T1003.001-c",
+   "technique": "T1003.001",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "1"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "size": 100,
+    "any_of": [
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "MiniDump"
+     },
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "sekurlsa"
+     },
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "lsass"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.name",
+     "process.command_line",
+     "user.name"
+    ]
+   },
+   "purpose": "Process creations whose command line matches known LSASS-dump tooling (MiniDump, sekurlsa, lsass)",
+   "role": "indicator",
+   "claim_template": "A process command line on {host.name} matches LSASS-dump tooling: {process.command_line}",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.command_line"
+    ]
+   },
+   "must_have": true
+  },
+  {
+   "step_id": "T1003.001-d",
+   "technique": "T1003.001",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "11"
+     },
+     {
+      "field": "file.name",
+      "op": "wildcard",
+      "value": "*.dmp"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "size": 100,
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "file.path",
+     "process.name"
+    ]
+   },
+   "purpose": "Creation of memory-dump files (*.dmp)",
+   "role": "indicator",
+   "claim_template": "A memory dump file {file.path} was created on {host.name} by {process.name}",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "file.path",
+     "process.name"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1021.002-a",
+   "technique": "T1021.002",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "1"
+     },
+     {
+      "field": "process.name",
+      "op": "in",
+      "value": [
+       "PSEXESVC.exe",
+       "psexec.exe",
+       "psexec64.exe",
+       "paexec.exe",
+       "winexesvc.exe"
+      ]
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.name",
+     "process.parent.name",
+     "user.name"
+    ]
+   },
+   "purpose": "Remote-service execution binaries (PsExec-style) started on any host",
+   "role": "indicator",
+   "claim_template": "Remote-service execution binary {process.name} ran on {host.name} (parent {process.parent.name})",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.name"
+    ]
+   },
+   "must_have": true
+  },
+  {
+   "step_id": "T1059.001-a",
+   "technique": "T1059.001",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "1"
+     },
+     {
+      "field": "process.name",
+      "op": "eq",
+      "value": "powershell.exe"
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "any_of": [
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "enc"
+     },
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "encodedcommand"
+     },
+     {
+      "field": "process.command_line",
+      "op": "contains",
+      "value": "hidden"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.name",
+     "process.parent.name",
+     "user.name"
+    ]
+   },
+   "purpose": "PowerShell started with encoded or hidden-window arguments",
+   "role": "indicator",
+   "claim_template": "PowerShell with encoded/hidden arguments ran on {host.name} (parent process {process.parent.name})",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.parent.name"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1059.001-b",
+   "technique": "T1059.001",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "1"
+     },
+     {
+      "field": "process.name",
+      "op": "in",
+      "value": [
+       "powershell.exe",
+       "cmd.exe",
+       "wscript.exe",
+       "cscript.exe",
+       "mshta.exe"
+      ]
+     },
+     {
+      "field": "process.parent.name",
+      "op": "in",
+      "value": [
+       "WINWORD.EXE",
+       "EXCEL.EXE",
+       "POWERPNT.EXE",
+       "OUTLOOK.EXE"
+      ]
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.name",
+     "process.parent.name"
+    ]
+   },
+   "purpose": "Script interpreters spawned by Office applications",
+   "role": "indicator",
+   "claim_template": "Office application {process.parent.name} spawned {process.name} on {host.name}",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.parent.name",
+     "process.name"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1071-a",
+   "technique": "T1071",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "agg": "terms",
+    "field": "destination.ip",
+    "size": 10,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "firewall",
+       "firewall.log"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "allowed"
+     }
+    ],
+    "must_not": [
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ]
+   },
+   "purpose": "Most-contacted external destinations through the firewall (beaconing candidates; the firewall log has no ports)",
+   "role": "indicator",
+   "claim_template": "External destination {bucket_key} was contacted {count} times through the firewall (possible beaconing)",
+   "analysis": {
+    "bucket_min_count": 5,
+    "ioc_enrich": true,
+    "drilldown": "destination.ip"
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1071-b",
+   "technique": "T1071",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "Microsoft-Windows-Sysmon/Operational",
+       "windows.sysmon"
+      ]
+     },
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": "3"
+     },
+     {
+      "field": "process.name",
+      "op": "in",
+      "value": [
+       "powershell.exe",
+       "cmd.exe",
+       "rundll32.exe",
+       "wscript.exe",
+       "mshta.exe",
+       "regsvr32.exe"
+      ]
+     },
+     {
+      "field": "host.name",
+      "op": "in",
+      "value": [
+       "WS-01"
+      ]
+     }
+    ],
+    "must_not": [
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "host.name",
+     "process.name",
+     "destination.ip",
+     "destination.port"
+    ]
+   },
+   "purpose": "Script/living-off-the-land binaries making external network connections",
+   "role": "indicator",
+   "claim_template": "{process.name} on {host.name} connected to external {destination.ip}:{destination.port}",
+   "analysis": {
+    "group_by": [
+     "host.name",
+     "process.name",
+     "destination.ip",
+     "destination.port"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1190-a",
+   "technique": "T1190",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "must_not": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "apache.access",
+       "nginx.access"
+      ]
+     },
+     {
+      "field": "http.request.method",
+      "op": "eq",
+      "value": "POST"
+     },
+     {
+      "field": "url.path",
+      "op": "wildcard",
+      "value": "*upload*"
+     },
+     {
+      "field": "http.response.status_code",
+      "op": "eq",
+      "value": 200
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "url.path",
+     "http.response.status_code"
+    ]
+   },
+   "purpose": "Successful file-upload POSTs from external addresses",
+   "role": "indicator",
+   "claim_template": "External address {source.ip} uploaded to {url.path} (HTTP {http.response.status_code})",
+   "analysis": {
+    "group_by": [
+     "source.ip",
+     "url.path",
+     "http.response.status_code"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1190-b",
+   "technique": "T1190",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "must_not": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "apache.access",
+       "nginx.access"
+      ]
+     },
+     {
+      "field": "url.path",
+      "op": "wildcard",
+      "value": "*/uploads/*.php"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "url.path",
+     "url.query"
+    ]
+   },
+   "purpose": "Requests to executable scripts inside upload directories (web shell use)",
+   "role": "indicator",
+   "claim_template": "External address {source.ip} requested {url.path} inside an upload directory (possible web shell)",
+   "analysis": {
+    "group_by": [
+     "source.ip",
+     "url.path"
+    ],
+    "min_count": 2
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1190-c",
+   "technique": "T1190",
+   "tool": "search",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "size": 100,
+    "must_not": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "apache.access",
+       "nginx.access"
+      ]
+     }
+    ],
+    "any_of": [
+     {
+      "field": "url.original",
+      "op": "wildcard",
+      "value": "*union%20select*"
+     },
+     {
+      "field": "url.original",
+      "op": "wildcard",
+      "value": "*drop%20table*"
+     },
+     {
+      "field": "url.original",
+      "op": "wildcard",
+      "value": "*'%20or%20'*"
+     },
+     {
+      "field": "url.original",
+      "op": "wildcard",
+      "value": "*'"
+     }
+    ],
+    "fields": [
+     "@timestamp",
+     "source.ip",
+     "url.path",
+     "http.response.status_code"
+    ]
+   },
+   "purpose": "SQL-injection signatures in request URLs",
+   "role": "indicator",
+   "claim_template": "External address {source.ip} sent SQL-injection style requests to {url.path}",
+   "analysis": {
+    "group_by": [
+     "source.ip",
+     "url.path"
+    ]
+   },
+   "must_have": false
+  },
+  {
+   "step_id": "T1190-d",
+   "technique": "T1190",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 10,
+    "must_not": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.0.0/8"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "172.16.0.0/12"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "192.168.0.0/16"
+     }
+    ],
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "apache.access",
+       "nginx.access"
+      ]
+     },
+     {
+      "field": "http.response.status_code",
+      "op": "in",
+      "value": [
+       404,
+       500
+      ]
+     }
+    ]
+   },
+   "purpose": "External addresses producing many 404/500 responses (scanning)",
+   "role": "indicator",
+   "claim_template": "External address {bucket_key} produced {count} error responses (404/500), consistent with scanning",
+   "analysis": {
+    "bucket_min_count": 20,
+    "drilldown": "source.ip"
+   },
+   "must_have": false
+  }
+ ],
+ "success_criteria": [
+  "T1003.001 (OS Credential Dumping: LSASS Memory): at least 2 independent self-checked indicator(s)",
+  "T1021.002 (Remote Services: SMB/Windows Admin Shares): at least 2 independent self-checked indicator(s)"
+ ],
+ "refutation_criteria": [
+  "T1003.001: all required sources and fields covered for the full window AND zero indicators",
+  "T1021.002: all required sources and fields covered for the full window AND zero indicators"
+ ],
+ "planner": "rules"
+}

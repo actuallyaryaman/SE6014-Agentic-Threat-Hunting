@@ -1,0 +1,119 @@
+{
+ "hypothesis": "An external IP brute-forced SSH and then logged in successfully on 2026-10-01.",
+ "techniques": [
+  "T1110",
+  "T1078"
+ ],
+ "required_techniques": [
+  "T1110",
+  "T1078"
+ ],
+ "context_techniques": [],
+ "entities": {
+  "hosts": [],
+  "ips": [],
+  "technique_names": {
+   "T1110": "Brute Force",
+   "T1078": "Valid Accounts"
+  },
+  "entity_missing": []
+ },
+ "required_sources": [
+  "auth"
+ ],
+ "time_range": {
+  "from": "2026-10-01T08:00:00Z",
+  "to": "2026-10-01T18:00:00Z"
+ },
+ "window_minutes": 60,
+ "steps": [
+  {
+   "step_id": "T1110-a",
+   "technique": "T1110",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ]
+   },
+   "purpose": "Sources with many failed SSH logins",
+   "role": "indicator",
+   "claim_template": "Source {bucket_key} produced {count} failed SSH logins",
+   "analysis": {
+    "bucket_min_count": 20,
+    "drilldown": "source.ip"
+   },
+   "must_have": true
+  },
+  {
+   "step_id": "T1078-a",
+   "technique": "T1078",
+   "tool": "aggregate",
+   "params": {
+    "index": "security-events-c2test*",
+    "time_from": "2026-10-01T08:00:00Z",
+    "time_to": "2026-10-01T18:00:00Z",
+    "agg": "terms",
+    "field": "source.ip",
+    "size": 20,
+    "filters": [
+     {
+      "field": "event.dataset",
+      "op": "in",
+      "value": [
+       "linux.auth"
+      ]
+     },
+     {
+      "field": "event.action",
+      "op": "eq",
+      "value": "ssh_login"
+     },
+     {
+      "field": "event.outcome",
+      "op": "eq",
+      "value": "failure"
+     }
+    ]
+   },
+   "purpose": "Brute-force candidates (sources with many failed SSH logins); successful logins after them are searched by the Hunter",
+   "role": "context",
+   "claim_template": "",
+   "analysis": {
+    "bucket_min_count": 20
+   },
+   "must_have": false
+  }
+ ],
+ "success_criteria": [
+  "T1110 (Brute Force): at least 1 independent self-checked indicator(s)",
+  "T1078 (Valid Accounts): at least 1 independent self-checked indicator(s)"
+ ],
+ "refutation_criteria": [
+  "T1110: all required sources and fields covered for the full window AND zero indicators",
+  "T1078: all required sources and fields covered for the full window AND zero indicators"
+ ],
+ "planner": "rules"
+}

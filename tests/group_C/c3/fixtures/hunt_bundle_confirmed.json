@@ -1,0 +1,1881 @@
+{
+ "schema_version": "1.0.0",
+ "run_id": "hunt-lsass-001",
+ "plan": {
+  "hypothesis": "An attacker on WS-01 dumped credentials from LSASS and then moved laterally to other hosts on 2026-10-15.",
+  "techniques": [
+   "T1003.001",
+   "T1021.002",
+   "T1078"
+  ],
+  "required_techniques": [
+   "T1003.001",
+   "T1021.002"
+  ],
+  "context_techniques": [
+   "T1078"
+  ],
+  "entities": {
+   "hosts": [
+    "WS-01"
+   ],
+   "technique_names": {
+    "T1003.001": "OS Credential Dumping: LSASS Memory",
+    "T1021.002": "Remote Services: SMB/Windows Admin Shares",
+    "T1078": "Valid Accounts",
+    "T1048": "Exfiltration Over Alternative Protocol"
+   },
+   "requirement_groups": [
+    {
+     "label": "T1003.001",
+     "kind": "technique",
+     "techniques": [
+      "T1003.001"
+     ]
+    },
+    {
+     "label": "T1021.002",
+     "kind": "technique",
+     "techniques": [
+      "T1021.002"
+     ]
+    }
+   ]
+  },
+  "required_sources": [
+   "logs-sysmon-sysmon-endpoints",
+   "logs-firewall-fw-edge",
+   "logs-windows-security-dc"
+  ],
+  "time_range": {
+   "from": "2026-10-15T08:00:00Z",
+   "to": "2026-10-15T18:00:00Z"
+  },
+  "window_minutes": 60,
+  "steps": [
+   {
+    "step_id": "T1003.001-a",
+    "technique": "T1003.001",
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "agg": "terms",
+     "field": "process.executable",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 10
+      },
+      {
+       "field": "winlog.event_data.TargetImage",
+       "op": "wildcard",
+       "value": "*lsass.exe"
+      }
+     ]
+    },
+    "purpose": "who opens lsass.exe (baseline check)",
+    "role": "benign_check",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   },
+   {
+    "step_id": "T1003.001-b",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 10
+      },
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "winlog.event_data.TargetImage",
+       "op": "wildcard",
+       "value": "*lsass.exe"
+      }
+     ],
+     "must_not": [
+      {
+       "field": "process.executable",
+       "op": "in",
+       "value": [
+        "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+        "C:\\Windows\\System32\\svchost.exe"
+       ]
+      }
+     ]
+    },
+    "purpose": "non-baseline process opens lsass.exe",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 10 (process access)"
+   },
+   {
+    "step_id": "T1003.001-c",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "process.command_line",
+       "op": "wildcard",
+       "value": "*comsvcs.dll*MiniDump*"
+      }
+     ]
+    },
+    "purpose": "command line of a known LSASS-dump technique",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 1 (process creation)"
+   },
+   {
+    "step_id": "T1003.001-d",
+    "technique": "T1003.001",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 11
+      },
+      {
+       "field": "host.name",
+       "op": "eq",
+       "value": "WS-01"
+      },
+      {
+       "field": "file.path",
+       "op": "wildcard",
+       "value": "*lsass.dmp"
+      }
+     ]
+    },
+    "purpose": "memory dump file written",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 11 (file create)"
+   },
+   {
+    "step_id": "T1021.002-a",
+    "technique": "T1021.002",
+    "tool": "search",
+    "params": {
+     "index": "logs-sysmon-sysmon-endpoints",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "process.name",
+       "op": "eq",
+       "value": "PSEXESVC.exe"
+      },
+      {
+       "field": "process.parent.name",
+       "op": "eq",
+       "value": "services.exe"
+      }
+     ]
+    },
+    "purpose": "remote service binary started by services.exe",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Sysmon event 1 on servers"
+   },
+   {
+    "step_id": "T1021.002-b",
+    "technique": "T1021.002",
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-firewall-fw-edge",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "agg": "terms",
+     "field": "destination.ip",
+     "filters": [
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      },
+      {
+       "field": "destination.port",
+       "op": "in",
+       "value": [
+        135,
+        445,
+        5985
+       ]
+      }
+     ],
+     "must_not": [
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "10.0.2.20"
+      }
+     ]
+    },
+    "purpose": "new connections from the host on lateral-movement ports",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {
+     "bucket_min_count": 3
+    },
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "firewall connection logs"
+   },
+   {
+    "step_id": "T1021.002-c",
+    "technique": "T1021.002",
+    "tool": "search",
+    "params": {
+     "index": "logs-windows-security-dc",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 5145
+      },
+      {
+       "field": "winlog.event_data.ShareName",
+       "op": "wildcard",
+       "value": "*ADMIN$"
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      }
+     ]
+    },
+    "purpose": "admin share accessed from the host",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": "Windows Security 5145"
+   },
+   {
+    "step_id": "T1078-a",
+    "technique": "T1078",
+    "tool": "search",
+    "params": {
+     "index": "logs-windows-security-dc",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "filters": [
+      {
+       "field": "event.code",
+       "op": "eq",
+       "value": 4624
+      },
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      }
+     ]
+    },
+    "purpose": "network logons from the host",
+    "role": "indicator",
+    "claim_template": "",
+    "analysis": {},
+    "must_have": false,
+    "requires": [],
+    "event_types": [],
+    "need": ""
+   }
+  ],
+  "success_criteria": [
+   "T1003.001 (OS Credential Dumping: LSASS Memory): at least 2 independent verified indicator(s)",
+   "T1021.002 (Remote Services: SMB/Windows Admin Shares): at least 2 independent verified indicator(s)"
+  ],
+  "refutation_criteria": [
+   "T1003.001: all required sources covered for the full window AND zero verified indicators",
+   "T1021.002: all required sources covered for the full window AND zero verified indicators"
+  ],
+  "planner": "rules"
+ },
+ "evidence": [
+  {
+   "evidence_id": "E-T1003.001-a",
+   "call_id": "hunt-lsass-001-0001",
+   "step_id": "T1003.001-a",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [],
+   "total_hits": 3,
+   "excerpt": [
+    {
+     "key": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+     "count": 1
+    },
+    {
+     "key": "C:\\Windows\\System32\\rundll32.exe",
+     "count": 1
+    },
+    {
+     "key": "C:\\Windows\\System32\\svchost.exe",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1003.001-b",
+   "call_id": "hunt-lsass-001-0002",
+   "step_id": "T1003.001-b",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0004"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1003.001-c",
+   "call_id": "hunt-lsass-001-0003",
+   "step_id": "T1003.001-c",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0003"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1003.001-d",
+   "call_id": "hunt-lsass-001-0004",
+   "step_id": "T1003.001-d",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0005"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1021.002-a",
+   "call_id": "hunt-lsass-001-0005",
+   "step_id": "T1021.002-a",
+   "index": "logs-sysmon-sysmon-endpoints",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0006"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1021.002-b",
+   "call_id": "hunt-lsass-001-0006",
+   "step_id": "T1021.002-b",
+   "index": "logs-firewall-fw-edge",
+   "event_ids": [],
+   "total_hits": 6,
+   "excerpt": [
+    {
+     "key": "10.0.2.10",
+     "count": 6
+    }
+   ]
+  },
+  {
+   "evidence_id": "E-T1021.002-c",
+   "call_id": "hunt-lsass-001-0008",
+   "step_id": "T1021.002-c",
+   "index": "logs-windows-security-dc",
+   "event_ids": [
+    "logs-windows-security-dc/ws-0002"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  },
+  {
+   "evidence_id": "E-T1078-a",
+   "call_id": "hunt-lsass-001-0009",
+   "step_id": "T1078-a",
+   "index": "logs-windows-security-dc",
+   "event_ids": [
+    "logs-windows-security-dc/ws-0001"
+   ],
+   "total_hits": 1,
+   "excerpt": []
+  }
+ ],
+ "claims": [
+  {
+   "claim_id": "C-001",
+   "text": "A non-baseline process (C:\\Windows\\System32\\rundll32.exe) opened lsass.exe on WS-01 with access mask 0x1fffff",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-b"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.executable": "C:\\Windows\\System32\\rundll32.exe",
+    "winlog.event_data.GrantedAccess": "0x1fffff"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-b",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:15:01Z",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0004"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-002",
+   "text": "A process command line on WS-01 matches LSASS-dump tooling: rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\Windows\\Temp\\lsass.dmp full",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-c"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 C:\\Windows\\Temp\\lsass.dmp full"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-c",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:15:00Z",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0003"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-003",
+   "text": "A memory dump file C:\\Windows\\Temp\\lsass.dmp was created on WS-01 by C:\\Windows\\System32\\rundll32.exe",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-d"
+   ],
+   "facts": {
+    "host.name": "WS-01",
+    "file.path": "C:\\Windows\\Temp\\lsass.dmp"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-d",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:15:03Z",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0005"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-004",
+   "text": "Remote-service binary PSEXESVC.exe ran on FS-01 (parent services.exe)",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-a"
+   ],
+   "facts": {
+    "host.name": "FS-01",
+    "process.name": "PSEXESVC.exe",
+    "process.parent.name": "services.exe"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-a",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:27:00Z",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0006"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-005",
+   "text": "10.0.1.15 connected to 10.0.2.10 on lateral-movement ports 6 times (not in baseline)",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-b"
+   ],
+   "facts": {
+    "source.ip": "10.0.1.15",
+    "destination.ip": "10.0.2.10"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-b",
+   "kind": "aggregate",
+   "first_seen": "2026-10-15T13:31:00Z",
+   "event_ids": [
+    "logs-firewall-fw-edge/fw-0001",
+    "logs-firewall-fw-edge/fw-0002",
+    "logs-firewall-fw-edge/fw-0003",
+    "logs-firewall-fw-edge/fw-0004",
+    "logs-firewall-fw-edge/fw-0005",
+    "logs-firewall-fw-edge/fw-0006"
+   ],
+   "replay": {
+    "tool": "aggregate",
+    "params": {
+     "index": "logs-firewall-fw-edge",
+     "time_from": "2026-10-15T08:00:00Z",
+     "time_to": "2026-10-15T18:00:00Z",
+     "agg": "terms",
+     "field": "destination.ip",
+     "filters": [
+      {
+       "field": "source.ip",
+       "op": "eq",
+       "value": "10.0.1.15"
+      },
+      {
+       "field": "destination.port",
+       "op": "in",
+       "value": [
+        135,
+        445,
+        5985
+       ]
+      }
+     ],
+     "must_not": [
+      {
+       "field": "destination.ip",
+       "op": "eq",
+       "value": "10.0.2.20"
+      }
+     ]
+    },
+    "bucket_key": "10.0.2.10",
+    "count": 6,
+    "sum": null,
+    "distinct": null,
+    "event_field": "destination.ip"
+   },
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-006",
+   "text": "Admin share \\\\*\\ADMIN$ on FS-01 was accessed from 10.0.1.15 by admin (file PSEXESVC.exe)",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-c"
+   ],
+   "facts": {
+    "host.name": "FS-01",
+    "source.ip": "10.0.1.15",
+    "user.name": "admin"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-c",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:26:40Z",
+   "event_ids": [
+    "logs-windows-security-dc/ws-0002"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-007",
+   "text": "Network logon (type 3) as admin on FS-01 from 10.0.1.15",
+   "technique": "T1078",
+   "evidence_ids": [
+    "E-T1078-a"
+   ],
+   "facts": {
+    "user.name": "admin",
+    "source.ip": "10.0.1.15"
+   },
+   "confidence": "medium",
+   "step_id": "T1078-a",
+   "kind": "events",
+   "first_seen": "2026-10-15T13:26:38Z",
+   "event_ids": [
+    "logs-windows-security-dc/ws-0001"
+   ],
+   "replay": {},
+   "context_only": true,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-008",
+   "text": "mimikatz.exe also read LSASS memory on WS-01",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-LLM-1"
+   ],
+   "facts": {},
+   "confidence": "medium",
+   "step_id": "LLM-1",
+   "kind": "events",
+   "first_seen": "",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-9999"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "llm",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-009",
+   "text": "A non-baseline process opened lsass.exe on WS-02",
+   "technique": "T1003.001",
+   "evidence_ids": [
+    "E-T1003.001-b"
+   ],
+   "facts": {
+    "host.name": "WS-02"
+   },
+   "confidence": "medium",
+   "step_id": "T1003.001-b",
+   "kind": "events",
+   "first_seen": "",
+   "event_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0004"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  },
+  {
+   "claim_id": "C-010",
+   "text": "WS-01 opened 47 admin-share sessions on FS-01",
+   "technique": "T1021.002",
+   "evidence_ids": [
+    "E-T1021.002-c"
+   ],
+   "facts": {
+    "host.name": "FS-01"
+   },
+   "confidence": "medium",
+   "step_id": "T1021.002-c",
+   "kind": "events",
+   "first_seen": "",
+   "event_ids": [
+    "logs-windows-security-dc/ws-0002"
+   ],
+   "replay": {},
+   "context_only": false,
+   "origin": "playbook",
+   "status": "unverified",
+   "c2_status": "",
+   "verifier_notes": ""
+  }
+ ],
+ "audit": [
+  {
+   "call_id": "hunt-lsass-001-0001",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "agg": "terms",
+    "field": "process.executable",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 10
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*lsass.exe"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "size": 20,
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 10
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.TargetImage": {
+          "value": "*lsass.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "process.executable",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 3,
+   "returned_ids": [
+    "[{\"count\": 1, \"key\": \"C:\\\\Program Files\\\\Windows Defender\\\\MsMpEng.exe\"}, {\"count\": 1, \"key\": \"C:\\\\Windows\\\\System32\\\\rundll32.exe\"}, {\"count\": 1, \"key\": \"C:\\\\Windows\\\\System32\\\\svchost.exe\"}]"
+   ],
+   "result_hash": "447c4ae561a87579",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 1, \"key\": \"C:\\\\Program Files\\\\Windows Defender\\\\MsMpEng.exe\"}, {\"count\": 1, \"key\": \"C:\\\\Windows\\\\System32\\\\rundll32.exe\"}, {\"count\": 1, \"key\": \"C:\\\\Windows\\\\System32\\\\svchost.exe\"}], \"total\": 3}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0002",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 10
+     },
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "winlog.event_data.TargetImage",
+      "op": "wildcard",
+      "value": "*lsass.exe"
+     }
+    ],
+    "must_not": [
+     {
+      "field": "process.executable",
+      "op": "in",
+      "value": [
+       "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+       "C:\\Windows\\System32\\svchost.exe"
+      ]
+     }
+    ],
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 10
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.TargetImage": {
+          "value": "*lsass.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ],
+      "must_not": [
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "process.executable": {
+             "value": "C:\\Program Files\\Windows Defender\\MsMpEng.exe",
+             "case_insensitive": true
+            }
+           }
+          },
+          {
+           "term": {
+            "process.executable": {
+             "value": "C:\\Windows\\System32\\svchost.exe",
+             "case_insensitive": true
+            }
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0004"
+   ],
+   "result_hash": "98b9bbc379082f56",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"sm-0004\", \"fields\": {\"@timestamp\": \"2026-10-15T13:15:01Z\", \"event.code\": 10, \"event.dataset\": \"sysmon\", \"host.name\": \"WS-01\", \"process.executable\": \"C:\\\\Windows\\\\System32\\\\rundll32.exe\", \"winlog.event_data.GrantedAccess\": \"0x1fffff\", \"winlog.event_data.TargetImage\": \"C:\\\\Windows\\\\System32\\\\lsass.exe\"}, \"index\": \"logs-sysmon-sysmon-endpoints\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0003",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "process.command_line",
+      "op": "wildcard",
+      "value": "*comsvcs.dll*MiniDump*"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "process.command_line": {
+          "value": "*comsvcs.dll*MiniDump*",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0003"
+   ],
+   "result_hash": "77c8eb3adf882bcb",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"sm-0003\", \"fields\": {\"@timestamp\": \"2026-10-15T13:15:00Z\", \"event.code\": 1, \"event.dataset\": \"sysmon\", \"host.name\": \"WS-01\", \"process.command_line\": \"rundll32.exe C:\\\\Windows\\\\System32\\\\comsvcs.dll, MiniDump 668 C:\\\\Windows\\\\Temp\\\\lsass.dmp full\", \"process.executable\": \"C:\\\\Windows\\\\System32\\\\rundll32.exe\", \"process.name\": \"rundll32.exe\", \"process.parent.name\": \"cmd.exe\"}, \"index\": \"logs-sysmon-sysmon-endpoints\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0004",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 11
+     },
+     {
+      "field": "host.name",
+      "op": "eq",
+      "value": "WS-01"
+     },
+     {
+      "field": "file.path",
+      "op": "wildcard",
+      "value": "*lsass.dmp"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 11
+        }
+       },
+       {
+        "term": {
+         "host.name": {
+          "value": "WS-01",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "wildcard": {
+         "file.path": {
+          "value": "*lsass.dmp",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0005"
+   ],
+   "result_hash": "8dfb4ff7c4967c1f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"sm-0005\", \"fields\": {\"@timestamp\": \"2026-10-15T13:15:03Z\", \"event.code\": 11, \"event.dataset\": \"sysmon\", \"file.path\": \"C:\\\\Windows\\\\Temp\\\\lsass.dmp\", \"host.name\": \"WS-01\", \"process.executable\": \"C:\\\\Windows\\\\System32\\\\rundll32.exe\"}, \"index\": \"logs-sysmon-sysmon-endpoints\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0005",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-sysmon-sysmon-endpoints",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "process.name",
+      "op": "eq",
+      "value": "PSEXESVC.exe"
+     },
+     {
+      "field": "process.parent.name",
+      "op": "eq",
+      "value": "services.exe"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "process.name": {
+          "value": "PSEXESVC.exe",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "process.parent.name": {
+          "value": "services.exe",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-sysmon-sysmon-endpoints/sm-0006"
+   ],
+   "result_hash": "4ccf90bbe73c9d24",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"sm-0006\", \"fields\": {\"@timestamp\": \"2026-10-15T13:27:00Z\", \"event.code\": 1, \"event.dataset\": \"sysmon\", \"host.name\": \"FS-01\", \"process.command_line\": \"C:\\\\Windows\\\\PSEXESVC.exe\", \"process.executable\": \"C:\\\\Windows\\\\PSEXESVC.exe\", \"process.name\": \"PSEXESVC.exe\", \"process.parent.name\": \"services.exe\"}, \"index\": \"logs-sysmon-sysmon-endpoints\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0006",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "aggregate",
+   "params": {
+    "index": "logs-firewall-fw-edge",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "agg": "terms",
+    "field": "destination.ip",
+    "filters": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     },
+     {
+      "field": "destination.port",
+      "op": "in",
+      "value": [
+       135,
+       445,
+       5985
+      ]
+     }
+    ],
+    "must_not": [
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "10.0.2.20"
+     }
+    ],
+    "any_of": null,
+    "size": 20,
+    "sum_field": null,
+    "distinct_field": null
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "bool": {
+         "should": [
+          {
+           "term": {
+            "destination.port": 135
+           }
+          },
+          {
+           "term": {
+            "destination.port": 445
+           }
+          },
+          {
+           "term": {
+            "destination.port": 5985
+           }
+          }
+         ],
+         "minimum_should_match": 1
+        }
+       }
+      ],
+      "must_not": [
+       {
+        "term": {
+         "destination.ip": {
+          "value": "10.0.2.20",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 0,
+    "aggs": {
+     "a": {
+      "terms": {
+       "field": "destination.ip",
+       "size": 20
+      }
+     }
+    }
+   },
+   "total": 6,
+   "returned_ids": [
+    "[{\"count\": 6, \"key\": \"10.0.2.10\"}]"
+   ],
+   "result_hash": "7f381c4fa26e2f3b",
+   "ok": true,
+   "error": "",
+   "digest": "{\"result\": [{\"count\": 6, \"key\": \"10.0.2.10\"}], \"total\": 6}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0007",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-firewall-fw-edge",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     },
+     {
+      "field": "destination.ip",
+      "op": "eq",
+      "value": "10.0.2.10"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "destination.ip": {
+          "value": "10.0.2.10",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 6,
+   "returned_ids": [
+    "logs-firewall-fw-edge/fw-0001",
+    "logs-firewall-fw-edge/fw-0002",
+    "logs-firewall-fw-edge/fw-0003",
+    "logs-firewall-fw-edge/fw-0004",
+    "logs-firewall-fw-edge/fw-0005",
+    "logs-firewall-fw-edge/fw-0006"
+   ],
+   "result_hash": "fabeb3714b934517",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"fw-0001\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:00Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 135, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}, {\"event_id\": \"fw-0002\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:01Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 445, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}, {\"event_id\": \"fw-0003\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:02Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 5985, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}, {\"event_id\": \"fw-0004\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:03Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 445, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}, {\"event_id\": \"fw-0005\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:04Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 445, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}, {\"event_id\": \"fw-0006\", \"fields\": {\"@timestamp\": \"2026-10-15T13:31:05Z\", \"destination.ip\": \"10.0.2.10\", \"destination.port\": 135, \"event.action\": \"allow\", \"event.dataset\": \"firewall\", \"network.transport\": \"tcp\", \"source.ip\": \"10.0.1.15\"}, \"index\": \"logs-firewall-fw-edge\"}], \"returned\": 6, \"total\": 6, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0008",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-windows-security-dc",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 5145
+     },
+     {
+      "field": "winlog.event_data.ShareName",
+      "op": "wildcard",
+      "value": "*ADMIN$"
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 5145
+        }
+       },
+       {
+        "wildcard": {
+         "winlog.event_data.ShareName": {
+          "value": "*ADMIN$",
+          "case_insensitive": true
+         }
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-windows-security-dc/ws-0002"
+   ],
+   "result_hash": "84b01388baf7536f",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"ws-0002\", \"fields\": {\"@timestamp\": \"2026-10-15T13:26:40Z\", \"event.code\": 5145, \"event.dataset\": \"windows.security\", \"host.name\": \"FS-01\", \"source.ip\": \"10.0.1.15\", \"user.name\": \"admin\", \"winlog.event_data.RelativeTargetName\": \"PSEXESVC.exe\", \"winlog.event_data.ShareName\": \"\\\\\\\\*\\\\ADMIN$\"}, \"index\": \"logs-windows-security-dc\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0009",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "search",
+   "params": {
+    "index": "logs-windows-security-dc",
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "filters": [
+     {
+      "field": "event.code",
+      "op": "eq",
+      "value": 4624
+     },
+     {
+      "field": "source.ip",
+      "op": "eq",
+      "value": "10.0.1.15"
+     }
+    ],
+    "must_not": null,
+    "any_of": null,
+    "fields": null,
+    "size": 50,
+    "sort": "asc"
+   },
+   "dsl": {
+    "query": {
+     "bool": {
+      "filter": [
+       {
+        "range": {
+         "@timestamp": {
+          "gte": "2026-10-15T08:00:00Z",
+          "lt": "2026-10-15T18:00:00Z"
+         }
+        }
+       },
+       {
+        "term": {
+         "event.code": 4624
+        }
+       },
+       {
+        "term": {
+         "source.ip": {
+          "value": "10.0.1.15",
+          "case_insensitive": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "size": 50,
+    "sort": [
+     {
+      "@timestamp": {
+       "order": "asc"
+      }
+     }
+    ],
+    "track_total_hits": true
+   },
+   "total": 1,
+   "returned_ids": [
+    "logs-windows-security-dc/ws-0001"
+   ],
+   "result_hash": "3157adbd7c20cacf",
+   "ok": true,
+   "error": "",
+   "digest": "{\"hits\": [{\"event_id\": \"ws-0001\", \"fields\": {\"@timestamp\": \"2026-10-15T13:26:38Z\", \"event.code\": 4624, \"event.dataset\": \"windows.security\", \"host.name\": \"FS-01\", \"source.ip\": \"10.0.1.15\", \"user.name\": \"admin\", \"winlog.event_data.LogonType\": \"3\"}, \"index\": \"logs-windows-security-dc\"}], \"returned\": 1, \"total\": 1, \"truncated\": false}"
+  },
+  {
+   "call_id": "hunt-lsass-001-0010",
+   "ts": "2026-10-21T00:00:00Z",
+   "tool": "coverage_check",
+   "params": {
+    "indices": [
+     "logs-sysmon-sysmon-endpoints",
+     "logs-firewall-fw-edge",
+     "logs-windows-security-dc"
+    ],
+    "time_from": "2026-10-15T08:00:00Z",
+    "time_to": "2026-10-15T18:00:00Z",
+    "bucket_minutes": 60
+   },
+   "dsl": {
+    "logs-sysmon-sysmon-endpoints": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-15T08:00:00Z",
+        "lt": "2026-10-15T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-15T08:00:00Z",
+         "max": "2026-10-15T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    },
+    "logs-firewall-fw-edge": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-15T08:00:00Z",
+        "lt": "2026-10-15T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-15T08:00:00Z",
+         "max": "2026-10-15T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    },
+    "logs-windows-security-dc": {
+     "query": {
+      "range": {
+       "@timestamp": {
+        "gte": "2026-10-15T08:00:00Z",
+        "lt": "2026-10-15T18:00:00Z"
+       }
+      }
+     },
+     "size": 0,
+     "aggs": {
+      "h": {
+       "date_histogram": {
+        "field": "@timestamp",
+        "fixed_interval": "60m",
+        "min_doc_count": 0,
+        "extended_bounds": {
+         "min": "2026-10-15T08:00:00Z",
+         "max": "2026-10-15T17:59:59.999Z"
+        }
+       }
+      }
+     }
+    }
+   },
+   "total": 27,
+   "returned_ids": [
+    "{\"logs-firewall-fw-edge\": 12, \"logs-sysmon-sysmon-endpoints\": 10, \"logs-windows-security-dc\": 5}"
+   ],
+   "result_hash": "61ca7a1e53866782",
+   "ok": true,
+   "error": "",
+   "digest": "{\"coverage\": {\"logs-firewall-fw-edge\": {\"buckets\": [{\"docs\": 1, \"start\": \"2026-10-15T08:00:00.000Z\"}, {\"docs\": 2, \"start\": \"2026-10-15T09:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T11:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T12:00:00.000Z\"}, {\"docs\": 6, \"start\": \"2026-10-15T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T15:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-15T11:00:00.000Z\", \"2026-10-15T14:00:00.000Z\", \"2026-10-15T15:00:00.000Z\", \"2026-10-15T17:00:00.000Z\"], \"total\": 12}, \"logs-sysmon-sysmon-endpoints\": {\"buckets\": [{\"docs\": 0, \"start\": \"2026-10-15T08:00:00.000Z\"}, {\"docs\": 2, \"start\": \"2026-10-15T09:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T10:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T11:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T12:00:00.000Z\"}, {\"docs\": 4, \"start\": \"2026-10-15T13:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T14:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T15:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-15T08:00:00.000Z\", \"2026-10-15T14:00:00.000Z\", \"2026-10-15T16:00:00.000Z\", \"2026-10-15T17:00:00.000Z\"], \"total\": 10}, \"logs-windows-security-dc\": {\"buckets\": [{\"docs\": 1, \"start\": \"2026-10-15T08:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T09:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T10:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T11:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T12:00:00.000Z\"}, {\"docs\": 2, \"start\": \"2026-10-15T13:00:00.000Z\"}, {\"docs\": 1, \"start\": \"2026-10-15T14:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T15:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T16:00:00.000Z\"}, {\"docs\": 0, \"start\": \"2026-10-15T17:00:00.000Z\"}], \"empty_buckets\": [\"2026-10-15T09:00:00.000Z\", \"2026-10-15T11:00:00.000Z\", \"2026-10-15T12:00:00.000Z\", \"2026-10-15T15:00:00.000Z\", \"2026-10-15T16:00:00.000Z\", \"2026-10-15T17:00:00.000Z\"], \"total\": 5}}, \"total\": 27}"
+  }
+ ],
+ "step_results": {
+  "T1003.001-a": {
+   "status": "ok",
+   "total": 3
+  },
+  "T1003.001-b": {
+   "status": "ok",
+   "total": 1
+  },
+  "T1003.001-c": {
+   "status": "ok",
+   "total": 1
+  },
+  "T1003.001-d": {
+   "status": "ok",
+   "total": 1
+  },
+  "T1021.002-a": {
+   "status": "ok",
+   "total": 1
+  },
+  "T1021.002-b": {
+   "status": "ok",
+   "total": 6
+  },
+  "T1021.002-c": {
+   "status": "ok",
+   "total": 1
+  },
+  "T1078-a": {
+   "status": "ok",
+   "total": 1
+  }
+ },
+ "dynamic_steps": [],
+ "weak_signals": {},
+ "notes": {
+  "entity_missing": [],
+  "untested": {},
+  "coverage": {
+   "logs-sysmon-sysmon-endpoints": {
+    "total": 10,
+    "buckets": [
+     {
+      "start": "2026-10-15T08:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T09:00:00.000Z",
+      "docs": 2
+     },
+     {
+      "start": "2026-10-15T10:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T11:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T12:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T13:00:00.000Z",
+      "docs": 4
+     },
+     {
+      "start": "2026-10-15T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T15:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T16:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-15T08:00:00.000Z",
+     "2026-10-15T14:00:00.000Z",
+     "2026-10-15T16:00:00.000Z",
+     "2026-10-15T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   },
+   "logs-firewall-fw-edge": {
+    "total": 12,
+    "buckets": [
+     {
+      "start": "2026-10-15T08:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T09:00:00.000Z",
+      "docs": 2
+     },
+     {
+      "start": "2026-10-15T10:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T12:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T13:00:00.000Z",
+      "docs": 6
+     },
+     {
+      "start": "2026-10-15T14:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T16:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-15T11:00:00.000Z",
+     "2026-10-15T14:00:00.000Z",
+     "2026-10-15T15:00:00.000Z",
+     "2026-10-15T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   },
+   "logs-windows-security-dc": {
+    "total": 5,
+    "buckets": [
+     {
+      "start": "2026-10-15T08:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T09:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T10:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T11:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T12:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T13:00:00.000Z",
+      "docs": 2
+     },
+     {
+      "start": "2026-10-15T14:00:00.000Z",
+      "docs": 1
+     },
+     {
+      "start": "2026-10-15T15:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T16:00:00.000Z",
+      "docs": 0
+     },
+     {
+      "start": "2026-10-15T17:00:00.000Z",
+      "docs": 0
+     }
+    ],
+    "empty_buckets": [
+     "2026-10-15T09:00:00.000Z",
+     "2026-10-15T11:00:00.000Z",
+     "2026-10-15T12:00:00.000Z",
+     "2026-10-15T15:00:00.000Z",
+     "2026-10-15T16:00:00.000Z",
+     "2026-10-15T17:00:00.000Z"
+    ],
+    "n_buckets": null,
+    "coverage_ratio": null,
+    "bucket_minutes": 60,
+    "first": null,
+    "last": null
+   }
+  },
+  "coverage_gaps": {},
+  "gaps": [],
+  "dated": true,
+  "data_sources": {
+   "logs-sysmon-sysmon-endpoints": 10,
+   "logs-firewall-fw-edge": 12,
+   "logs-windows-security-dc": 5
+  },
+  "selected_sources": [],
+  "out_of_scope": null,
+  "in_scope_without_playbook": null,
+  "min_support": {
+   "T1003.001": 2,
+   "T1021.002": 2
+  },
+  "technique_sources": {},
+  "missing_fields": {},
+  "info": []
+ },
+ "hunt_notes": [],
+ "baselines": [
+  "LSASS access allowlist: ['C:\\\\Program Files\\\\Windows Defender\\\\MsMpEng.exe', 'C:\\\\Windows\\\\System32\\\\svchost.exe']",
+  "10.0.1.15 -> 10.0.2.20 on 445 is daily file-share traffic"
+ ],
+ "limitations": [],
+ "meta": {
+  "run_id": "hunt-lsass-001",
+  "planner": "rules",
+  "backend": "rules (simulated hunter)",
+  "controls": {
+   "canonical_order": true,
+   "coverage_enforcement": true
+  },
+  "fixture": "c3-sample"
+ },
+ "c2_verdict": null,
+ "c2_self_check": {},
+ "trace": [],
+ "analytics_audit": [],
+ "queries": [],
+ "c2_findings": {}
+}
