@@ -90,3 +90,13 @@ The integration harness starts actual A3 on a temporary loopback port,
 forwards through unchanged A2 over trusted HTTPS to ES, then runs actual C1,
 pinned C2/C3 and C4. `--a3-stream` enables this path. It checks SSH hunting,
 raw Apache, B2-generated JSON/CSV, replay and cleanup.
+
+## Confirmed yearless syslog policy
+
+For yearless Linux auth/firewall logs, onboarding requires `--log-year` and
+`--timezone`. Raw envelopes preserve these as string `labels.log_year` and
+`labels.log_timezone`. A3/A2 preserve them; B1 combines the original prefix with
+the confirmed year and parses it in the supplied IANA timezone in Elasticsearch.
+B3 verifies exact UTC timestamps, labels, original records and replay IDs.
+No year is inferred from ingestion time. Sources spanning years must be split;
+ambiguous DST wall times require correction or an explicit offset.

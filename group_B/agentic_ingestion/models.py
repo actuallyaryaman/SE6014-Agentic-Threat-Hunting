@@ -30,6 +30,7 @@ class SourceSpec(BaseModel):
     dataset_hint: str | None = Field(default=None, min_length=1, max_length=128)
     host_name: str | None = Field(default=None, min_length=1, max_length=255)
     timezone: str | None = None
+    log_year: int | None = Field(default=None, ge=1970, le=9999, strict=True)
     ingest_mode: IngestMode = "auto"
     dry_run: bool = Field(default=True, strict=True)
 

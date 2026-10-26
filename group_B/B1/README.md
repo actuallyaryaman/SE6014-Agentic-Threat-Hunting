@@ -131,3 +131,12 @@ group_B/B1/
   Pipelines/*.json    the four ingest pipelines
   tests/              unit tests and small sample files (tests/data)
 ```
+
+### Yearless Linux and firewall syslog
+
+These pipelines require confirmed `labels.log_year` and `labels.log_timezone`
+(e.g. `"2024"`, `"Asia/Singapore"`) for yearless records. Missing policy is tagged
+`_parse_failure`; no current year is inferred. Offset-bearing ISO Linux records
+continue to parse without these labels. B3 supplies the labels from onboarding
+`--log-year` and `--timezone`. For the standalone loader, explicitly set
+`LOG_YEAR=2024 LOG_TIMEZONE=Asia/Singapore` before running `load_file.py`.

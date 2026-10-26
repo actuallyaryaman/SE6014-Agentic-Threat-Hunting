@@ -194,7 +194,7 @@ class TestOnElasticsearch(unittest.TestCase):
 
     def simulate(self, name, lines):
         res = self.call(f"/_ingest/pipeline/{name}/_simulate",
-                        {"docs": [{"_source": {"message": l}} for l in lines]})
+                        {"docs": [{"_source": {"message": l, "labels": {"log_year": "2024", "log_timezone": "UTC"}}} for l in lines]})
         return [d["doc"]["_source"] for d in res["docs"]]
 
     def test_good_lines_have_required_fields_and_no_failure(self):
@@ -229,6 +229,24 @@ class TestOnElasticsearch(unittest.TestCase):
             self.assertTrue(get(doc, "@timestamp").startswith("2026-10-26T01:23:"), doc)
             self.assertEqual(get(doc, "source.ip"), "172.17.0.1")
             self.assertEqual(get(doc, "http.response.status_code"), 400)
+
+    def test_yearless_requires_policy_and_normalizes_timezone(self):
+        cases = {
+            "linux-auth": "Jan  1 00:15:00 host sshd[12]: Failed password for demo from 203.0.113.1 port 4000 ssh2",
+            "firewall-syslog": "Jan  1 00:15:00 host firewall: Blocked connection from 203.0.113.1 to 192.0.2.1",
+        }
+        for name, line in cases.items():
+            with self.subTest(pipeline=name):
+                def simulate(labels):
+                    result = self.call(f"/_ingest/pipeline/{name}/_simulate", {"docs": [
+                        {"_source": {"message": line, "labels": labels}}]})
+                    return result["docs"][0]["doc"]["_source"]
+                for labels in ({}, {"log_year": "2024"}, {"log_timezone": "UTC"}):
+                    self.assertIn("_parse_failure", simulate(labels)["tags"])
+                doc = simulate({"log_year": "2024", "log_timezone": "Asia/Singapore"})
+                self.assertNotIn("_parse_failure", doc.get("tags", []), doc)
+                self.assertEqual(doc["@timestamp"], "2023-12-31T16:15:00.000Z")
+                self.assertEqual(doc["event"]["original"], line)
 
     def test_windows_attack_event(self):
         doc = self.simulate("windows-json", [WIN_SECURITY])[0]

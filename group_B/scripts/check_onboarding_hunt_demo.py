@@ -323,6 +323,48 @@ class HuntDemo(Integration):
             self.case("a3_stream_" + kind, indexed=result.indexed_count, pipeline_id=result.pipeline_id, replay_submitted=0)
         self.legacy_a3_and_rejection()
 
+    def year_policy_cases(self):
+        recognizer = load_b1_recognizer("group_B.B1.recognizer:recognise")
+        approved = {"linux_auth": "linux-auth", "firewall_syslog": "firewall-syslog"}
+        self.start_a3(list(approved.values()))
+        config = ExecutionConfig(a3_udp_url=self.a3_url, index_prefix="security-events-c2test",
+                                 search_pattern="security-events-c2test*", audit_path=self.root / "year-audit.jsonl",
+                                 verify_attempts=20, verify_interval=2)
+        cases = [
+            ("linux", "Feb 29 00:15:00 YEAR-SSH sshd[123]: Failed password for demo from 203.0.113.99 port 40000 ssh2", "UTC", "2024-02-29T00:15:00+00:00"),
+            ("firewall", "Jan  1 00:15:00 YEAR-FW firewall: Blocked connection from 203.0.113.99 to 192.0.2.10", "Asia/Singapore", "2023-12-31T16:15:00+00:00"),
+        ]
+        for name, line, zone, expected_time in cases:
+            path = self.root / ("sources/year-" + name + ".log")
+            path.write_text(line + "\n" + line + "\n")
+            policy = InspectionPolicy(allowed_roots=(path.parent,))
+            source = SourceSpec(kind="file", location=str(path), ingest_mode="stream", dry_run=False,
+                                timezone=zone, log_year=2024)
+            options = dict(recognizer=recognizer, known_pipelines=approved)
+            blocked = onboard(source.model_copy(update={"log_year": None}), policy, config, **options)
+            assert blocked.status == "blocked" and blocked.submitted_count == 0
+            result = onboard(source, policy, config, **options)
+            assert result.status == "verified" and result.indexed_count == 2 and result.parse_failure_count == 0, result.model_dump()
+            hits = self.api("POST", "/security-events-c2test*/_search", json={"size": 10, "query": {
+                "term": {"labels.source_id": result.source_id}}})["hits"]["hits"]
+            assert len(hits) == 2 and len({h["_source"]["event_id"] for h in hits}) == 2
+            for hit in hits:
+                doc = hit["_source"]
+                assert datetime.fromisoformat(doc["@timestamp"].replace("Z", "+00:00")) == datetime.fromisoformat(expected_time)
+                assert doc["labels"]["log_year"] == "2024" and doc["labels"]["log_timezone"] == zone
+                assert doc["labels"]["ingest_pipeline"] == result.pipeline_id
+                assert doc["event"]["original"] == line and doc["event"]["id"] == doc["event_id"]
+            replay = onboard(source, policy, config, **options)
+            assert replay.status == "verified" and replay.submitted_count == 0 and replay.reused_count == 2
+            changed = onboard(source.model_copy(update={"log_year": 2028}), policy, config, **options)
+            assert changed.status == "failed" and "EXISTING_DOCUMENT_CONFLICT" in changed.error_codes
+            missing = self.api("POST", "/_ingest/pipeline/" + result.pipeline_id + "/_simulate", json={
+                "docs": [{"_source": {"message": line}}]})["docs"][0]["doc"]["_source"]
+            assert "_parse_failure" in missing["tags"] and "labels.log_year" in missing["error"]["message"]
+            self.case("year_policy_" + name, indexed=2, identical_records_distinct_ids=True,
+                      log_year=2024, log_timezone=zone, expected_timestamp=expected_time,
+                      replay_submitted=0, changed_year_rejected=True, missing_policy_rejected=True)
+
     def legacy_a3_and_rejection(self):
         self.start_a3([])
         fixtures = REPO / "group_A/A3_Stream_Ingestion/Data/fixed_events.jsonl"
@@ -438,6 +480,7 @@ def main():
             test.compare_c4(args.c4_ref, output)
         if args.a3_stream and not args.llm_env:
             test.extra_stream_cases()
+            test.year_policy_cases()
         test.report["status"] = "passed"
         status = 0
     except Exception as error:

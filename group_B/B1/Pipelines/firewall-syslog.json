@@ -11,19 +11,44 @@
       "grok": {
         "field": "message",
         "patterns": [
-          "%{SYSLOGTIMESTAMP:tmp.ts} %{SYSLOGHOST:host.name} firewall: %{WORD:tmp.action} connection from %{IP:source.ip} to %{IP:destination.ip}"
+          "%{SYSLOGTIMESTAMP:tmp.syslog_ts} %{SYSLOGHOST:host.name} firewall: %{WORD:tmp.action} connection from %{IP:source.ip} to %{IP:destination.ip}"
+        ]
+      }
+    },
+    {
+      "fail": {
+        "if": "ctx.tmp?.syslog_ts != null && (ctx.labels?.log_year == null || ctx.labels?.log_timezone == null)",
+        "message": "Yearless syslog requires confirmed labels.log_year and labels.log_timezone"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "tmp.ts",
+        "value": "{{{labels.log_year}}} {{{tmp.syslog_ts}}}"
+      }
+    },
+    {
+      "date": {
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "tmp.ts",
+        "target_field": "@timestamp",
+        "timezone": "{{{labels.log_timezone}}}",
+        "formats": [
+          "yyyy MMM d HH:mm:ss",
+          "yyyy MMM  d HH:mm:ss",
+          "yyyy MMM dd HH:mm:ss"
         ]
       }
     },
     {
       "date": {
-        "field": "tmp.ts",
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "@timestamp",
         "target_field": "@timestamp",
         "timezone": "UTC",
         "formats": [
-          "MMM d HH:mm:ss",
-          "MMM  d HH:mm:ss",
-          "MMM dd HH:mm:ss"
+          "ISO8601"
         ]
       }
     },

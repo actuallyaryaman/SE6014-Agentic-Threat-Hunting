@@ -2,9 +2,10 @@
 
 This demo can run without another member's server or credentials. It creates
 its own authenticated HTTPS Elasticsearch and A2 HTTP service, ingests synthetic
-SSH events through B3/B1, then runs C2 through its existing development MCP
-servers. It never calls an LLM. C3 can be tested with the optional snapshot
-flags below; final C1 and A3 are outside this demo.
+SSH events through B3/B1. The latest command below uses actual A3, the delivered
+C1 MCP server, pinned C2/C3 and corrected C4. Rules mode is offline from an LLM;
+`--llm-env` explicitly enables bounded live agent verification. Older command
+examples are retained as historical snapshots.
 
 ## Prepare
 
@@ -79,10 +80,9 @@ available during the presentation, clearly labeling it as a recorded run.
 
 ## Remaining team integration
 
-Repeat on another team member's local environment without exchanging credentials;
-replace the C1 development stand-in;
-connect C3's verifier/report; agree on A3's envelope/source IDs and yearless
-firewall policy. None of those agreements is implied by this local demo.
+Repeat the latest pinned command on another team member's local environment
+without exchanging credentials, review the outputs and merge the reviewed
+component branches. The later sections supersede the original stand-in demo.
 
 ## Test the proposed C2/C3 contracts
 
@@ -188,3 +188,15 @@ after fetching this integration branch. It handles valid zero-claim results
 and excludes phase execution timings while preserving meaningful differences.
 Both rules and live modes now enforce seeded scenario verdicts and exact
 attack citations. See [the corrected recheck](tests/C4_CORRECTIONS_RESULTS.md).
+
+## Confirmed year and timezone verification
+
+Use the latest A3 rules command above with corrected C4 pin
+`315cb6c784d32fdeabfa41546c285d329f556d3e`. The rules run additionally checks
+Linux leap-day logs with year 2024/UTC and firewall logs with year 2024 and
+Asia/Singapore, including UTC conversion across a year boundary. Each case
+checks two identical records with distinct IDs, metadata/original preservation,
+zero new replay submissions, changed-year conflicts and missing-policy rejection.
+These are real A3/A2/Elasticsearch checks. B3 must receive confirmed
+`--log-year` and `--timezone` for yearless sources; see
+[the onboarding command](agentic_ingestion/README.md).

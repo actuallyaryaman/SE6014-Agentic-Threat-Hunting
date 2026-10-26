@@ -3,6 +3,9 @@
 import hashlib
 import json
 import os
+import re
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from uuid import uuid4
 
 from elasticsearch import Elasticsearch
@@ -61,12 +64,29 @@ def envelopes(plan, lines, source, run_id):
             "labels": {"source_id": plan.inspection.source_id, "run_id": run_id,
                        "ingest_mode": plan.ingest_mode, "ingest_pipeline": plan.pipeline_id},
         }
+        if plan.inspection.timestamp and plan.inspection.timestamp.requires_year:
+            record["labels"].update(log_year=str(source.log_year), log_timezone=source.timezone)
+            # Validate every record, including those beyond the inspection sample.
+            expected_syslog_timestamp(line, source.log_year, source.timezone)
         if source.host_name:
             record["host"] = {"name": source.host_name}
         records.append(record)
     if not records:
         raise IngestionError("source contains no data records after its header")
     return records
+
+
+def expected_syslog_timestamp(line, year, zone):
+    prefix = re.match(r"^[A-Z][a-z]{2} +[0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2}", line)
+    if prefix is None:
+        raise IngestionError("yearless source contains a record without a syslog timestamp")
+    parsed = datetime.strptime(f"{year} {prefix.group()}", "%Y %b %d %H:%M:%S")
+    local = parsed.replace(tzinfo=ZoneInfo(zone))
+    # Ambiguous/nonexistent wall times need an offset or operator correction.
+    alternate = local.replace(fold=1)
+    if local.utcoffset() != alternate.utcoffset():
+        raise IngestionError("ambiguous or nonexistent local timestamp requires an explicit offset")
+    return local.astimezone(timezone.utc)
 
 
 def prepare_pipeline(plan, registry, client):
@@ -167,8 +187,14 @@ def onboard(source, policy, config: ExecutionConfig, *, recognizer=None,
             owned.append(read_client)
         expected = {record["event_id"]: hashlib.sha256(record["message"].encode()).hexdigest()
                     for record in records}
+        yearless = bool(plan.inspection.timestamp and plan.inspection.timestamp.requires_year)
+        verification_policy = dict(
+            expected_timestamps={r["event_id"]: expected_syslog_timestamp(r["message"], source.log_year, source.timezone)
+                                 for r in records} if yearless else None,
+            expected_labels={"log_year": str(source.log_year), "log_timezone": source.timezone} if yearless else None,
+        )
         before = check_documents(read_client, config.search_pattern, expected,
-                                 source_id=source_id, dataset=plan.dataset)
+                                 source_id=source_id, dataset=plan.dataset, **verification_policy)
         state.update(indexed_count=len(before.found), parse_failure_count=before.parse_failures)
         if before.unavailable:
             return finish("unverified", "ES_VERIFICATION_UNAVAILABLE")
@@ -199,7 +225,7 @@ def onboard(source, policy, config: ExecutionConfig, *, recognizer=None,
             state.update(submitted_count=receipt.submitted, acknowledged_count=receipt.acknowledged)
         after = verify_documents(read_client, config.search_pattern, expected,
                                  source_id=source_id, dataset=plan.dataset,
-                                 attempts=config.verify_attempts, interval=config.verify_interval)
+                                 attempts=config.verify_attempts, interval=config.verify_interval, **verification_policy)
         state.update(indexed_count=len(after.found), parse_failure_count=after.parse_failures)
         if after.unavailable:
             return finish("unverified", "ES_VERIFICATION_UNAVAILABLE",

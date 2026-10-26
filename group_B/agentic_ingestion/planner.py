@@ -82,7 +82,7 @@ def plan_inspection(
     else:
         if timestamp.requires_timezone and source.timezone is None:
             reasons.append("Source timestamps require an explicit timezone.")
-        if timestamp.requires_year:
+        if timestamp.requires_year and source.log_year is None:
             reasons.append("Source timestamps omit the year; an explicit year policy is required.")
 
     recognition = (recognizer or NullRecognizer()).recognise(inspection.samples)
