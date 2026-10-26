@@ -3,6 +3,8 @@
 import json
 import os
 import secrets
+import socket
+from urllib.parse import urlsplit
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -138,3 +140,35 @@ class DirectESAdapter:
             except Exception:
                 return Receipt(sent, acknowledged, True)
         return Receipt(sent, acknowledged)
+
+
+class UdpStreamAdapter:
+    """Bounded loopback B3 raw envelopes. UDP has no delivery acknowledgement."""
+
+    def __init__(self, url):
+        self.url = url
+
+    def handoff(self, plan, records):
+        _execute_only(plan)
+        if plan.ingest_mode != "stream":
+            raise TransportError("UDP handoff requires stream mode")
+        target = urlsplit(self.url)
+        packets = []
+        for record in records:
+            envelope = dict(record, labels=dict(record["labels"], envelope="b3.raw.v1"))
+            packet = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
+            if len(packet) > 4096:
+                raise TransportError("raw stream envelope exceeds 4096 bytes; use pull or push")
+            packets.append(packet)
+        sent = 0
+        family = socket.AF_INET6 if ":" in target.hostname else socket.AF_INET
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as sender:
+                sender.settimeout(5)
+                for packet in packets:
+                    sender.sendto(packet, (target.hostname, target.port))
+                    sent += 1
+                    time.sleep(0.01)  # bounded pacing; downstream verification still detects loss
+        except OSError:
+            return Receipt(sent, 0, True)
+        return Receipt(sent, 0)

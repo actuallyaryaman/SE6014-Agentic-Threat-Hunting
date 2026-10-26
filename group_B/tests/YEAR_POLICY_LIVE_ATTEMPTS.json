@@ -1,0 +1,209 @@
+{
+  "attempts": [
+    {
+      "started_at": "2026-10-26T08:29:06.190573+00:00",
+      "completed_at": "2026-10-26T08:31:49.363953+00:00",
+      "code_head": "59b283127c17b55831a3348750b3a15fcc1b3d32",
+      "c2_commit": "fd9995af15804a7e2fe33b13d90f39911ef6ee36",
+      "c3_commit": "5d8ced350259c3727d9c1bddabf292194518797e",
+      "llm": {
+        "provider": "openai",
+        "model": "deepseek-flash",
+        "max_calls_per_hunt": 8,
+        "max_investigator_steps": 2
+      },
+      "status": "failed",
+      "error": "attack: citations differ from independent attack ground truth",
+      "cleanup": "owned containers, network, data, credentials and certificates removed",
+      "limitation": "Initial harness copied results only after acceptance, so the failed hunt result and usage audit were cleaned up. Commit 876e562 retains those before checking; a bounded diagnostic run follows."
+    },
+    {
+      "started_at": "2026-10-26T08:32:52.012211+00:00",
+      "completed_at": "2026-10-26T08:34:53.791571+00:00",
+      "code_head": "876e5625f8bbaff3c528ee06c5edcf024e30c227",
+      "c2_commit": "fd9995af15804a7e2fe33b13d90f39911ef6ee36",
+      "c3_commit": "5d8ced350259c3727d9c1bddabf292194518797e",
+      "llm": {
+        "provider": "openai",
+        "model": "deepseek-flash",
+        "max_calls_per_hunt": 8,
+        "max_investigator_steps": 2
+      },
+      "status": "failed",
+      "error": "attack: citations differ from independent attack ground truth",
+      "cleanup": "owned containers, network, data, credentials and certificates removed",
+      "ground_truth_checks": [
+        {
+          "run_id": "attack",
+          "actual_label": "SUPPORTED",
+          "expected_attack_ids": 31,
+          "cited_ids": 32,
+          "missing_ids": [],
+          "unexpected_ids": [
+            "security-events-c2test-2026.10.26/8cc5282228c0b11fa7d43bf0864160208cdc3a95a891e0f74705295300840f18"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "C-001",
+          "text": "Source 203.0.113.99 produced 30 failed SSH logins",
+          "origin": "playbook",
+          "context_only": false,
+          "event_ids": [
+            "security-events-c2test-2026.10.26/cf28c9ab4549c8539612abf5c878f5d9775d23be9bca7e24ac4baa925e51be5c",
+            "security-events-c2test-2026.10.26/7d10820862bfb3643243cd2858d7f227fbde79469c319fc848b84fc202c9d919",
+            "security-events-c2test-2026.10.26/808b5e004d8ab656f9b8aec91f9bb7aea6a88fdcf12bd00118064911232031c1",
+            "security-events-c2test-2026.10.26/ce57f10d3f4862abad9f021714bfdebd95c7cd7d357d4391a1c8739e6c7c6787",
+            "security-events-c2test-2026.10.26/dabc5c69de7b0485822f61bf6e57a798c03cda8e0a668fe54032e8353471cff2",
+            "security-events-c2test-2026.10.26/c0b20d6736168062198aae409169f6e6d78abc4eaffd20729215b04a58227535",
+            "security-events-c2test-2026.10.26/3dbb38a6da6731e4b15fe7722bf7a86503d6b41a67b25793b204d614ef606191",
+            "security-events-c2test-2026.10.26/cb22fa76bbcb9a51e18ee9a20db5dd117b3c6daa1899cc93b0f3649828a5e620",
+            "security-events-c2test-2026.10.26/47d86e065e92bab6cc66d5a2d6619142cbb3da7b75ebd5714ef67708748a6ccd",
+            "security-events-c2test-2026.10.26/d15418c3db40a81d1fd29cc5b338a6602fbec6865c27406cd41d3613f9dd64a2",
+            "security-events-c2test-2026.10.26/1833ab806e3bdfc6f4924a94a0e0d0c2e546737537bb39a5aeb43c0fc323a957",
+            "security-events-c2test-2026.10.26/185ac8ddc16ba1a58663ca1eb1d7647062580462a2d44b7d6fde006c4549234d",
+            "security-events-c2test-2026.10.26/b66179fc85e4bdabef46acdd5180bdd9294cb25c23c57139f2bf1d50c59ee4d3",
+            "security-events-c2test-2026.10.26/a1d42c42d1f3e4e0a80d6803c94be966f75ab9177dd272c8446ad2bd366d59f5",
+            "security-events-c2test-2026.10.26/1fa327df6dee1aab488f80dacfbd2eca1263d60aa5d5ab4d20b58b64bf63cd7e",
+            "security-events-c2test-2026.10.26/9c2e79da24f37be741c1f0df96519b50b318136efa6b35b541ac64c4a81422bd",
+            "security-events-c2test-2026.10.26/ed5ae9d004a4de819251e17a9c78ecdb5e0eea6df8bbe12ef11d42c8bd0c7c9c",
+            "security-events-c2test-2026.10.26/51147f1a833e9437f9f01f3e82de01bbee0c4346c8adaeeded3a8af98c1a67d8",
+            "security-events-c2test-2026.10.26/a14b97881857b2d1201e2526e0c18ce59b6313f2557c653d04d5ba544f267f93",
+            "security-events-c2test-2026.10.26/508d65a20eb9093b15cdd33d1e8d6975fc9fd74919d4208583f66943493f8426",
+            "security-events-c2test-2026.10.26/aa9978bbf7a7bb7672172a7ba08e3dcabccf234d02e297ab7b3253286cb014f3",
+            "security-events-c2test-2026.10.26/9e4580f59994ecf7e531b7af61f67336bbfdc0359e2104f3a1f4c9aefeeebaa0",
+            "security-events-c2test-2026.10.26/3afd188b34897c3f19c094d60a0bf736402c6abca11076d3bdf69051280acea1",
+            "security-events-c2test-2026.10.26/7516a092edbd72e551554f056686b9400cd188de81c819f40fc2350e2265a5ca",
+            "security-events-c2test-2026.10.26/d4dea1873b573ac9c100d39adde13cc811bf329d164905e2cce79817be6b6f36",
+            "security-events-c2test-2026.10.26/b6041ced813d8f171fef5343e6367f1f971998e55780e887772cdd5497b7bce8",
+            "security-events-c2test-2026.10.26/351fd18e23a3c412f6ff7468daf036d2badebeefa9613fd36953809205c32951",
+            "security-events-c2test-2026.10.26/1cf95b1ff00c898bf1347afd1e3b497895929f6a63abe64582522102feec6ec9",
+            "security-events-c2test-2026.10.26/bbbe6a7312494c125a51a3846d0b10fa98a45a4b9d578a5f41e4b93783b71685",
+            "security-events-c2test-2026.10.26/39e0d0315d975220e2efa44845a87d0a5018c5732ae0a046133b977979c6fd83"
+          ]
+        },
+        {
+          "claim_id": "C-002",
+          "text": "Source 203.0.113.99 logged in successfully as demo on DEMO-SSH after its failed SSH logins began",
+          "origin": "playbook",
+          "context_only": false,
+          "event_ids": [
+            "security-events-c2test-2026.10.26/d0f44536f2a20c65076ebd391267e0dde41b824f4bd794ee2e4aa4160423224c"
+          ]
+        },
+        {
+          "claim_id": "C-003",
+          "text": "Successful login as demo from 198.51.100.20 to BENIGN-SSH",
+          "origin": "llm",
+          "context_only": false,
+          "event_ids": [
+            "security-events-c2test-2026.10.26/8cc5282228c0b11fa7d43bf0864160208cdc3a95a891e0f74705295300840f18"
+          ]
+        },
+        {
+          "claim_id": "C-004",
+          "text": "Successful login as demo from 203.0.113.99 to DEMO-SSH",
+          "origin": "llm",
+          "context_only": false,
+          "event_ids": [
+            "security-events-c2test-2026.10.26/d0f44536f2a20c65076ebd391267e0dde41b824f4bd794ee2e4aa4160423224c"
+          ]
+        },
+        {
+          "claim_id": "C-005",
+          "text": "All failed SSH logins from 203.0.113.99 targeted DEMO-SSH (30 failures), confirming the brute force was aimed at DEMO-SSH before the successful login",
+          "origin": "llm",
+          "context_only": false,
+          "event_ids": []
+        }
+      ],
+      "offending_query": {
+        "seq": 17,
+        "server": "es",
+        "tool": "search",
+        "args": {
+          "index": "security-events-c2test*",
+          "time_from": "2026-10-25T00:00:00Z",
+          "time_to": "2026-10-25T01:00:00Z",
+          "filters": [
+            {
+              "field": "event.dataset",
+              "op": "eq",
+              "value": "linux.auth"
+            },
+            {
+              "field": "event.outcome",
+              "op": "eq",
+              "value": "success"
+            }
+          ],
+          "fields": [
+            "@timestamp",
+            "destination.ip",
+            "destination.port",
+            "event.action",
+            "event.original",
+            "event.outcome",
+            "host.name",
+            "source.ip",
+            "source.port",
+            "user.name"
+          ],
+          "size": 100
+        },
+        "request_hash": "2d6f6c2ea23cf1aa76f2a12419a55d6b50b72263f77290234c402ce202c3229a",
+        "call_id": "attack-0014",
+        "ok": true,
+        "total": 2,
+        "dsl": {
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "range": {
+                    "@timestamp": {
+                      "gte": "2026-10-25T00:00:00.000Z",
+                      "lt": "2026-10-25T01:00:00.000Z"
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "event.dataset": {
+                      "value": "linux.auth",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                {
+                  "term": {
+                    "event.outcome": {
+                      "value": "success",
+                      "case_insensitive": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 100,
+          "sort": [
+            {
+              "@timestamp": {
+                "order": "asc"
+              }
+            },
+            {
+              "event.original": {
+                "order": "asc"
+              }
+            }
+          ],
+          "track_total_hits": true
+        }
+      },
+      "diagnosis": "Agent query omitted host.name scope and returned both DEMO-SSH and BENIGN-SSH. Claim C-003 cited the benign success. All 31 seeded attack IDs are present, plus one unrelated event. No acceptance checks were weakened."
+    }
+  ]
+}

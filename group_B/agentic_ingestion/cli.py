@@ -26,6 +26,7 @@ def build_parser():
     parser.add_argument("--kind", choices=["file", "http", "stream"], required=True)
     parser.add_argument("--dataset")
     parser.add_argument("--timezone")
+    parser.add_argument("--log-year", type=int, help="confirmed year for yearless syslog records")
     parser.add_argument("--host-name")
     parser.add_argument("--format", choices=["auto", "json", "csv", "kv", "line"], default="auto")
     parser.add_argument("--mode", choices=["auto", "pull", "push", "stream", "direct_es"], default="auto")
@@ -49,7 +50,7 @@ def main(argv=None):
     try:
         source = SourceSpec(
             kind=args.kind, location=args.location, dataset_hint=args.dataset,
-            timezone=args.timezone, host_name=args.host_name,
+            timezone=args.timezone, log_year=args.log_year, host_name=args.host_name,
             format_hint=args.format, ingest_mode=args.mode,
             dry_run=not args.execute,
         )

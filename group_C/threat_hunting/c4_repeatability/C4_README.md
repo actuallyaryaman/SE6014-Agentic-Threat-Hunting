@@ -18,3 +18,16 @@ Exit codes: 0 = MATCH; 1 = DIFFERENT; 2 = INVALID INPUT. Missing required fields
 
 ## Integration follow-up
 Run the same hypothesis twice with the same dataset snapshot, time window, settings, and code version. Save both C2 result.json files, compare, investigate any differences, and document fixes. C3 JSON report comparison comes later.
+
+
+## Negative results and execution timing
+
+Zero claims/evidence are valid for NOT_SUPPORTED, INCONCLUSIVE and
+INSUFFICIENT_DATA results. Required fields and query records are still
+validated; a SUPPORTED verdict without claims is invalid.
+
+Only top-level manifest execution durations, phase_seconds and audit-file
+paths are omitted from comparison. Nested settings, model/configuration
+fields, event timestamps, evidence and queries remain meaningful.
+
+Regression tests: `python -m pytest -q group_C/threat_hunting/c4_repeatability`.

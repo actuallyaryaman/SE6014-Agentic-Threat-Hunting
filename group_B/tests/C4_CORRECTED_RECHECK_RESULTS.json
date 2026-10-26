@@ -1,0 +1,81 @@
+[
+  {
+    "mode": "rules-final",
+    "comparison": [
+      "attack",
+      "attack-repeat"
+    ],
+    "matched": 24,
+    "checks": 24,
+    "differing_fields": [],
+    "ground_truth_cases_checked": [
+      "attack",
+      "benign",
+      "attack-repeat",
+      "missing-host",
+      "empty-window"
+    ],
+    "c4_commit": "315cb6c784d32fdeabfa41546c285d329f556d3e"
+  },
+  {
+    "mode": "rules-final",
+    "comparison": [
+      "benign",
+      "benign"
+    ],
+    "matched": 24,
+    "checks": 24,
+    "differing_fields": [],
+    "ground_truth_cases_checked": [
+      "attack",
+      "benign",
+      "attack-repeat",
+      "missing-host",
+      "empty-window"
+    ],
+    "c4_commit": "315cb6c784d32fdeabfa41546c285d329f556d3e"
+  },
+  {
+    "mode": "deepseek-agent",
+    "comparison": [
+      "attack",
+      "attack-repeat"
+    ],
+    "matched": 14,
+    "checks": 24,
+    "differing_fields": [
+      "verdict",
+      "evidence_contents",
+      "queries_and_values",
+      "actions",
+      "agent",
+      "dynamic_steps",
+      "intake",
+      "manifest",
+      "skeptic",
+      "step_results"
+    ],
+    "ground_truth_cases_checked": [
+      "attack",
+      "benign",
+      "attack-repeat"
+    ],
+    "c4_commit": "315cb6c784d32fdeabfa41546c285d329f556d3e"
+  },
+  {
+    "mode": "deepseek-agent",
+    "comparison": [
+      "benign",
+      "benign"
+    ],
+    "matched": 24,
+    "checks": 24,
+    "differing_fields": [],
+    "ground_truth_cases_checked": [
+      "attack",
+      "benign",
+      "attack-repeat"
+    ],
+    "c4_commit": "315cb6c784d32fdeabfa41546c285d329f556d3e"
+  }
+]

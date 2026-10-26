@@ -74,7 +74,15 @@ def es(path, body=None, method="POST"):
 
 def bulk(index, pipeline, lines):
     """Send one chunk of raw lines. Return (ok_count, [error reasons])."""
-    body = "".join('{"index":{}}\n' + json.dumps({"message": l}) + "\n" for l in lines)
+    labels = {}
+    if os.environ.get("LOG_YEAR") or os.environ.get("LOG_TIMEZONE"):
+        year, zone = os.environ.get("LOG_YEAR", ""), os.environ.get("LOG_TIMEZONE", "")
+        from zoneinfo import ZoneInfo
+        if not year.isdigit() or not 1970 <= int(year) <= 9999 or not zone:
+            raise ValueError("LOG_YEAR and LOG_TIMEZONE must specify a confirmed year and timezone")
+        ZoneInfo(zone)
+        labels = {"log_year": year, "log_timezone": zone}
+    body = "".join('{"index":{}}\n' + json.dumps({"message": l, **({"labels": labels} if labels else {})}) + "\n" for l in lines)
     req = urllib.request.Request(
         f"{ES}/{index}/_bulk?pipeline={pipeline}",
         data=body.encode("utf-8"),

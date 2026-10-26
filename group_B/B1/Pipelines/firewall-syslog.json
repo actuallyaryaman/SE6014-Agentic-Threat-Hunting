@@ -11,19 +11,74 @@
       "grok": {
         "field": "message",
         "patterns": [
-          "%{SYSLOGTIMESTAMP:tmp.ts} %{SYSLOGHOST:host.name} firewall: %{WORD:tmp.action} connection from %{IP:source.ip} to %{IP:destination.ip}"
+          "%{SYSLOGTIMESTAMP:tmp.syslog_ts} %{SYSLOGHOST:host.name} firewall: %{WORD:tmp.action} connection from %{IP:source.ip} to %{IP:destination.ip}"
+        ]
+      }
+    },
+    {
+      "fail": {
+        "if": "ctx.tmp?.syslog_ts != null && ctx.labels?.envelope == 'b3.raw.v1' && (ctx.labels?.log_year == null || ctx.labels?.log_timezone == null)",
+        "message": "B3 raw yearless syslog requires confirmed labels.log_year and labels.log_timezone"
+      }
+    },
+    {
+      "fail": {
+        "if": "ctx.tmp?.syslog_ts != null && ctx.labels?.log_year != null && (ctx.labels.log_year.toString().length() != 4 || !Character.isDigit(ctx.labels.log_year.toString().charAt(0)) || !Character.isDigit(ctx.labels.log_year.toString().charAt(1)) || !Character.isDigit(ctx.labels.log_year.toString().charAt(2)) || !Character.isDigit(ctx.labels.log_year.toString().charAt(3)) || ctx.labels.log_year.toString() == '0000')",
+        "message": "labels.log_year must be a valid four-digit year"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "tmp.ts",
+        "value": "{{{tmp.syslog_ts}}}"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.syslog_ts != null && ctx.labels?.log_year != null",
+        "field": "tmp.ts",
+        "value": "{{{labels.log_year}}} {{{tmp.syslog_ts}}}"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "tmp.timezone",
+        "value": "UTC"
+      }
+    },
+    {
+      "set": {
+        "if": "ctx.tmp?.syslog_ts != null && ctx.labels?.log_timezone != null",
+        "field": "tmp.timezone",
+        "value": "{{{labels.log_timezone}}}"
+      }
+    },
+    {
+      "date": {
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "tmp.ts",
+        "target_field": "@timestamp",
+        "timezone": "{{{tmp.timezone}}}",
+        "formats": [
+          "yyyy MMM d HH:mm:ss",
+          "yyyy MMM  d HH:mm:ss",
+          "yyyy MMM dd HH:mm:ss",
+          "MMM d HH:mm:ss",
+          "MMM  d HH:mm:ss",
+          "MMM dd HH:mm:ss"
         ]
       }
     },
     {
       "date": {
-        "field": "tmp.ts",
+        "if": "ctx.tmp?.syslog_ts != null",
+        "field": "@timestamp",
         "target_field": "@timestamp",
         "timezone": "UTC",
         "formats": [
-          "MMM d HH:mm:ss",
-          "MMM  d HH:mm:ss",
-          "MMM dd HH:mm:ss"
+          "ISO8601"
         ]
       }
     },

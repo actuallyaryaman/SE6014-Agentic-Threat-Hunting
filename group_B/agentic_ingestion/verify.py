@@ -25,7 +25,7 @@ class Verification:
     unavailable: bool = False
 
 
-def check_documents(client, pattern, expected, *, source_id, dataset):
+def check_documents(client, pattern, expected, *, source_id, dataset, expected_timestamps=None, expected_labels=None):
     result = Verification()
     ids = list(expected)
     try:
@@ -75,6 +75,11 @@ def check_documents(client, pattern, expected, *, source_id, dataset):
                     and isinstance(document.get("message"), str) and bool(document["message"].strip())
                     and valid_time
                 )
+                if expected_timestamps is not None:
+                    valid = valid and valid_time and parsed == expected_timestamps[event_id]
+                if expected_labels:
+                    valid = valid and all(get_field(document, "labels." + key) == value
+                                          for key, value in expected_labels.items())
                 if "_parse_failure" in document.get("tags", []):
                     result.parse_failures += 1
                     valid = valid and bool(get_field(document, "error.message"))
@@ -88,9 +93,11 @@ def check_documents(client, pattern, expected, *, source_id, dataset):
         return result
 
 
-def verify_documents(client, pattern, expected, *, source_id, dataset, attempts=5, interval=1):
+def verify_documents(client, pattern, expected, *, source_id, dataset, attempts=5, interval=1,
+                     expected_timestamps=None, expected_labels=None):
     for attempt in range(attempts):
-        result = check_documents(client, pattern, expected, source_id=source_id, dataset=dataset)
+        result = check_documents(client, pattern, expected, source_id=source_id, dataset=dataset,
+                                 expected_timestamps=expected_timestamps, expected_labels=expected_labels)
         if result.invalid or result.unavailable or len(result.found) == len(expected):
             return result
         if attempt + 1 < attempts:

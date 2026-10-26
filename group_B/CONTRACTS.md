@@ -173,6 +173,7 @@ B3 accepts a `SourceSpec`:
   "dataset_hint": null,
   "host_name": null,
   "timezone": null,
+  "log_year": null,
   "ingest_mode": "auto",
   "dry_run": true
 }
@@ -188,6 +189,16 @@ Safety defaults:
 - `timezone` must be supplied when source timestamps have no offset. B3 must
   not silently assume UTC for naive timestamps. If timestamps include an
   offset, B3 normalizes from that offset.
+
+Yearless Linux/firewall syslog requires confirmed `log_year` (integer 1970–9999)
+and `timezone`. Transport preserves string `labels.log_year` and
+`labels.log_timezone`; B1 parsing consumes both in Elasticsearch. Missing labels on `b3.raw.v1`
+produce `_parse_failure`, never an inferred current-year timestamp. Existing
+non-B3 callers retain B1's current-year/UTC fallback when labels are absent;
+this compatibility behavior does not relax B3's required onboarding policy. B3 verifies
+the exact UTC result and rejects replay with conflicting year/timezone metadata.
+A source must contain one confirmed year; split files spanning multiple years.
+Ambiguous/nonexistent DST times require offset-bearing input or correction.
 
 Workflow:
 
@@ -239,10 +250,11 @@ indexing verification; a plan is not an ingestion-success result.
 
 Known-format pipeline selection requires an operator-approved mapping. Missing
 B1 configuration is distinct from an explicit format miss. B2 receives the
-source timezone for candidate generation; naive timestamps without one and
-yearless syslog remain blocked. Stream inspection accepts supplied samples
-without opening a UDP listener. A3's normalized-event interface still needs
-agreement before raw-envelope stream execution can be planned as supported.
+source timezone for candidate generation. Naive timestamps without a timezone
+and yearless syslog without a confirmed year remain blocked. Stream inspection accepts supplied samples
+without opening a UDP listener. Bounded file/HTTP snapshots may explicitly
+select stream transport using [B3/A3 raw-envelope v1](B3_A3_CONTRACT.md).
+Continuous stream-source capture remains unsupported.
 
 Source inspection and exact B2 resolution remain available in memory; raw
 samples and candidate resolution are excluded from JSON plan summaries.

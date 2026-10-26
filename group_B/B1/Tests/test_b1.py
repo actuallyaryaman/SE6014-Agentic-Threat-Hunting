@@ -230,6 +230,52 @@ class TestOnElasticsearch(unittest.TestCase):
             self.assertEqual(get(doc, "source.ip"), "172.17.0.1")
             self.assertEqual(get(doc, "http.response.status_code"), 400)
 
+    def test_b3_yearless_requires_policy_and_normalizes_timezone(self):
+        cases = {
+            "linux-auth": "Jan  1 00:15:00 host sshd[12]: Failed password for demo from 203.0.113.1 port 4000 ssh2",
+            "firewall-syslog": "Jan  1 00:15:00 host firewall: Blocked connection from 203.0.113.1 to 192.0.2.1",
+        }
+        for name, line in cases.items():
+            with self.subTest(pipeline=name):
+                def simulate(labels):
+                    result = self.call(f"/_ingest/pipeline/{name}/_simulate", {"docs": [
+                        {"_source": {"message": line, "labels": dict(labels, envelope="b3.raw.v1")}}]})
+                    return result["docs"][0]["doc"]["_source"]
+                for labels in ({}, {"log_year": "2024"}, {"log_timezone": "UTC"}):
+                    self.assertIn("_parse_failure", simulate(labels)["tags"])
+                doc = simulate({"log_year": "2024", "log_timezone": "Asia/Singapore"})
+                self.assertNotIn("_parse_failure", doc.get("tags", []), doc)
+                self.assertEqual(doc["@timestamp"], "2023-12-31T16:15:00.000Z")
+                self.assertEqual(doc["event"]["original"], line)
+
+    def simulate_labels(self, name, line, labels):
+        res = self.call(f"/_ingest/pipeline/{name}/_simulate",
+                        {"docs": [{"_source": {"message": line, "labels": labels}}]})
+        return res["docs"][0]["doc"]["_source"]
+
+    def test_log_year_is_used_for_yearless_timestamps(self):
+        doc = self.simulate_labels("firewall-syslog", FIREWALL, {"log_year": "2024"})
+        self.assertTrue(get(doc, "@timestamp").startswith("2024-10-22T10:20:01"), doc)
+        self.assertEqual(get(doc, "labels.log_year"), "2024")
+        doc = self.simulate_labels("linux-auth", LINUX_CLASSIC, {"log_year": 2023})
+        self.assertTrue(get(doc, "@timestamp").startswith("2023-10-05T09:01:02"), doc)
+
+    def test_log_year_does_not_change_iso_timestamps(self):
+        doc = self.simulate_labels("linux-auth", LINUX_ISO, {"log_year": "2019"})
+        self.assertTrue(get(doc, "@timestamp").startswith("2026-10-23T20:27:19"), doc)
+
+    def test_without_log_year_current_year_is_used(self):
+        import datetime
+        doc = self.simulate("firewall-syslog", [FIREWALL])[0]
+        self.assertTrue(get(doc, "@timestamp").startswith(str(datetime.datetime.now(datetime.timezone.utc).year)), doc)
+
+    def test_bad_log_year_is_a_parse_failure_not_a_crash(self):
+        for value in ("abcd", "202", "20245", "20x4", "0000"):
+            with self.subTest(value=value):
+                doc = self.simulate_labels("firewall-syslog", FIREWALL, {"log_year": value})
+                self.assertIn("_parse_failure", doc["tags"])
+                self.assertTrue(required_ok(doc), doc)
+
     def test_windows_attack_event(self):
         doc = self.simulate("windows-json", [WIN_SECURITY])[0]
         self.assertEqual(get(doc, "event.code"), "5145")

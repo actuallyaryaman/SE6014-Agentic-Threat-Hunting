@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "group_B/**"
+      - "group_C/threat_hunting/c4_repeatability/**"
       - ".github/workflows/group-b-ci.yml"
   pull_request:
 
@@ -38,3 +39,6 @@ jobs:
       - name: Run Group B tests
         working-directory: group_B
         run: python -m pytest -q
+
+      - name: Run C4 comparison tests
+        run: python -m pytest -q group_C/threat_hunting/c4_repeatability

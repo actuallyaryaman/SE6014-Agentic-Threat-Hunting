@@ -43,16 +43,36 @@ the registry boundary too. Installation/registration can remain after a later
 failure; B3 does not delete shared pipelines or roll back indexed documents.
 
 `SourceSpec` follows `CONTRACTS.md`: source kind, location, format/dataset hints,
-host metadata, timezone, ingestion mode and `dry_run=True` by default.
+host metadata, timezone, optional `log_year`, ingestion mode and `dry_run=True` by default.
 `format_hint` is structural: `auto`, `json`, `csv`, `kv`, or `line`.
-Naive timestamps require an explicit IANA timezone. Yearless syslog remains
-blocked until the team agrees on a year policy.
+Naive timestamps require an explicit IANA timezone. Yearless Linux auth and
+firewall syslog additionally require a confirmed integer `log_year` (1970–9999).
+B3 preserves it as string `labels.log_year` and the timezone as
+`labels.log_timezone`; Elasticsearch combines these with the original syslog
+prefix. No current-year inference occurs. Use one confirmed year per source;
+split logs spanning a year boundary. Invalid dates and ambiguous/nonexistent
+DST wall times fail before handoff. ISO timestamps retain their own offsets.
+
+For an approved source and installed `linux-auth` pipeline:
+
+```bash
+export B3_ALLOWED_ROOTS=/approved/logs
+python -m group_B.agentic_ingestion.cli onboard /approved/logs/auth.log \
+  --kind file --mode stream --timezone Asia/Singapore --log-year 2024 \
+  --b1 group_B.B1.recognizer:recognise \
+  --known-pipelines '{"linux_auth":"linux-auth"}' --execute
+```
+
+Configure the A3 allowlist and ES credentials as described below first. B3
+independently verifies the exact expected UTC timestamp and year/timezone labels,
+including during replay. Changing the confirmed year/timezone for already indexed
+logical IDs reports `EXISTING_DOCUMENT_CONFLICT`; it does not rewrite history.
 
 Auto routes: file → pull, HTTP → push, stream → stream. File/HTTP sources can
-explicitly choose pull or push. `direct_es` requires an explicit request and
+explicitly choose pull, push or bounded stream transport. `direct_es` requires an explicit request and
 is a local fallback. Stream inspection takes `stream_samples=` through the
-Python API without binding/sending UDP. Stream execution remains blocked:
-A3 consumes normalized events and its B3 raw-envelope boundary is unresolved.
+Python API without binding/sending UDP. Continuous stream-source execution remains blocked. Bounded snapshots use the
+opt-in [raw-envelope contract](../B3_A3_CONTRACT.md) through A3/A2.
 
 `plan_source` always remains read-only, including with `dry_run=False`.
 Raw samples and exact B2 resolutions stay in memory and are excluded from JSON
@@ -193,7 +213,14 @@ The isolated ES 8.19.23 suite covers real simulation, installation, indexing,
 verification and replay. See `group_B/tests/LIVE_ES_RESULTS.md` for evidence.
 The unchanged A1/A2 configurations also passed with actual Logstash pull/push
 over authenticated HTTPS in an isolated environment; see
-`group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. The actual shared deployment,
-the A3 boundary, live LLM behavior and the complete team demo remain.
+`group_B/tests/A1_A2_INTEGRATION_RESULTS.md`. Tests use temporary local
+services; no shared Elasticsearch deployment or credential exchange is required.
 
 Live C2/C3 snapshot integration: [results and unresolved correlation claim](../tests/C2_C3_INTEGRATION_RESULTS.md).
+
+Updated delivered-C1 validation: [unified C1–C4 results](../tests/UNIFIED_C1_C4_RESULTS.md).
+
+Bounded A3 raw forwarding is now available with explicit `--mode stream` for
+file/HTTP snapshots. See [the v1 B3/A3 contract](../B3_A3_CONTRACT.md) for the
+opt-in receiver setting, pipeline allowlist, packet limit and timestamp policy.
+Continuous UDP-source capture remains blocked.

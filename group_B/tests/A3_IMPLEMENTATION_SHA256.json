@@ -1,0 +1,8 @@
+{
+  "group_A/A3_Stream_Ingestion/receiver.py": "d73ef52b63db1e0b3cbbc5384eb974f61cea1be381091c0eb66ef029a17baea8",
+  "group_B/agentic_ingestion/models.py": "768ccf832b1ece58a5ab4969c33d59f4a9f9686a517ed235a178d2ad7bed80ee",
+  "group_B/agentic_ingestion/planner.py": "859fa4245b97b4158b7e28cbd9e85cbd2207d70cf19ae4ea4535c4cdcb2fed00",
+  "group_B/agentic_ingestion/execution.py": "7730f2d1a111f600c1b731d87b4fbbed201089dbee4a090e3f46dd87c295da11",
+  "group_B/agentic_ingestion/adapters.py": "be2bdb9bbd4c56666ac3a08c8f6211a4378a8d46f9d253ad6e8ef5d9592a5e57",
+  "group_B/B1/Pipelines/apache-access.json": "d198d897c2b7e44e224c7c62d467ee736a92a1c489cafdbe23b3e1d08944316f"
+}
