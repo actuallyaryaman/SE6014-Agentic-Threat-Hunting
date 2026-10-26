@@ -200,3 +200,15 @@ zero new replay submissions, changed-year conflicts and missing-policy rejection
 These are real A3/A2/Elasticsearch checks. B3 must receive confirmed
 `--log-year` and `--timezone` for yearless sources; see
 [the onboarding command](agentic_ingestion/README.md).
+
+## Agent-mode benign control
+
+C2 PR #31's `INTERFACES.md` sections 4.2–4.3 distinguish vetted support from
+LLM-origin leads. Rules mode still requires `NOT_SUPPORTED` with no claims for
+BENIGN-SSH. Agent mode may instead return `INCONCLUSIVE` with self-checked
+LLM leads. The harness requires low confidence, analyst review, exact lead
+attribution, no vetted technique support, and citations restricted to the four
+independently indexed BENIGN-SSH events. C3 must independently verify the leads,
+return Inconclusive and replay all queries identically. A benign `SUPPORTED`
+verdict, cross-host citations or leads counted as vetted support still fail.
+The attack gate remains the exact 31-event attack set in both modes.

@@ -66,3 +66,40 @@ def test_failed_ground_truth_retains_hunt_and_audit(demo, tmp_path, monkeypatch)
     assert json.loads((tmp_path / 'output/attack/result.json').read_text()) == payload
     assert (tmp_path / 'output/attack/mcp-audit.jsonl').read_text() == 'synthetic audit\n'
     assert demo.report['ground_truth_checks'][0]['missing_ids'] == ['attack-event-2']
+
+
+def agent_benign(demo):
+    demo.llm_env_file = Path('private-provider.env')
+    demo.benign_expected = {'benign-event'}
+    payload = result('INCONCLUSIVE', [{'claim_id': 'C-001', 'origin': 'llm', 'status': 'self_checked', 'event_ids': ['benign-event']}])
+    payload['verdict'].update(leads=['C-001'], confidence='low', requires_analyst_review=True)
+    payload['techniques'] = [{'supported': False, 'supporting_steps': [], 'accepted_claims': 0}]
+    return payload
+
+
+def test_agent_benign_leads_are_inconclusive_under_documented_contract(demo):
+    payload = agent_benign(demo)
+    assert demo.check_ground_truth('benign', payload, {'benign-event'}) == 'Inconclusive'
+    assert demo.check_ground_truth('benign', result('NOT_SUPPORTED'), set()) == 'Refuted'
+
+
+@pytest.mark.parametrize('defect', ['foreign_id', 'playbook', 'no_leads', 'no_review', 'high_confidence', 'support', 'supported_verdict'])
+def test_agent_benign_contract_still_rejects_unsafe_results(demo, defect):
+    payload = agent_benign(demo)
+    ids = {'benign-event'}
+    if defect == 'foreign_id': ids.add('attack-event-1')
+    elif defect == 'playbook': payload['claims'][0]['origin'] = 'playbook'
+    elif defect == 'no_leads': payload['verdict']['leads'] = []
+    elif defect == 'no_review': payload['verdict']['requires_analyst_review'] = False
+    elif defect == 'high_confidence': payload['verdict']['confidence'] = 'high'
+    elif defect == 'support': payload['techniques'][0]['supported'] = True
+    elif defect == 'supported_verdict': payload['verdict']['label'] = 'SUPPORTED'
+    with pytest.raises(AssertionError):
+        demo.check_ground_truth('benign', payload, ids)
+
+
+def test_rules_mode_does_not_accept_agent_inconclusive_contract(demo):
+    payload = agent_benign(demo)
+    demo.llm_env_file = None
+    with pytest.raises(AssertionError, match='wrong seeded-scenario verdict'):
+        demo.check_ground_truth('benign', payload, {'benign-event'})

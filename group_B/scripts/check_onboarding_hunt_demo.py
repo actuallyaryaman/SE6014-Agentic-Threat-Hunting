@@ -161,6 +161,12 @@ class HuntDemo(Integration):
         self.expected = {hit["_index"] + "/" + hit["_id"] for hit in hits}
         assert len(self.expected) == 31
         self.case("ground_truth_31_attack_events")
+        benign = self.api("POST", "/security-events-c2test*/_search", json={"size": 100,
+            "query": {"bool": {"filter": [{"term": {"host.name": "BENIGN-SSH"}},
+                                            {"term": {"source.ip": "198.51.100.20"}}]}}})["hits"]["hits"]
+        self.benign_expected = {hit["_index"] + "/" + hit["_id"] for hit in benign}
+        assert len(self.benign_expected) == 4
+
 
     def run_hunt(self, run_id, hypothesis, output):
         self.phase("Hunting " + run_id + " through MCP...")
@@ -204,13 +210,15 @@ class HuntDemo(Integration):
         assert trace and all(row["ok"] for row in trace), "MCP tool failed"
         assert {row["server"] for row in trace} == {"es", "analytics"}
         ids = {event for claim in result["claims"] for event in claim["event_ids"]}
+        allowed_ids = self.expected if run_id in {"attack", "attack-repeat"} else (
+            self.benign_expected if run_id == "benign" and self.llm_env_file else set())
         self.report.setdefault("ground_truth_checks", []).append({
             "run_id": run_id, "actual_label": result["verdict"]["label"],
             "expected_attack_ids": len(self.expected) if run_id in {"attack", "attack-repeat"} else 0,
             "cited_ids": len(ids), "missing_ids": sorted(self.expected - ids) if run_id in {"attack", "attack-repeat"} else [],
-            "unexpected_ids": sorted(ids - self.expected) if run_id in {"attack", "attack-repeat"} else sorted(ids),
+            "allowed_scope_ids": len(allowed_ids), "unexpected_ids": sorted(ids - allowed_ids),
         })
-        self.check_ground_truth(run_id, result, ids)
+        expected_c3 = self.check_ground_truth(run_id, result, ids)
         # Check every citation using ES independently of C2's structural self-check.
         for reference in ids:
             index, separator, identifier = reference.partition("/")
@@ -224,20 +232,33 @@ class HuntDemo(Integration):
             "self_check": result["self_check"], "independently_checked_ids": len(ids),
             "llm_calls": len(calls) if self.llm_env_file else 0})
         if hasattr(self, "c3_root"):
-            self.verify_c3(run_id, folder, output)
+            self.verify_c3(run_id, folder, output, expected_verdict=expected_c3)
         return result, trace, ids
 
     def check_ground_truth(self, run_id, result, ids):
+        label = result["verdict"]["label"]
+        assert not result["self_check"]["failed"], f"{run_id}: failed claim self-check"
+        if run_id == "benign" and getattr(self, "llm_env_file", None) and label == "INCONCLUSIVE":
+            # C2 INTERFACES 4.2-4.3: verified LLM leads block refutation, never establish support.
+            claims = result["claims"]
+            assert claims and ids and ids <= self.benign_expected, "benign: leads cite outside independent benign scope"
+            assert all(c.get("origin") == "llm" and c.get("status") == "self_checked" for c in claims), "benign: expected LLM leads only"
+            assert set(result["verdict"].get("leads", [])) == {c["claim_id"] for c in claims}, "benign: lead attribution differs"
+            assert result["verdict"].get("confidence") == "low" and result["verdict"].get("requires_analyst_review") is True, "benign: leads require low confidence and analyst review"
+            techniques = result.get("techniques", [])
+            assert techniques and all(not t.get("supported") and not t.get("supporting_steps") and not t.get("accepted_claims") for t in techniques), "benign: leads must not count as vetted support"
+            return "Inconclusive"
         expected = {"attack": "SUPPORTED", "attack-repeat": "SUPPORTED", "benign": "NOT_SUPPORTED",
                     "missing-host": "INCONCLUSIVE", "empty-window": "INSUFFICIENT_DATA"}[run_id]
-        assert result["verdict"]["label"] == expected, f"{run_id}: wrong seeded-scenario verdict"
-        assert not result["self_check"]["failed"], f"{run_id}: failed claim self-check"
+        assert label == expected, f"{run_id}: wrong seeded-scenario verdict"
         if run_id in {"attack", "attack-repeat"}:
             assert ids == self.expected, f"{run_id}: citations differ from independent attack ground truth"
         else:
             assert not result["claims"] and not ids, f"{run_id}: unexpected claims for negative scenario"
+        return {"SUPPORTED": "Confirmed", "NOT_SUPPORTED": "Refuted",
+                "INCONCLUSIVE": "Inconclusive", "INSUFFICIENT_DATA": "Inconclusive"}[expected]
 
-    def verify_c3(self, run_id, folder, output):
+    def verify_c3(self, run_id, folder, output, *, expected_verdict):
         destination = output / run_id / "c3"
         destination.mkdir()
         env = dict(self.hunt_env)
@@ -260,10 +281,8 @@ class HuntDemo(Integration):
         report = json.loads(reports[0].read_text())
         assert report["verification_mode"] == "mcp", report["verification_mode"]
         if self.require_c3_agreement:
-            expected = {"attack": "Confirmed", "attack-repeat": "Confirmed", "benign": "Refuted",
-                        "missing-host": "Inconclusive", "empty-window": "Inconclusive"}[run_id]
             checks = report["verification"]
-            assert report["decision"]["verdict"] == expected, report["decision"]
+            assert report["decision"]["verdict"] == expected_verdict, report["decision"]
             assert not checks["unsupported"] and not checks["contradicted"] and not checks["unverified"], checks
             replay = checks["replay"]
             assert replay["replayed"] > 0 and replay["identical"] == replay["replayed"], replay
