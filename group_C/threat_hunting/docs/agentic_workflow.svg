@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1620" height="905" viewBox="0 0 1620 905">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6E7781"/></marker></defs>
+<rect width="1620" height="905" fill="#FFFFFF"/>
+<text x="40" y="42" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="26" font-weight="bold" fill="#1F2328" text-anchor="start">C2 threat hunt: from a fixed pipeline to an agentic workflow</text>
+<text x="40" y="68" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="15" font-weight="normal" fill="#57606A" text-anchor="start">PR #27  ·  The LLM proposes; code checks every proposal, computes every number and decides the verdict by rules</text>
+<rect x="40" y="88" width="1540" height="104" rx="12" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="58" y="112" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="bold" fill="#4A5057" text-anchor="start">BEFORE</text>
+<rect x="60" y="124" width="190" height="46" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="155" y="152" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5057" text-anchor="middle">Hypothesis</text>
+<line x1="250" y1="147" x2="270" y2="147" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="272" y="124" width="190" height="46" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="367" y="152" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5057" text-anchor="middle">Keyword rules</text>
+<line x1="462" y1="147" x2="482" y2="147" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="484" y="124" width="190" height="46" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="579" y="152" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5057" text-anchor="middle">Fixed playbooks</text>
+<line x1="674" y1="147" x2="694" y2="147" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="696" y="124" width="190" height="46" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="791" y="152" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5057" text-anchor="middle">Hard-coded follow-ups</text>
+<line x1="886" y1="147" x2="906" y2="147" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="908" y="124" width="190" height="46" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.2"/>
+<text x="1003" y="152" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5057" text-anchor="middle">Rule verdict</text>
+<text x="1135" y="140" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4A5057" text-anchor="start">LLM: one optional call, switched off in</text>
+<text x="1135" y="158" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4A5057" text-anchor="start">every test and demo. Log sources without</text>
+<text x="1135" y="176" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4A5057" text-anchor="start">a playbook were silently ignored.</text>
+<rect x="40" y="210" width="1540" height="618" rx="12" fill="#FFFFFF" stroke="#D0D7DE" stroke-width="1.2"/>
+<text x="58" y="236" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="bold" fill="#1F4E8C" text-anchor="start">AFTER (this PR)</text>
+<rect x="60" y="282" width="196" height="152" rx="10" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.6"/>
+<rect x="72" y="294" width="32" height="20" rx="10" fill="#7C5CD6"/>
+<text x="87.9" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LLM</text>
+<text x="72" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#4B2FA8" text-anchor="start">Intake</text>
+<text x="72" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Reads techniques, hosts,</text>
+<text x="72" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">IPs, users and time</text>
+<line x1="72" y1="392" x2="244" y2="392" stroke="#7C5CD6" stroke-opacity="0.45"/>
+<text x="72" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">kept only if verifiable;</text>
+<text x="72" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">window ≤ 31 days</text>
+<line x1="256" y1="358.0" x2="276" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="277" y="282" width="196" height="152" rx="10" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.6"/>
+<rect x="289" y="294" width="39" height="20" rx="10" fill="#3A7BD5"/>
+<text x="308.7" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">CODE</text>
+<text x="289" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#1F4E8C" text-anchor="start">Playbooks</text>
+<text x="289" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Vetted queries and</text>
+<text x="289" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">fixed follow-ups</text>
+<line x1="289" y1="392" x2="461" y2="392" stroke="#3A7BD5" stroke-opacity="0.45"/>
+<text x="289" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F4E8C" text-anchor="start" font-style="italic">unchanged;</text>
+<text x="289" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F4E8C" text-anchor="start" font-style="italic">always run first</text>
+<line x1="473" y1="358.0" x2="493" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="494" y="282" width="196" height="152" rx="10" fill="#FDF1E4" stroke="#E08A2E" stroke-width="1.6"/>
+<rect x="506" y="294" width="47" height="20" rx="10" fill="#E08A2E"/>
+<text x="529.5" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">GUARD</text>
+<text x="506" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#8A4B0C" text-anchor="start">Injection sweep</text>
+<text x="506" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Finds injection-like</text>
+<text x="506" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">text in the logs</text>
+<line x1="506" y1="392" x2="678" y2="392" stroke="#E08A2E" stroke-opacity="0.45"/>
+<text x="506" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#8A4B0C" text-anchor="start" font-style="italic">flagged events never</text>
+<text x="506" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#8A4B0C" text-anchor="start" font-style="italic">reach a prompt</text>
+<line x1="690" y1="358.0" x2="710" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="711" y="282" width="196" height="152" rx="10" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.6"/>
+<rect x="723" y="294" width="32" height="20" rx="10" fill="#7C5CD6"/>
+<text x="738.9" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LLM</text>
+<text x="723" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#4B2FA8" text-anchor="start">Investigator</text>
+<text x="723" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Picks the next query,</text>
+<text x="723" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">follows leads, stops</text>
+<line x1="723" y1="392" x2="895" y2="392" stroke="#7C5CD6" stroke-opacity="0.45"/>
+<text x="723" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">tools, fields, limits,</text>
+<text x="723" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">repeats checked</text>
+<line x1="907" y1="358.0" x2="927" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="928" y="282" width="196" height="152" rx="10" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.6"/>
+<rect x="940" y="294" width="32" height="20" rx="10" fill="#7C5CD6"/>
+<text x="955.9" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LLM</text>
+<text x="940" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#4B2FA8" text-anchor="start">Skeptic</text>
+<text x="940" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Argues the innocent</text>
+<text x="940" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">side and tests it</text>
+<line x1="940" y1="392" x2="1112" y2="392" stroke="#7C5CD6" stroke-opacity="0.45"/>
+<text x="940" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">can only lower</text>
+<text x="940" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">confidence</text>
+<line x1="1124" y1="358.0" x2="1144" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="1145" y="282" width="196" height="152" rx="10" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.6"/>
+<rect x="1157" y="294" width="39" height="20" rx="10" fill="#3A7BD5"/>
+<text x="1176.7" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">CODE</text>
+<text x="1157" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#1F4E8C" text-anchor="start">Verdict</text>
+<text x="1157" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Rules decide label</text>
+<text x="1157" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">and confidence</text>
+<line x1="1157" y1="392" x2="1329" y2="392" stroke="#3A7BD5" stroke-opacity="0.45"/>
+<text x="1157" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F4E8C" text-anchor="start" font-style="italic">leads: reviewed,</text>
+<text x="1157" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F4E8C" text-anchor="start" font-style="italic">never proof</text>
+<line x1="1341" y1="358.0" x2="1361" y2="358.0" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="1362" y="282" width="196" height="152" rx="10" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.6"/>
+<rect x="1374" y="294" width="85" height="20" rx="10" fill="#7C5CD6"/>
+<text x="1416.5" y="308.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LLM + CODE</text>
+<text x="1374" y="338" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="17" font-weight="bold" fill="#4B2FA8" text-anchor="start">Action drafts</text>
+<text x="1374" y="360" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">Sigma rules and</text>
+<text x="1374" y="378" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#1F2328" text-anchor="start">response proposals</text>
+<line x1="1374" y1="392" x2="1546" y2="392" stroke="#7C5CD6" stroke-opacity="0.45"/>
+<text x="1374" y="409" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">rules re-run on data;</text>
+<text x="1374" y="425" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4B2FA8" text-anchor="start" font-style="italic">nothing executed</text>
+<path d="M 773 282 C 773 248, 845 248, 845 284" fill="none" stroke="#7C5CD6" stroke-width="2" marker-end="url(#ah)"/>
+<text x="809" y="252" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4B2FA8" text-anchor="middle">loop: ≤ 10 turns</text>
+<rect x="60" y="478" width="1498" height="50" rx="10" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.2"/>
+<text x="80" y="509" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#1F4E8C" text-anchor="start">Every query goes through MCP:</text>
+<text x="352" y="509" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13.5" font-weight="normal" fill="#1F4E8C" text-anchor="start">ES MCP server (C1): describe_data · search · count · aggregate</text>
+<text x="962" y="509" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13.5" font-weight="normal" fill="#1F4E8C" text-anchor="start">Analytics MCP server (C2): gap_check · lookup_attack · check_ioc</text>
+<line x1="158.0" y1="434" x2="158.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="375.0" y1="434" x2="375.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="592.0" y1="434" x2="592.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="809.0" y1="434" x2="809.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1026.0" y1="434" x2="1026.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="1460.0" y1="434" x2="1460.0" y2="478" stroke="#3A7BD5" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="749" y="441" width="120" height="19" fill="#FFFFFF"/>
+<text x="809" y="455" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4B2FA8" text-anchor="middle">findings = leads</text>
+<rect x="60" y="548" width="600" height="262" rx="10" fill="#FFFFFF" stroke="#D0D7DE"/>
+<text x="78" y="574" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2328" text-anchor="start">New log sources (no playbook yet)</text>
+<rect x="78" y="592" width="172" height="62" rx="8" fill="#F3F4F6" stroke="#A0A6AD" stroke-width="1.4"/>
+<text x="88" y="614" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4A5057" text-anchor="start">Unknown dataset</text>
+<text x="88" y="630" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">e.g. vpn.auth, dns.query</text>
+<rect x="272" y="592" width="172" height="62" rx="8" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.4"/>
+<text x="282" y="614" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4B2FA8" text-anchor="start">Classifier (LLM)</text>
+<text x="282" y="630" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">proposes a known kind</text>
+<rect x="466" y="592" width="176" height="62" rx="8" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.4"/>
+<text x="476" y="614" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1F4E8C" text-anchor="start">Code check</text>
+<text x="476" y="630" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">event.category + fields</text>
+<line x1="250" y1="623" x2="270" y2="623" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<line x1="444" y1="623" x2="464" y2="623" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="544" y="678" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#1F4E8C" text-anchor="end">match → existing playbooks</text>
+<rect x="466" y="704" width="176" height="62" rx="8" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.4"/>
+<text x="476" y="726" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4B2FA8" text-anchor="start">No match: draft mode</text>
+<text x="476" y="742" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">investigator finds leads</text>
+<rect x="272" y="704" width="172" height="62" rx="8" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.4"/>
+<text x="282" y="726" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#4B2FA8" text-anchor="start">Candidate playbook</text>
+<text x="282" y="742" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">from the leads' queries</text>
+<rect x="78" y="704" width="172" height="62" rx="8" fill="#E8F6EE" stroke="#2E9E5B" stroke-width="1.4"/>
+<text x="88" y="726" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#17643A" text-anchor="start">promote</text>
+<text x="88" y="742" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">attack + benign replay</text>
+<path d="M 554 682 L 554 702" fill="none" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<line x1="466" y1="735" x2="446" y2="735" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<line x1="272" y1="735" x2="252" y2="735" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="78" y="788" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#17643A" text-anchor="start">→ a vetted playbook that later hunts run (e.g. DNS tunnelling)</text>
+<rect x="680" y="548" width="470" height="262" rx="10" fill="#FFFFFF" stroke="#D0D7DE"/>
+<text x="698" y="574" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2328" text-anchor="start">Around the hunt</text>
+<rect x="698" y="590" width="434" height="62" rx="8" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.4"/>
+<rect x="708" y="600" width="32" height="20" rx="10" fill="#7C5CD6"/>
+<text x="723.9" y="614.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LLM</text>
+<text x="747.8" y="615" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#4B2FA8" text-anchor="start">Hunt queue</text>
+<text x="710" y="640" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">proposes what to hunt next; an analyst approves</text>
+<rect x="698" y="662" width="434" height="62" rx="8" fill="#FFF8DB" stroke="#C9A227" stroke-width="1.4"/>
+<rect x="708" y="672" width="62" height="20" rx="10" fill="#C9A227"/>
+<text x="739.1" y="686.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">ANALYST</text>
+<text x="778.2" y="687" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#6E5608" text-anchor="start">Analyst memory</text>
+<text x="710" y="712" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">lessons only analysts write; benign match = flag</text>
+<rect x="698" y="734" width="434" height="62" rx="8" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.4"/>
+<rect x="708" y="744" width="32" height="20" rx="10" fill="#3A7BD5"/>
+<text x="723.9" y="758.5" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="11" font-weight="bold" fill="#FFFFFF" text-anchor="middle">MCP</text>
+<text x="747.8" y="759" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#1F4E8C" text-anchor="start">C2 as an MCP server</text>
+<text x="710" y="784" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">run_hunt · get_hunt · list_hunts · follow_up</text>
+<rect x="1170" y="548" width="388" height="262" rx="10" fill="#FFFFFF" stroke="#D0D7DE"/>
+<text x="1188" y="574" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2328" text-anchor="start">Output and verification</text>
+<rect x="1188" y="590" width="352" height="62" rx="8" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.4"/>
+<text x="1200" y="614" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#1F4E8C" text-anchor="start">result.json 0.3</text>
+<text x="1200" y="636" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">claims, leads, every query, the LLM log</text>
+<line x1="1364" y1="652" x2="1364" y2="670" stroke="#6E7781" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="1188" y="672" width="352" height="62" rx="8" fill="#E8F6EE" stroke="#2E9E5B" stroke-width="1.4"/>
+<text x="1200" y="696" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="14" font-weight="bold" fill="#17643A" text-anchor="start">C3 re-verifies over MCP</text>
+<text x="1200" y="718" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2328" text-anchor="start">agreed on all 8 team-stack hunts</text>
+<text x="1188" y="762" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#57606A" text-anchor="start">135 tests  ·  live DeepSeek runs</text>
+<text x="1188" y="782" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#57606A" text-anchor="start">RUN_HUNTS run in rules and agent mode</text>
+<rect x="60" y="849" width="18" height="18" rx="4" fill="#F1ECFD" stroke="#7C5CD6" stroke-width="1.4"/>
+<text x="86" y="863" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#57606A" text-anchor="start">LLM proposes</text>
+<rect x="236" y="849" width="18" height="18" rx="4" fill="#E9F2FC" stroke="#3A7BD5" stroke-width="1.4"/>
+<text x="262" y="863" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#57606A" text-anchor="start">code checks and decides</text>
+<rect x="500" y="849" width="18" height="18" rx="4" fill="#FDF1E4" stroke="#E08A2E" stroke-width="1.4"/>
+<text x="526" y="863" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#57606A" text-anchor="start">guardrail</text>
+<rect x="652" y="849" width="18" height="18" rx="4" fill="#E8F6EE" stroke="#2E9E5B" stroke-width="1.4"/>
+<text x="678" y="863" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#57606A" text-anchor="start">verification</text>
+<rect x="828" y="849" width="18" height="18" rx="4" fill="#FFF8DB" stroke="#C9A227" stroke-width="1.4"/>
+<text x="854" y="863" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif" font-size="13" font-weight="normal" fill="#57606A" text-anchor="start">analyst</text>
+</svg>
