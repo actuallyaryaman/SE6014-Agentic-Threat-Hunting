@@ -17,6 +17,13 @@
       }
     },
     {
+      "set": {
+        "if": "ctx.labels?.log_year != null && ctx.labels.log_year.toString().length() == 4 && ctx.tmp?.ts != null && ctx.tmp.ts.length() > 0 && !Character.isDigit(ctx.tmp.ts.charAt(0))",
+        "field": "tmp.ts",
+        "value": "{{labels.log_year}} {{tmp.ts}}"
+      }
+    },
+    {
       "date": {
         "field": "tmp.ts",
         "target_field": "@timestamp",
@@ -25,7 +32,10 @@
           "ISO8601",
           "MMM d HH:mm:ss",
           "MMM  d HH:mm:ss",
-          "MMM dd HH:mm:ss"
+          "MMM dd HH:mm:ss",
+          "yyyy MMM d HH:mm:ss",
+          "yyyy MMM  d HH:mm:ss",
+          "yyyy MMM dd HH:mm:ss"
         ]
       }
     },
