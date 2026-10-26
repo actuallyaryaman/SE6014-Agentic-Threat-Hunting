@@ -3,7 +3,13 @@ through the matching ingest pipeline, then CHECK the indexed documents.
 
 Usage:  python load_file.py yourfile.log testname
 Example: python load_file.py access.log apache-clean
-Needs recognise.py in the same folder, and Elasticsearch running on localhost:9200.
+Needs recognise.py in the same folder, and Elasticsearch (default http://localhost:9200).
+
+Connection settings (environment variables, all optional):
+  ES_URL       Elasticsearch address, e.g. https://localhost:9200   (default http://localhost:9200)
+  ES_API_KEY   API key (the "encoded" value), sent as  Authorization: ApiKey ...
+  ES_USER, ES_PASSWORD   basic authentication (used when ES_API_KEY is not set)
+  ES_CA_CERT   path to the CA certificate file that signed Elasticsearch's HTTPS certificate
 Data goes into the index  b1-<testname>  (delete it later with DELETE b1-<testname> in Dev Tools).
 Use a NEW testname each run, so counts are not mixed with an earlier run.
 
@@ -15,16 +21,46 @@ The report shows:
   Parse failures documents tagged _parse_failure (the pipeline's on_failure handler)
   Parsed OK      indexed, all four required fields non-empty, and NOT tagged _parse_failure
 """
+import base64
 import json
+import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
 
 from recognise import recognise
 
-ES = "http://localhost:9200"
+ES = os.environ.get("ES_URL", "http://localhost:9200").rstrip("/")
 CHUNK = 500
 REQUIRED = ["@timestamp", "event.dataset", "event.original", "message"]
+
+
+def auth_headers():
+    """Authorization header from ES_API_KEY, or ES_USER and ES_PASSWORD. Empty if neither is set."""
+    key = os.environ.get("ES_API_KEY")
+    if key:
+        return {"Authorization": f"ApiKey {key}"}
+    user, password = os.environ.get("ES_USER"), os.environ.get("ES_PASSWORD")
+    if user and password:
+        token = base64.b64encode(f"{user}:{password}".encode()).decode()
+        return {"Authorization": f"Basic {token}"}
+    return {}
+
+
+def ssl_context():
+    """TLS settings for https:// addresses. Uses ES_CA_CERT when set, else the system certificates."""
+    if not ES.startswith("https://"):
+        return None
+    return ssl.create_default_context(cafile=os.environ.get("ES_CA_CERT") or None)
+
+
+def send(req):
+    """Send a prepared request with the auth header and TLS settings; return the JSON answer."""
+    for k, v in auth_headers().items():
+        req.add_header(k, v)
+    with urllib.request.urlopen(req, timeout=120, context=ssl_context()) as resp:
+        return json.load(resp)
 
 
 def es(path, body=None, method="POST"):
@@ -33,8 +69,7 @@ def es(path, body=None, method="POST"):
     req = urllib.request.Request(
         ES + path, data=data, method=method,
         headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return json.load(resp)
+    return send(req)
 
 
 def bulk(index, pipeline, lines):
@@ -46,8 +81,7 @@ def bulk(index, pipeline, lines):
         headers={"Content-Type": "application/x-ndjson"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        result = json.load(resp)
+    result = send(req)
     ok, errors = 0, []
     for item in result["items"]:
         info = item.get("index", {})
