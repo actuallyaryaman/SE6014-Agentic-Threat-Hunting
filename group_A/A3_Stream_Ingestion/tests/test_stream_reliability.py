@@ -8,7 +8,7 @@ from event_utils import validate_event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EVENT_FILE = PROJECT_ROOT / "data" / "fixed_events.jsonl"
+EVENT_FILE = PROJECT_ROOT / "Data" / "fixed_events.jsonl"
 
 
 def load_events():
