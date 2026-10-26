@@ -15,7 +15,7 @@ PORT = 9999
 POLL_INTERVAL = 0.5
 
 project_root = Path(__file__).resolve().parent
-data_folder = project_root / "data"
+data_folder = project_root / "Data"
 
 # Each raw log file is connected to its matching parser.
 log_files = {

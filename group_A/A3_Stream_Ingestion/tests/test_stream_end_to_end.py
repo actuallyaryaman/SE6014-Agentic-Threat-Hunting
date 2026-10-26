@@ -38,7 +38,7 @@ class TestStreamEndToEnd(unittest.TestCase):
         receiver_thread.start()
 
         project_root = Path(__file__).resolve().parent.parent
-        log_file = project_root / "data" / "fixed_events.jsonl"
+        log_file = project_root / "Data" / "fixed_events.jsonl"
 
         sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

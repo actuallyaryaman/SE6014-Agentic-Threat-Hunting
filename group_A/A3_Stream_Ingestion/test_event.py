@@ -1,10 +1,18 @@
+
 import json
+from pathlib import Path
+
 from event_utils import validate_event
 
-file_path = "Data/fixed_events.jsonl"
+file_path = Path(__file__).resolve().parent / "Data" / "fixed_events.jsonl"
 
-with open(file_path, "r") as file:
+with file_path.open("r", encoding="utf-8") as file:
     for line in file:
+        if not line.strip():
+            continue
+
         event = json.loads(line)
         validate_event(event)
-        print("Event is valid:", event["event_id"])
+
+        event_id = event.get("event", {}).get("id", event.get("event_id"))
+        print("Event is valid:", event_id)
