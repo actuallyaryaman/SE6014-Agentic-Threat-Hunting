@@ -109,7 +109,8 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
         tool_calls, ignored_tools = mcp.calls, mcp.ignored
     with progress.phase("candidate playbooks"):
         candidates = promote.write_candidates(run_dir, run_id, plan, st, agent_out, notes.get("unknown_sources"))
-    phase_seconds = progress.summary()
+    # timings go to their own file: two runs of the same hunt must compare as identical (C4's compare_c2_results.py)
+    (run_dir / "timings.json").write_text(json.dumps(progress.summary(), indent=1))
     phases = [("planning", n_plan), ("hunt", n_hunt), ("guardrail", n_guard), ("agent", n_agent), ("skeptic", n_skeptic), ("act", n_act)]
     queries = _queries(run_dir / "trace.jsonl", plan, st, guard, phases,
                        {x["step_id"]: x["purpose"] for x in agent_out["steps"] if x.get("step_id")})
@@ -117,7 +118,6 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
             "code_hash": _hash_files(src_files), "tool_calls": tool_calls, "seconds": round(time.time() - t0, 1),
-            "phase_seconds": phase_seconds,
             "python": platform.python_version(),
             "temperature": ltrace.temperature if ltrace.temperature is not None else os.environ.get("LLM_TEMPERATURE") or "provider default",
             "llm": {"calls": ltrace.seq, "max_calls": ltrace.max_calls, "tokens_in": ltrace.tokens_in, "tokens_out": ltrace.tokens_out,

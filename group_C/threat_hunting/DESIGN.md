@@ -149,7 +149,7 @@ planning ─► hunt (playbooks) ─► guardrail (injection sweep) ─► agent
 
 **Limits.** `HUNT_AGENT_MAX_STEPS` (10) investigator turns, `HUNT_LLM_MAX_CALLS` (40) LLM calls per run, the shared `--max-calls` tool budget, and three rejected actions in a row stop the loop. Every LLM failure falls back to rules with a note. A bad claim never blocks a valid query: the query runs without it and the LLM is told why.
 
-**Trace.** Every LLM call is appended to `runs/<id>/llm.jsonl` (role, model, prompt sha256, full messages, response, tokens, milliseconds); `manifest.llm` sums it. While the hunt runs, `progress.py` prints each phase, MCP call, LLM call, investigator turn and skeptic test with its duration on stderr, and `manifest.phase_seconds` keeps the phase timings (measured: an agent hunt spends most of its time in the investigator and skeptic LLM calls; rules-only phases take milliseconds).
+**Trace.** Every LLM call is appended to `runs/<id>/llm.jsonl` (role, model, prompt sha256, full messages, response, tokens, milliseconds); `manifest.llm` sums it. While the hunt runs, `progress.py` prints each phase, MCP call, LLM call, investigator turn and skeptic test with its duration on stderr, and `runs/<id>/timings.json` keeps the phase timings (outside `result.json`, so repeat runs stay comparable) (measured: an agent hunt spends most of its time in the investigator and skeptic LLM calls; rules-only phases take milliseconds).
 
 ### 3.3 Skeptic
 

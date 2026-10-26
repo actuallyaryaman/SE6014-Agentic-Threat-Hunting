@@ -236,9 +236,9 @@ Every run writes `runs/<run_id>/result.json`. This is the contract; field names 
 | `self_check` | `{claims, self_checked, failed: [{claim_id, problems}]}` |
 | `coverage` | `{data_sources, coverage: {<log type or uncovered dataset>: {total, n_buckets, empty_buckets, coverage_ratio, no_playbook?}}, gaps, missing_fields, entity_missing, unknown_sources: [{dataset, docs, categories, fields, proposed_kind, proposed_by, reason, matched_kind, not_matched_because?}]}` |
 | `limitations[]`, `notes[]` | Plain-text caveats and execution notes (truncation, budget, baseline exclusions) |
-| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, phase_seconds {phase: seconds, total}, python, temperature, llm {calls, max_calls, tokens_in, tokens_out, trace}, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
+| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, python, temperature, llm {calls, max_calls, tokens_in, tokens_out, trace}, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
 
-`plan.json` `entities` also carries `users` and `requirement_groups` (`[{label, kind: technique/llm, techniques}]`, kind `llm` when only the LLM chose the technique), the field C3 reads. Every LLM call is in `runs/<id>/llm.jsonl`: `seq, role, model, prompt_sha256, system, messages, response, tokens_in, tokens_out, ms`.
+`plan.json` `entities` also carries `users` and `requirement_groups` (`[{label, kind: technique/llm, techniques}]`, kind `llm` when only the LLM chose the technique), the field C3 reads. Phase timings are in `runs/<id>/timings.json` (`{phase: seconds, total}`), kept out of `result.json` so that repeat runs compare as identical. Every LLM call is in `runs/<id>/llm.jsonl`: `seq, role, model, prompt_sha256, system, messages, response, tokens_in, tokens_out, ms`.
 
 Example claim and query (abridged from a real run):
 ```json

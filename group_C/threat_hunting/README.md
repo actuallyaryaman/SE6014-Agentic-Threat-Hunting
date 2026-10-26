@@ -52,7 +52,7 @@ python -m threat_hunting.run "An external IP brute-forced SSH and then logged in
 
 Switch parts of the agent off for experiments with `--control agent_loop=off`, `skeptic=off`, `act=off` or `deterministic_sampling=off`.
 
-While it runs, the hunt prints each phase, every MCP call (step, tool, hits, milliseconds), every LLM call (role, seconds, tokens), each investigator turn and skeptic test on stderr, then a table of phase timings; the timings are also saved as `manifest.phase_seconds` in `result.json`. Add `--quiet` to switch this off (`hunt_queue run` takes `--quiet` too; elsewhere `HUNT_PROGRESS=1` switches it on).
+While it runs, the hunt prints each phase, every MCP call (step, tool, hits, milliseconds), every LLM call (role, seconds, tokens), each investigator turn and skeptic test on stderr, then a table of phase timings; the timings are also saved in `runs/<run_id>/timings.json` (not in `result.json`, so two runs of the same hunt still compare as identical). Add `--quiet` to switch this off (`hunt_queue run` takes `--quiet` too; elsewhere `HUNT_PROGRESS=1` switches it on).
 
 Promote what the agent found on data no playbook covers (DESIGN §5.5):
 

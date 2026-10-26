@@ -124,6 +124,8 @@ def test_two_runs_are_identical(primary):
     events = lambda r: sorted(e for c in r["claims"] for e in c["event_ids"])
     assert label(again) == label(primary) and reqs(again) == reqs(primary) and events(again) == events(primary)
     assert [c["text"] for c in again["claims"]] == [c["text"] for c in primary["claims"]]
+    # timings vary per run, so they live outside result.json (C4 compares result.json files)
+    assert "phase_seconds" not in again["manifest"] and (config.RUNS_DIR / again["run_id"] / "timings.json").exists()
 
 
 def test_detection_drafts_replay_the_hunt_evidence(primary):
