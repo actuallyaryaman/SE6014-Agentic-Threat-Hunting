@@ -1,31 +1,20 @@
-# C4 C2 Repeatability Comparison
+# C4: Compare C2 hunt runs
 
-## Run on the existing sample outputs
+Files: `compare_c2_results.py`, `test_compare_c2_results.py`, `c4_sample_comparison.md`.
 
-From the repository root:
-
-```bash
-python group_C/threat_hunting/c4_repeatability/compare_c2_results.py \
-  group_B/tests/c2_c3_evidence/attack/result.json \
-  group_B/tests/c2_c3_evidence/attack-repeat/result.json \
-  --output group_C/threat_hunting/c4_repeatability/sample_comparison.md
-```
-
-The script uses only the Python standard library. It checks the hypothesis, time range, verdict, coverage, evidence IDs, cited event IDs, and ordered queries. It ignores run IDs and common execution metadata, but keeps evidence and query contents. Differences are shown in the Markdown report.
-
-## Later integration test
-
-Run the same hypothesis twice with an identical dataset snapshot, time window, settings, and code version. Save both `result.json` files under separate folders and compare them using the command above. Record causes of differences and rerun after fixes.
-
-## PR steps
+## Run the new C2 samples
+Extract `sample_runs(1).zip` next to your repository (so `sample_runs/runs/` exists), then from the repository root:
 
 ```bash
-git checkout -b feature/c4-repeatability
-mkdir -p group_C/threat_hunting/c4_repeatability
-# Copy compare_c2_results.py, C4_README.md, sample_comparison.md into the folder
-git add group_C/threat_hunting/c4_repeatability
-git commit -m "Add C4 C2 repeatability comparison and sample report"
-git push -u origin feature/c4-repeatability
+python group_C/threat_hunting/c4_repeatability/compare_c2_results.py sample_runs/runs/pytest-primary/result.json sample_runs/runs/pytest-primary-2/result.json --output group_C/threat_hunting/c4_repeatability/c4_sample_comparison.md
 ```
 
-Open a pull request from `feature/c4-repeatability` to your team's target branch. Do not claim the integrated two-run test is complete until it has been executed.
+## Run automated tests
+```bash
+python -m unittest discover -s group_C/threat_hunting/c4_repeatability -p 'test_*.py' -v
+```
+
+Exit codes: 0 = MATCH; 1 = DIFFERENT; 2 = INVALID INPUT. Missing required fields cannot be MATCH. Claims, evidence links/contents, coverage, queries, event timestamps, and all other output fields are compared. Only execution IDs, manifest duration/audit paths, and per-run output-directory prefixes for action files are normalized. Query values and event timestamps are preserved.
+
+## Integration follow-up
+Run the same hypothesis twice with the same dataset snapshot, time window, settings, and code version. Save both C2 result.json files, compare, investigate any differences, and document fixes. C3 JSON report comparison comes later.
