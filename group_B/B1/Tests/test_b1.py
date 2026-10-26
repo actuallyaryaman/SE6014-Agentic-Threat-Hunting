@@ -219,6 +219,17 @@ class TestOnElasticsearch(unittest.TestCase):
                     self.assertTrue(required_ok(doc), doc)
                     self.assertNotIn("_parse_failure", doc.get("tags", []))
 
+    def test_apache_malformed_requests_are_parsed(self):
+        """Scanners send broken request lines; Apache answers 400. They must keep their real time."""
+        lines = ['172.17.0.1 - - [26/Oct/2026:01:23:43 +0000] "TRACE /" 400 0 "-" "-"',
+                 '172.17.0.1 - - [26/Oct/2026:01:23:56 +0000] "<script>alert(1)</script> / HTTP/1.1" 400 0 "-" "-"']
+        for doc in self.simulate("apache-access", lines):
+            self.assertNotIn("_parse_failure", doc.get("tags", []), doc)
+            self.assertIn("malformed_request", doc["tags"])
+            self.assertTrue(get(doc, "@timestamp").startswith("2026-10-26T01:23:"), doc)
+            self.assertEqual(get(doc, "source.ip"), "172.17.0.1")
+            self.assertEqual(get(doc, "http.response.status_code"), 400)
+
     def test_windows_attack_event(self):
         doc = self.simulate("windows-json", [WIN_SECURITY])[0]
         self.assertEqual(get(doc, "event.code"), "5145")

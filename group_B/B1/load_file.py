@@ -171,7 +171,7 @@ def main():
     print(f"Required fields:  {required} of {indexed} have all four present and non-empty ({', '.join(REQUIRED)})")
     print(f"Empty values:     {empty} documents have a required field that is empty")
     print(f"Parse failures:   {failures} tagged _parse_failure")
-    print(f"Parsed OK:        {clean} ({clean / total:.1%})")
+    print(f"Parsed OK:        {clean} ({clean / total:.2%})")
     print(f"Rejected by Elasticsearch: {len(errors)}")
     for reason in sorted(set(errors))[:5]:
         print(f"  rejection reason: {reason}")

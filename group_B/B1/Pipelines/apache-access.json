@@ -11,8 +11,19 @@
       "grok": {
         "field": "message",
         "patterns": [
-          "%{IPORHOST:source.ip} %{USER:apache.ident} %{USER:apache.auth} \\[%{HTTPDATE:apache.timestamp}\\] \"%{WORD:http.request.method} %{DATA:url.original} HTTP/%{NUMBER:http.version}\" %{NUMBER:http.response.status_code:int} (?:%{NUMBER:http.response.body.bytes:long}|-) \"%{DATA:http.request.referrer}\" \"%{DATA:user_agent.original}\"(?: %{NUMBER:apache.response_time:long})?"
+          "%{IPORHOST:source.ip} %{USER:apache.ident} %{USER:apache.auth} \\[%{HTTPDATE:apache.timestamp}\\] \"%{WORD:http.request.method} %{DATA:url.original} HTTP/%{NUMBER:http.version}\" %{NUMBER:http.response.status_code:int} (?:%{NUMBER:http.response.body.bytes:long}|-) \"%{DATA:http.request.referrer}\" \"%{DATA:user_agent.original}\"(?: %{NUMBER:apache.response_time:long})?",
+          "%{IPORHOST:source.ip} %{USER:apache.ident} %{USER:apache.auth} \\[%{HTTPDATE:apache.timestamp}\\] \"%{DATA:apache.malformed_request}\" %{NUMBER:http.response.status_code:int} (?:%{NUMBER:http.response.body.bytes:long}|-) \"%{DATA:http.request.referrer}\" \"%{DATA:user_agent.original}\"(?: %{NUMBER:apache.response_time:long})?"
         ]
+      }
+    },
+    {
+      "append": {
+        "if": "ctx.apache?.malformed_request != null",
+        "field": "tags",
+        "value": [
+          "malformed_request"
+        ],
+        "allow_duplicates": false
       }
     },
     {
