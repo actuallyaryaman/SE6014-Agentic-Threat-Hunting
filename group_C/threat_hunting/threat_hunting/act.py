@@ -13,7 +13,7 @@ import json, uuid
 from datetime import datetime
 from pathlib import Path
 import yaml
-from . import agent, hunter
+from . import agent, hunter, progress
 from .llm import ask_json, get_llm
 from .models import ACCEPTED, HuntPlan, PlanStep
 
@@ -108,7 +108,8 @@ async def replay(mcp, step: PlanStep, claims: list) -> dict:
     """Run the rule's query over the hunt window; the hunt's evidence must come back, and other hits are possible false positives."""
     p = {k: v for k, v in rule_params(step).items() if k not in ("fields", "size")}
     if step.tool == "aggregate":
-        r = await mcp.call("aggregate", **p)
+        with progress.step(f"replay {step.step_id}"):
+            r = await mcp.call("aggregate", **p)
         if "error" in r:
             return {"ok": False, "error": r["error"]}
         cited = {c.facts.get("bucket_key") for c in claims}
@@ -116,7 +117,8 @@ async def replay(mcp, step: PlanStep, claims: list) -> dict:
         hit = {str(b["key"]) for b in r.get("result", []) if b["count"] >= a.get("bucket_min_count", 0)
                and b.get("sum", 0) >= a.get("bucket_min_sum", 0) and b.get("distinct", 0) >= a.get("bucket_min_distinct", 0)}
         return {"ok": cited <= hit, "cited_buckets": len(cited), "matching_buckets": len(hit), "other_buckets": sorted(hit - cited)[:10]}
-    r = await mcp.call("search", **p, fields=["@timestamp"], size=200)
+    with progress.step(f"replay {step.step_id}"):
+        r = await mcp.call("search", **p, fields=["@timestamp"], size=200)
     if "error" in r:
         return {"ok": False, "error": r["error"]}
     cited = {e for c in claims for e in c.event_ids}
@@ -171,6 +173,8 @@ async def draft(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, guard: d
         path = det_dir / f"{step.step_id}.yml"
         path.write_text(yaml.safe_dump_all(docs, sort_keys=False, allow_unicode=True))
         check = await replay(mcp, step, claims)
+        progress.log(f"   draft {step.step_id}: {meta['title'][:70]} → replay "
+                     + ("reproduces the evidence" if check.get("ok") else f"does not reproduce it ({check})"[:120]))
         out["detections"].append({"rule_id": rule_id, "from_step": step.step_id, "technique": step.technique,
                                   "origin": "llm" if any(c.origin == "llm" for c in claims) else "playbook",
                                   "title": meta["title"], "level": meta["level"], "metadata_by": "llm" if m else "rules",

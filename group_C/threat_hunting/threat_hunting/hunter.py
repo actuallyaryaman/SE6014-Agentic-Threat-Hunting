@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta
 from collections import defaultdict
 from .models import Claim, Evidence, HuntPlan, PlanStep
-from . import config
+from . import config, progress
 from .playbooks import BASE, EID, INTERNAL_DST, ds, native
 
 MAX_PIVOT_HOSTS = 5
@@ -45,7 +45,8 @@ async def run_step(mcp, st: HuntState, step: PlanStep, dynamic=False) -> dict | 
             st.dynamic_steps.append(step)
         return None
     st.calls += 1
-    res = await mcp.call(step.tool, **step.params)
+    with progress.step(step.step_id, step.purpose):
+        res = await mcp.call(step.tool, **step.params)
     st.call_steps[res.get("call_id")] = step.step_id
     # completeness control: a truncated sample is never accepted silently; re-ask for every hit (within the tool cap)
     if st.complete_results and step.tool == "search" and not step.analysis.get("sample_ok") and "hits" in res \
@@ -53,7 +54,8 @@ async def run_step(mcp, st: HuntState, step: PlanStep, dynamic=False) -> dict | 
         st.notes.append(f"step {step.step_id}: result was truncated ({len(res['hits'])}/{res['total']}); re-queried with size={res['total']}")
         step.params["size"] = res["total"]
         st.calls += 1
-        res = await mcp.call(step.tool, **step.params)
+        with progress.step(step.step_id, "re-query for every hit"):
+            res = await mcp.call(step.tool, **step.params)
         st.call_steps[res.get("call_id")] = step.step_id
     if dynamic:
         st.dynamic_steps.append(step)
@@ -124,7 +126,8 @@ async def enrich_iocs(mcp, st: HuntState, step: PlanStep):
         return
     for c in [c for c in st.claims if c.step_id == step.step_id and c.kind == "aggregate"]:
         key = c.facts["bucket_key"]
-        r = await mcp.call("check_ioc", value=key)
+        with progress.step(step.step_id + "-ioc"):
+            r = await mcp.call("check_ioc", value=key)
         st.calls += 1
         st.call_steps[r.get("call_id")] = step.step_id + "-ioc"
         if r.get("total"):

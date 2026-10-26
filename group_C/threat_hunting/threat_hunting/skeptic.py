@@ -5,7 +5,7 @@ create claims) and evaluates the condition. A benign explanation the data suppor
 never raise confidence or change the label."""
 from __future__ import annotations
 import json, re
-from . import agent, hunter
+from . import agent, hunter, progress
 from .llm import ask_json, get_llm
 from .models import ACCEPTED, HuntPlan
 from .playbooks import BASE
@@ -158,4 +158,6 @@ async def _run_tests(mcp, st, ctx, claims, alts, out, state) -> list[dict]:
             value, unit = measure(step, st.raw.get(step.step_id, {}))
             rec.update(measured=value, measure=unit)
             rec["outcome"] = "supported" if _holds(rec["benign_if"], value) else "ruled_out"
+        progress.log(f"   skeptic {cid}: {rec['explanation'][:80]} → {rec.get('outcome', 'not_tested').replace('_', ' ')}"
+                     + (f" ({rec['measured']} {rec['measure']}, benign if {rec['benign_if']})" if "measured" in rec else ""))
     return rejected

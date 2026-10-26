@@ -44,7 +44,7 @@ def test_without_an_llm_testable_techniques_not_hunted_recently_are_templated(tm
 def test_run_executes_only_approved_proposals(tmp_path, monkeypatch):
     ran = []
 
-    async def fake_run(h, run_id):
+    async def fake_run(h, run_id, **kw):
         ran.append((h, run_id))
         return {"run_id": run_id, "verdict": {"label": "NOT_SUPPORTED", "confidence": "medium", "leads": []}}
     monkeypatch.setattr(hunt_queue, "run_hunt", fake_run)

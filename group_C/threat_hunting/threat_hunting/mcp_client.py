@@ -2,11 +2,11 @@
 tool to the server that offers it, and appends every call to runs/<run_id>/trace.jsonl. The agent reaches data only here.
 Ported from the prototype's src/hunt/mcpclient.py (one server) and extended to two servers plus the client-side trace."""
 from __future__ import annotations
-import hashlib, json, os, shlex, sys
+import hashlib, json, os, shlex, sys, time
 from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from . import config
+from . import config, progress
 
 ES_ENV = ("ES_URL", "ES_API_KEY", "ES_CA_CERT", "HUNT_INDEX", "HUNT_INDEX_PREFIX")
 # Tools the agent may call, per server, with the parameters it relies on (DESIGN.md threat T7). Anything else a server offers is
@@ -33,6 +33,11 @@ class McpHunt:
         self._stack = AsyncExitStack()
 
     async def __aenter__(self):
+        with progress.phase("start MCP servers", ", ".join(self.servers.values())):
+            await self._start()
+        return self
+
+    async def _start(self):
         for name, cmd in self.servers.items():
             argv = shlex.split(cmd)
             if argv[0] == "python":
@@ -59,7 +64,6 @@ class McpHunt:
             if absent:
                 raise RuntimeError(f"MCP server {name!r} ({self.servers[name]}) does not offer required tools {absent}")
         self.trace_path.parent.mkdir(parents=True, exist_ok=True)
-        return self
 
     async def __aexit__(self, *a):
         await self._stack.aclose()
@@ -67,6 +71,7 @@ class McpHunt:
     async def call(self, tool: str, **args) -> dict:
         args = {k: v for k, v in args.items() if v is not None}
         server = self.route.get(tool, ("?", None))[0]
+        t0 = time.time()
         if tool not in self.route:
             out = {"error": f"no MCP server offers tool {tool!r}", "tool": tool}
         else:
@@ -82,4 +87,5 @@ class McpHunt:
                **({"error": out["error"]} if "error" in out else {})}
         with open(self.trace_path, "a") as f:
             f.write(json.dumps(rec, default=str) + "\n")
+        progress.mcp_call(self.calls, server, tool, args, out, time.time() - t0)
         return out

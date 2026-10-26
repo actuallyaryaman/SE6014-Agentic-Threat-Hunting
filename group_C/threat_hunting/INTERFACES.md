@@ -236,7 +236,7 @@ Every run writes `runs/<run_id>/result.json`. This is the contract; field names 
 | `self_check` | `{claims, self_checked, failed: [{claim_id, problems}]}` |
 | `coverage` | `{data_sources, coverage: {<log type or uncovered dataset>: {total, n_buckets, empty_buckets, coverage_ratio, no_playbook?}}, gaps, missing_fields, entity_missing, unknown_sources: [{dataset, docs, categories, fields, proposed_kind, proposed_by, reason, matched_kind, not_matched_because?}]}` |
 | `limitations[]`, `notes[]` | Plain-text caveats and execution notes (truncation, budget, baseline exclusions) |
-| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, python, temperature, llm {calls, max_calls, tokens_in, tokens_out, trace}, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
+| `manifest` | `run_id, backend, planner, code_hash, tool_calls, seconds, phase_seconds {phase: seconds, total}, python, temperature, llm {calls, max_calls, tokens_in, tokens_out, trace}, controls, perturb_seed, index, mcp_servers, ignored_tools, audit_files` |
 
 `plan.json` `entities` also carries `users` and `requirement_groups` (`[{label, kind: technique/llm, techniques}]`, kind `llm` when only the LLM chose the technique), the field C3 reads. Every LLM call is in `runs/<id>/llm.jsonl`: `seq, role, model, prompt_sha256, system, messages, response, tokens_in, tokens_out, ms`.
 
@@ -316,6 +316,8 @@ The window is not a parameter. It spans the data of the datasets the techniques 
 | `skeptic` | The skeptic tests benign explanations |
 | `act` | Detection drafts and response proposals are written |
 | `deterministic_sampling` | Temperature 0 for every LLM call |
+
+Progress: the CLI prints each phase, MCP call, LLM call, investigator turn and skeptic test with its duration on stderr (stdout keeps the one-line summary); `--quiet` turns it off, `HUNT_PROGRESS=1` turns it on for other entry points.
 
 Other commands (DESIGN §3.4–3.7, §5.5): `python -m threat_hunting.promote` (candidate → playbook), `python -m threat_hunting.hunt_queue propose|run`, `python -m threat_hunting.feedback add|list|revoke`, `python -m hunt_server.server`. `HUNT_FORCE_RULES=1` disables every LLM role.
 

@@ -23,7 +23,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
-from . import config  # noqa: F401  (loads .env)
+from . import config, progress  # config loads .env
 
 ROLES = ("intake", "investigator", "skeptic", "responder", "classifier", "queue", "chat")
 DEFAULT_MODELS = {"anthropic": "claude-sonnet-5-5"}
@@ -68,6 +68,7 @@ def check_budget():
 
 def record(role: str | None, model: str, system: str, msgs: list[dict], text: str, tin, tout, ms: int):
     """Append one LLM call to the run's llm.jsonl: full messages and response, plus a prompt hash to compare runs."""
+    progress.llm_call(role, model, tin, tout, ms)
     t = _TRACE.get()
     if not t:
         return

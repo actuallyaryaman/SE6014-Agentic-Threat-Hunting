@@ -117,14 +117,14 @@ async def propose(mcp, intel: str | None = None, max_n: int = 5) -> dict:
     return q
 
 
-async def run_queue(path: Path, approve: str) -> dict:
+async def run_queue(path: Path, approve: str, show_progress: bool | None = None) -> dict:
     q = json.loads(path.read_text())
     pick = {p["n"] for p in q["proposals"]} if approve == "all" else {int(x) for x in re.split(r"[,\s]+", approve) if x}
     for p in q["proposals"]:
         if p["n"] not in pick or p["status"] != "proposed":
             continue
         p["status"] = "approved"
-        r = await run_hunt(p["hypothesis"], f"{q['id']}-{p['n']}")
+        r = await run_hunt(p["hypothesis"], f"{q['id']}-{p['n']}", show_progress=show_progress)
         p.update(status="done", run_id=r["run_id"], verdict=r["verdict"]["label"], confidence=r["verdict"]["confidence"],
                  leads=len(r["verdict"].get("leads", [])))
         path.write_text(json.dumps(q, indent=1))
@@ -145,6 +145,7 @@ if __name__ == "__main__":
     sub = ap.add_subparsers(dest="cmd", required=True)
     a1 = sub.add_parser("propose"); a1.add_argument("--intel", type=Path); a1.add_argument("--max", type=int, default=5)
     a2 = sub.add_parser("run"); a2.add_argument("queue", type=Path); a2.add_argument("--approve", required=True, help="all, or e.g. 1,3")
+    a2.add_argument("--quiet", action="store_true", help="no step-by-step progress on stderr")
     a = ap.parse_args()
     if a.cmd == "propose":
         f = asyncio.run(_propose_cli(a.intel, a.max))
@@ -153,6 +154,6 @@ if __name__ == "__main__":
             print(f"{p['n']}. [p{p['priority']}] {p['hypothesis']}  ({', '.join(p['techniques'])}{'' if p['selects_playbooks'] else '; leads only'})")
         print(f"{len(q['rejected'])} rejected; queue written to {f.relative_to(config.ROOT)}; run with: python -m threat_hunting.hunt_queue run {f.relative_to(config.ROOT)} --approve 1,2")
     else:
-        q = asyncio.run(run_queue(a.queue, a.approve))
+        q = asyncio.run(run_queue(a.queue, a.approve, show_progress=not a.quiet))
         for p in q["proposals"]:
             print(f"{p['n']}. {p['status']:8s} {p.get('verdict', ''):17s} {p.get('confidence', ''):6s} {p['hypothesis']}")

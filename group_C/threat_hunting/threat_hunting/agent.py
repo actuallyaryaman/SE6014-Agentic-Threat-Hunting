@@ -9,7 +9,7 @@ withheld. Claims from agent steps carry origin "llm": they are leads and never d
 from __future__ import annotations
 import json, re
 from datetime import timedelta
-from . import config, hunter, query, selfcheck
+from . import config, hunter, progress, query, selfcheck
 from .llm import ask_json, get_llm
 from .mcp_client import request_hash
 from .models import HuntPlan, PlanStep
@@ -244,7 +244,8 @@ def summarize(res: dict, step: PlanStep, flagged: set[str], new_claims) -> dict:
 async def run_action(mcp, st: hunter.HuntState, step, ctx: Ctx) -> dict:
     if isinstance(step, dict):                                  # check_ioc
         st.calls += 1
-        r = await mcp.call("check_ioc", value=step["value"])
+        with progress.step(step["step_id"], step["purpose"]):
+            r = await mcp.call("check_ioc", value=step["value"])
         st.call_steps[r.get("call_id")] = step["step_id"]
         return {"error": r["error"]} if "error" in r else {"total": r.get("total", 0), "matches": r.get("matches", [])[:5]}
     before = len(st.claims)
@@ -344,12 +345,14 @@ async def investigate(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, gu
                "purpose": clean(str(a.get("purpose", "")), 200)}
         if a.get("action") == "stop":
             rec.update(status="stop", reason=clean(str(a.get("reason", "")), 300))
+            progress.log(f"   turn {n}/{max_turns}: stop: {rec['reason'][:120]}")
             out["steps"].append(rec)
             out["stopped_because"] = "the investigator stopped: " + rec["reason"]
             break
         step, err = validate_action(a, ctx, n)
         if err:
             rec.update(status="rejected", reason=err, params=clean(a.get("params"), 200))
+            progress.log(f"   turn {n}/{max_turns}: {a.get('action')} rejected: {err[:120]}")
             out["steps"].append(rec)
             history.append({k: rec[k] for k in ("n", "action", "purpose", "status", "reason")})
             recent.append((n, {"rejected": err}))
@@ -367,6 +370,9 @@ async def investigate(mcp, plan: HuntPlan, st: hunter.HuntState, notes: dict, gu
                    claims=[c["claim_id"] for c in last.get("new_findings", [])], **({"error": last["error"]} if "error" in last else {}))
         out["steps"].append(rec)
         history.append({k: rec.get(k) for k in ("n", "action", "technique", "purpose", "status", "total", "claims")})
+        progress.log(f"   turn {n}/{max_turns}: {rec['action']} [{rec['technique']}] {rec['purpose'][:70]} → {rec['status']}, "
+                     f"{rec.get('total')} hit(s)" + (f", claims {rec['claims']}" if rec.get("claims") else "")
+                     + (f"  | {rec['thought'][:110]}" if rec["thought"] else ""))
     else:
         out["stopped_because"] = f"turn limit ({max_turns}) reached"
     return out

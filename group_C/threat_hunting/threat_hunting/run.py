@@ -5,7 +5,7 @@ Ported from the prototype's src/hunt/run.py (the verifier and reporter stay with
 from __future__ import annotations
 import argparse, asyncio, hashlib, json, os, platform, time
 from pathlib import Path
-from . import act, agent, config, feedback, guardrails, planner, hunter, promote, selfcheck, skeptic, verdict
+from . import act, agent, config, feedback, guardrails, planner, hunter, progress, promote, selfcheck, skeptic, verdict
 from .llm import get_llm, start_trace
 from .mcp_client import McpHunt
 
@@ -40,8 +40,9 @@ def _queries(trace: Path, plan, st, guard: dict, phases: list[tuple[str, int]], 
 
 
 async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 120, perturb_seed: int | None = None,
-                   controls: dict | None = None, question: str | None = None) -> dict:
-    """One hunt. question: an analyst's follow-up (hunt_server.follow_up); the investigator is asked to answer it."""
+                   controls: dict | None = None, question: str | None = None, show_progress: bool | None = None) -> dict:
+    """One hunt. question: an analyst's follow-up (hunt_server.follow_up); the investigator is asked to answer it.
+    show_progress: print each phase, call and duration on stderr (None: the HUNT_PROGRESS environment variable decides)."""
     controls = {**DEFAULT_CONTROLS, **(controls or {})}
     run_id = run_id or time.strftime("hunt-%Y%m%d-%H%M%S")
     run_dir = config.RUNS_DIR / run_id
@@ -50,9 +51,12 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     (config.AUDIT_DIR / f"{run_id}.jsonl").unlink(missing_ok=True)
     (config.AUDIT_DIR / f"{run_id}-analytics.jsonl").unlink(missing_ok=True)
     ltrace = start_trace(run_dir / "llm.jsonl", temperature=0.0 if controls["deterministic_sampling"] else None)
+    progress.start(show_progress)
+    progress.log(f"hunt {run_id}: {hypothesis}" + (f"  (follow-up: {question})" if question else ""))
     t0 = time.time()
     async with McpHunt(run_id) as mcp:
-        plan, notes = await planner.plan_hunt(mcp, hypothesis)
+        with progress.phase("planning", "data, intake, window, coverage"):
+            plan, notes = await planner.plan_hunt(mcp, hypothesis)
         plan.entities["entity_missing"] = notes["entity_missing"]
         canonical = list(plan.steps)
         if perturb_seed is not None:                               # experiment-only variance injection
@@ -72,24 +76,40 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
         lessons = feedback.relevant(plan)               # analyst memory: context for the LLM roles, flags on matching findings
         shown = feedback.for_prompt(lessons)
         n_plan = mcp.calls
-        st = await hunter.execute(mcp, plan, max_calls, controls["complete_results"])
+        with progress.phase("playbooks", f"{len(plan.steps)} step(s) and their follow-ups"):
+            st = await hunter.execute(mcp, plan, max_calls, controls["complete_results"])
+        progress.log(f"   {len(st.claims)} finding(s) from the playbooks")
         n_hunt = mcp.calls
-        guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
+        with progress.phase("injection sweep"):
+            guard = await guardrails.injection_sweep(mcp, plan, set(notes.get("index_fields", [])))
+        progress.log(f"   {len(guard.get('findings', []))} event(s) with injection-like text")
         n_guard = mcp.calls
-        agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False), lessons=shown, question=question) if controls["agent_loop"]
-                     else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
+        with progress.phase("investigator", "LLM picks follow-up queries" if controls["agent_loop"] else "off"):
+            agent_out = (await agent.investigate(mcp, plan, st, notes, guard, draft=notes.get("draft", False), lessons=shown, question=question)
+                         if controls["agent_loop"] else {"enabled": False, "steps": [], "stopped_because": "control agent_loop is off"})
+        progress.log(f"   stopped: {agent_out['stopped_because']}")
         n_agent = mcp.calls
-        check = selfcheck.check(st)
-        sk = (await skeptic.challenge(mcp, plan, st, notes, guard, shown) if controls["skeptic"]
-              else {"enabled": False, "alternatives": [], "skipped_because": "control skeptic is off"})
+        with progress.phase("self-check"):
+            check = selfcheck.check(st)
+        progress.log(f"   {check['self_checked']}/{check['claims']} claim(s) passed")
+        with progress.phase("skeptic", "tests benign explanations" if controls["skeptic"] else "off"):
+            sk = (await skeptic.challenge(mcp, plan, st, notes, guard, shown) if controls["skeptic"]
+                  else {"enabled": False, "alternatives": [], "skipped_because": "control skeptic is off"})
+        if sk.get("skipped_because"):
+            progress.log(f"   skipped: {sk['skipped_because']}")
         n_skeptic = mcp.calls
-        flags = feedback.benign_matches(lessons, [c for c in st.claims if c.status in ("self_checked", "verified")])
-        d = verdict.decide(plan, st, notes, check, guard, sk, flags)
-        actions = (await act.draft(mcp, plan, st, notes, guard, run_dir, d) if controls["act"]
-                   else {"detections": [], "response": [], "notes": ["control act is off"]})
+        with progress.phase("verdict"):
+            flags = feedback.benign_matches(lessons, [c for c in st.claims if c.status in ("self_checked", "verified")])
+            d = verdict.decide(plan, st, notes, check, guard, sk, flags)
+        progress.log(f"   {d['verdict']} ({d['confidence']}), {len(d['leads'])} lead(s), review: {'yes' if d['requires_analyst_review'] else 'no'}")
+        with progress.phase("action drafts", "Sigma rules and response proposals" if controls["act"] else "off"):
+            actions = (await act.draft(mcp, plan, st, notes, guard, run_dir, d) if controls["act"]
+                       else {"detections": [], "response": [], "notes": ["control act is off"]})
         n_act = mcp.calls
         tool_calls, ignored_tools = mcp.calls, mcp.ignored
-    candidates = promote.write_candidates(run_dir, run_id, plan, st, agent_out, notes.get("unknown_sources"))
+    with progress.phase("candidate playbooks"):
+        candidates = promote.write_candidates(run_dir, run_id, plan, st, agent_out, notes.get("unknown_sources"))
+    phase_seconds = progress.summary()
     phases = [("planning", n_plan), ("hunt", n_hunt), ("guardrail", n_guard), ("agent", n_agent), ("skeptic", n_skeptic), ("act", n_act)]
     queries = _queries(run_dir / "trace.jsonl", plan, st, guard, phases,
                        {x["step_id"]: x["purpose"] for x in agent_out["steps"] if x.get("step_id")})
@@ -97,6 +117,7 @@ async def run_hunt(hypothesis: str, run_id: str | None = None, max_calls: int = 
     src_files = list((config.ROOT / "threat_hunting").glob("*.py")) + list(config.KNOWLEDGE_DIR.glob("*"))
     meta = {"run_id": run_id, "backend": f"llm:{llm.describe()}" if llm else "rules (no usable LLM configured)", "planner": plan.planner,
             "code_hash": _hash_files(src_files), "tool_calls": tool_calls, "seconds": round(time.time() - t0, 1),
+            "phase_seconds": phase_seconds,
             "python": platform.python_version(),
             "temperature": ltrace.temperature if ltrace.temperature is not None else os.environ.get("LLM_TEMPERATURE") or "provider default",
             "llm": {"calls": ltrace.seq, "max_calls": ltrace.max_calls, "tokens_in": ltrace.tokens_in, "tokens_out": ltrace.tokens_out,
@@ -128,6 +149,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("hypothesis"); ap.add_argument("--run-id"); ap.add_argument("--max-calls", type=int, default=120)
     ap.add_argument("--control", action="append", default=[], metavar="NAME=off", help=f"switch a control off: {sorted(DEFAULT_CONTROLS)}")
+    ap.add_argument("--quiet", action="store_true", help="no step-by-step progress on stderr")
     a = ap.parse_args()
     ctl = {}
     for c in a.control:
@@ -135,7 +157,7 @@ if __name__ == "__main__":
         if k not in DEFAULT_CONTROLS:
             ap.error(f"unknown control {k!r}")
         ctl[k] = v.lower() not in ("off", "false", "0")
-    r = asyncio.run(run_hunt(a.hypothesis, a.run_id, a.max_calls, controls=ctl))
+    r = asyncio.run(run_hunt(a.hypothesis, a.run_id, a.max_calls, controls=ctl, show_progress=not a.quiet))
     v = r["verdict"]
     print(f"run {r['run_id']}: {v['label']} ({v['confidence']}); claims={len(r['claims'])} "
           f"self_checked={r['self_check']['self_checked']}; tool calls={r['manifest']['tool_calls']}")

@@ -4,7 +4,7 @@ event.dataset and coverage goes through analytics.gap_check."""
 from __future__ import annotations
 import json, re
 from datetime import datetime, timedelta, timezone
-from . import agent, config, playbooks
+from . import agent, config, playbooks, progress
 from .llm import ask_json
 from .models import HuntPlan
 
@@ -134,8 +134,9 @@ async def missing_fields(mcp, log_type: str, fields: list[str], tf: str, tt: str
     """A field counts as present when at least one event of this dataset in the window has it."""
     for f in fields:
         if (log_type, f) not in cache:
-            r = await mcp.call("count", index=config.HUNT_INDEX, time_from=tf, time_to=tt,
-                               filters=[playbooks.ds(log_type), {"field": f, "op": "exists"}])
+            with progress.step(f"field {log_type}", f):
+                r = await mcp.call("count", index=config.HUNT_INDEX, time_from=tf, time_to=tt,
+                                   filters=[playbooks.ds(log_type), {"field": f, "op": "exists"}])
             cache[(log_type, f)] = "error" not in r and r.get("total", 0) > 0
     return [f for f in fields if not cache[(log_type, f)]]
 
@@ -154,8 +155,9 @@ async def profile(mcp, s: dict) -> dict:
     first = max(_parse(s["first_event"]), last - timedelta(days=config.MAX_WINDOW_DAYS) + timedelta(seconds=1))
     T = {"index": config.HUNT_INDEX, "time_from": iso(first), "time_to": iso(last + timedelta(seconds=1)),
          "filters": [{"field": "event.dataset", "op": "eq", "value": s["dataset"]}]}
-    hits = await mcp.call("search", **T, size=5)
-    cats = await mcp.call("aggregate", **T, agg="terms", field="event.category", size=5)
+    with progress.step(f"profile {s['dataset']}"):
+        hits = await mcp.call("search", **T, size=5)
+        cats = await mcp.call("aggregate", **T, agg="terms", field="event.category", size=5)
     samples = [h["fields"] for h in hits.get("hits", [])]
     markers = [m.lower() for m in playbooks.BASE["injection_markers"]]          # the sweep runs later; apply its markers here too
     shown = [{"withheld": "injection-like text"} if any(m in json.dumps(x).lower() for m in markers) else x for x in samples]
@@ -194,13 +196,15 @@ async def match_unknown(mcp, unknown: list[dict], notes: dict) -> dict[str, list
                                          **({"not_matched_because": problem} if problem and kind != "none" else {})})
         if not problem:
             matches.setdefault(kind, []).append(s["dataset"])
+        progress.log(f"   dataset {s['dataset']}: {by} proposes '{kind}' → " + (f"matched to {kind}" if not problem else f"not matched ({problem or 'no kind'})"))
     return matches
 
 
 async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     notes: dict = {"gaps": [], "entity_missing": [], "missing_fields": {}, "llm_notes": [], "unknown_sources": []}
     kb = catalogue()
-    dd = await mcp.call("describe_data", index_pattern=config.HUNT_INDEX)
+    with progress.step("describe data"):
+        dd = await mcp.call("describe_data", index_pattern=config.HUNT_INDEX)
     all_sources = dd.get("sources", [])
     if not all_sources:
         raise RuntimeError(f"no data in {config.HUNT_INDEX}: {dd.get('error') or 'describe_data found no datasets'}")
@@ -230,7 +234,8 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     notes["llm_extra_context"] = llm_extra
     meta = {}
     for tid in required + context:
-        r = await mcp.call("lookup_attack", query=tid)
+        with progress.step(f"lookup {tid}"):
+            r = await mcp.call("lookup_attack", query=tid)
         meta[tid] = r.get("techniques", {}).get(tid, {}).get("name", tid)
 
     need = sorted({s for t in required + context for s in playbooks.SOURCES[t]})
@@ -238,8 +243,11 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
     notes["intake"] = {"source": by, "window": window, "assumptions": it["assumptions"], "dropped": it["dropped"],
                        "users": it["users"]}
     hosts, ips = it["hosts"], it["ips"]
+    progress.log(f"   intake ({by}): required {required}, context {context}, hosts {hosts}, ips {ips}")
+    progress.log(f"   window {tf} → {tt} ({window['basis']})")
     for h in hosts:
-        c = await mcp.call("count", index=config.HUNT_INDEX, time_from=tf, time_to=tt, filters=[{"field": "host.name", "op": "eq", "value": h}])
+        with progress.step(f"entity {h}"):
+            c = await mcp.call("count", index=config.HUNT_INDEX, time_from=tf, time_to=tt, filters=[{"field": "host.name", "op": "eq", "value": h}])
         if c.get("total", 0) == 0:
             notes["entity_missing"].append(h)
     sm = SIZE_RX.search(hypothesis)
@@ -252,17 +260,19 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
             notes["gaps"].append(f"required log type '{s}' is not ingested")
     notes["coverage"] = {}
     for s in [s for s in need if s in by_type]:
-        h = await mcp.call("aggregate", index=config.HUNT_INDEX, time_from=tf, time_to=tt, agg="date_histogram", interval="60m",
-                           filters=[playbooks.ds(s)])
-        g = await mcp.call("gap_check", buckets=h.get("result", []))
+        with progress.step(f"coverage {s}"):
+            h = await mcp.call("aggregate", index=config.HUNT_INDEX, time_from=tf, time_to=tt, agg="date_histogram", interval="60m",
+                               filters=[playbooks.ds(s)])
+            g = await mcp.call("gap_check", buckets=h.get("result", []))
         notes["coverage"][s] = {"total": h.get("total", 0), "n_buckets": g.get("n_buckets", 0),
                                 "empty_buckets": g.get("empty_buckets", []), "coverage_ratio": g.get("coverage_ratio", 0.0)}
         if g.get("n_buckets") and 1 - g["coverage_ratio"] > GAP_THRESHOLD:
             notes["gaps"].append(f"{s}: {len(g['empty_buckets'])}/{g['n_buckets']} hourly buckets have no events")
     for s in unmatched[:MAX_UNKNOWN]:                         # datasets only the investigator can hunt: report their coverage too
-        h = await mcp.call("aggregate", index=config.HUNT_INDEX, time_from=tf, time_to=tt, agg="date_histogram", interval="60m",
-                           filters=[{"field": "event.dataset", "op": "eq", "value": s["dataset"]}])
-        g = await mcp.call("gap_check", buckets=h.get("result", []))
+        with progress.step(f"coverage {s['dataset']}"):
+            h = await mcp.call("aggregate", index=config.HUNT_INDEX, time_from=tf, time_to=tt, agg="date_histogram", interval="60m",
+                               filters=[{"field": "event.dataset", "op": "eq", "value": s["dataset"]}])
+            g = await mcp.call("gap_check", buckets=h.get("result", []))
         notes["coverage"][s["dataset"]] = {"total": h.get("total", 0), "n_buckets": g.get("n_buckets", 0),
                                            "empty_buckets": g.get("empty_buckets", []), "coverage_ratio": g.get("coverage_ratio", 0.0),
                                            "no_playbook": True}
@@ -291,4 +301,6 @@ async def plan_hunt(mcp, hypothesis: str) -> tuple[HuntPlan, dict]:
         refutation_criteria=[f"{t}: all required sources and fields covered for the full window AND zero indicators" for t in required],
         planner=by)
     notes["data_sources"] = {k: sum(x["docs"] for x in v) for k, v in by_type.items()}
+    progress.log(f"   plan: {len(steps)} playbook step(s) for {required + context}; gaps {notes['gaps'] or 'none'}; "
+                 f"draft mode {'on' if notes['draft'] else 'off'}")
     return plan, notes
