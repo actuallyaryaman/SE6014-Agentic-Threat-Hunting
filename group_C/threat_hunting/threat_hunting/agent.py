@@ -49,7 +49,8 @@ Rules:
   queries. At most 5 findings per action are kept; a claim that would create more is dropped, so make it specific.
   For search: {"template": "text with {field} placeholders", "group_by": [fields]}; every placeholder must be a field the
   events have. For terms aggregations: {"template": "... {bucket_key} ... {count} ...", "bucket_min_count": N}. Write numbers
-  and IPs only through placeholders; code fills them from the events.
+  and IPs only through placeholders; code fills them from the events. Do not join values with ":" (write
+  "{source.ip} port {source.port}", not "{source.ip}:{source.port}"): the checks read "20:43" as a time.
 
 Answer with ONE JSON object:
 {"thought": "why this action, in one or two sentences",
