@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import shutil
 import signal
 import subprocess
@@ -38,6 +39,7 @@ class HuntDemo(Integration):
                 archive.extractall(self.root / "c3", filter="data")
             self.c3_root = self.root / "c3"
             self.report["c3_commit"] = command("git", "rev-parse", c3_ref)
+        self.report["c2_commit"] = command("git", "rev-parse", c2_ref)
         self.c2_root = root
         self.hunt_python = str(python.absolute())
         self.report["c2_tree"] = command("git", "rev-parse", c2_ref + ":group_C/threat_hunting")
@@ -57,6 +59,8 @@ class HuntDemo(Integration):
                          "ES_CA_CERT": str(self.root / "certs/http_ca.crt"),
                          "HUNT_INDEX": "security-events-c2test*", "HUNT_INDEX_PREFIX": "security-events-",
                          "HUNT_FORCE_RULES": "1", "PYTHONUNBUFFERED": "1"}
+        self.hunt_env["HUNT_ES_MCP_CMD"] = self.hunt_python + " -m " + self.es_mcp_module
+        self.report["es_mcp_module"] = self.es_mcp_module
         self.case("isolated_c2_snapshot_and_readonly_key")
         settings = self.ls_env.read_text()
         assert "A2_INDEX_PREFIX=security-events\n" in settings
@@ -133,6 +137,10 @@ class HuntDemo(Integration):
         audit = self.c2_root / "audit" / (run_id + ".jsonl")
         if audit.exists():
             shutil.copy2(audit, destination / "mcp-audit.jsonl")
+        analytics_audit = self.c2_root / "audit" / (run_id + "-analytics.jsonl")
+        if analytics_audit.exists():
+            shutil.copy2(analytics_audit, destination / "analytics-audit.jsonl")
+        assert result["manifest"]["mcp_servers"]["es"] == self.hunt_env["HUNT_ES_MCP_CMD"]
         self.report.setdefault("hunts", []).append({"run_id": run_id, "verdict": result["verdict"]["label"],
             "claims": len(result["claims"]), "cited_events": len(ids), "tool_calls": len(trace),
             "self_check": result["self_check"], "independently_checked_ids": len(ids)})
@@ -145,7 +153,7 @@ class HuntDemo(Integration):
         destination.mkdir()
         env = dict(self.hunt_env)
         env.update(PYTHONPATH=os.pathsep.join((str(self.c3_root), str(self.c2_root))),
-                   C3_MCP_COMMAND=self.hunt_python, C3_MCP_ARGS="-m dev.es_mcp_standin.server",
+                   C3_MCP_COMMAND=self.hunt_python, C3_MCP_ARGS="-m " + self.es_mcp_module,
                    C3_MCP_ANALYTICS_COMMAND=self.hunt_python,
                    C3_MCP_ANALYTICS_ARGS="-m analytics_server.server", C3_MCP_CWD=str(self.c2_root))
         base = [self.hunt_python, "-m", "group_C.threat_hunting.evidence.cli"]
@@ -162,6 +170,15 @@ class HuntDemo(Integration):
         assert len(reports) == 1, reports
         report = json.loads(reports[0].read_text())
         assert report["verification_mode"] == "mcp", report["verification_mode"]
+        if self.require_c3_agreement:
+            expected = {"attack": "Confirmed", "attack-repeat": "Confirmed", "benign": "Refuted",
+                        "missing-host": "Inconclusive", "empty-window": "Inconclusive"}[run_id]
+            checks = report["verification"]
+            assert report["decision"]["verdict"] == expected, report["decision"]
+            assert not checks["unsupported"] and not checks["contradicted"] and not checks["unverified"], checks
+            replay = checks["replay"]
+            assert replay["replayed"] > 0 and replay["identical"] == replay["replayed"], replay
+            assert not replay["mismatches"] and not replay["skipped"], replay
         self.report.setdefault("c3_reports", []).append({"run_id": run_id, "decision": report["decision"],
                                                        "verification": report["verification"]})
         self.case("c3_live_mcp_report_" + run_id, verdict=report["decision"]["verdict"])
@@ -187,6 +204,22 @@ class HuntDemo(Integration):
         assert [c["text"] for c in positive["claims"]] == [c["text"] for c in repeated["claims"]]
         self.case("hunt_repeatability")
 
+    def compare_c4(self, ref, output):
+        path = "group_C/threat_hunting/c4_repeatability/compare_c2_results.py"
+        data = subprocess.check_output(["git", "show", ref + ":" + path], cwd=REPO)
+        script = self.root / "c4_compare.py"
+        script.write_bytes(data)
+        self.report["c4_commit"] = command("git", "rev-parse", ref)
+        self.report["c4_script_sha256"] = hashlib.sha256(data).hexdigest()
+        module = runpy.run_path(str(script))
+        a, b = (output / name / "result.json" for name in ("attack", "attack-repeat"))
+        metrics = module["compare"](json.loads(a.read_text()), json.loads(b.read_text()))
+        (output / "c4-comparison.json").write_text(json.dumps(metrics, indent=2) + "\n")
+        (output / "c4-comparison.md").write_text(module["report"](metrics, "attack/result.json", "attack-repeat/result.json"))
+        assert len(metrics) == 7 and all(v["match"] for v in metrics.values()), metrics
+        self.report["c4"] = {"matched": 7, "checks": 7}
+        self.case("c4_repeatability_all_seven_fields")
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -194,11 +227,19 @@ def main():
     parser.add_argument("--output-dir", type=Path, required=True, help="new directory for synthetic evidence")
     parser.add_argument("--c2-ref", default="HEAD", help="committed C2 snapshot to test")
     parser.add_argument("--c3-ref", help="optional C3 evidence snapshot; does not replace C2")
+    parser.add_argument("--es-mcp-module", choices=("dev.es_mcp_standin.server", "es_mcp_server.server"),
+                        default="dev.es_mcp_standin.server")
+    parser.add_argument("--require-c3-agreement", action="store_true", help="require expected verdicts and full query replay")
+    parser.add_argument("--c4-ref", help="optional pinned C4 comparator snapshot")
     args = parser.parse_args()
+    if args.require_c3_agreement and not args.c3_ref:
+        parser.error("--require-c3-agreement needs --c3-ref")
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     test = HuntDemo("8b86c10eb5ee5248f087aa6c8273c8fadb82758c")
-    test.report["scope"] = "isolated B3/A2/ES/MCP/C2 demo; C1 development stand-in; no live LLM; optional C3"
+    test.es_mcp_module = args.es_mcp_module
+    test.require_c3_agreement = args.require_c3_agreement
+    test.report["scope"] = "isolated B3/A2/B1/HTTPS ES/MCP/C2; " + args.es_mcp_module + "; no live LLM; optional C3/C4"
     status = 1
     try:
         test.source_files()
@@ -210,6 +251,8 @@ def main():
         test.start_logstash("push")
         test.ingest()
         test.hunts(output)
+        if args.c4_ref:
+            test.compare_c4(args.c4_ref, output)
         test.report["status"] = "passed"
         status = 0
     except Exception as error:

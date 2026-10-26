@@ -108,3 +108,31 @@ HTML; PDF rendering and the final C1 server are outside this test.
 
 See [the C2/C3 findings](tests/C2_C3_INTEGRATION_RESULTS.md) before presenting
 the positive scenario: C3 currently rejects one correlation claim.
+
+
+## Delivered C1 with updated C2/C3 and C4
+
+Use these pinned snapshots for the 2026-10-26 unified test. This selects
+`es_mcp_server.server` for both C2 and C3, requires the expected C3 verdicts
+and complete identical query replay, then compares the two attack outputs
+using C4. It uses synthetic SSH data in a dedicated local index and no LLM.
+The C1 package is the delivered server plus the compatibility changes in #22.
+
+```bash
+git fetch origin refs/pull/22/head refs/pull/23/head refs/pull/25/head
+group_B/.venv/bin/python group_B/scripts/check_onboarding_hunt_demo.py \
+  --hunt-python "$demo_workspace/hunt-venv/bin/python" \
+  --c2-ref 676c21b73c46e4a2632d0d855a922497cc0b9c15 \
+  --c3-ref 5d8ced350259c3727d9c1bddabf292194518797e \
+  --es-mcp-module es_mcp_server.server \
+  --require-c3-agreement \
+  --c4-ref ae8b316730fdabcbe90929b6869c1a8f8bf0eef4 \
+  --output-dir "$demo_workspace/unified-evidence"
+```
+
+Use the separate C2 environment prepared above, including Jinja2 3.1.6.
+The selected commits must exist locally; outputs never overwrite a previous
+run. Older results above remain historical evidence of earlier snapshots.
+
+[Unified recorded results](tests/UNIFIED_C1_C4_RESULTS.md) show the expected
+C3 verdicts and complete query replay with these exact snapshots.

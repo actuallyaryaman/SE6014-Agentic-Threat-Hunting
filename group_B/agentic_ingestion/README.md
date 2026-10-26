@@ -197,3 +197,5 @@ over authenticated HTTPS in an isolated environment; see
 the A3 boundary, live LLM behavior and the complete team demo remain.
 
 Live C2/C3 snapshot integration: [results and unresolved correlation claim](../tests/C2_C3_INTEGRATION_RESULTS.md).
+
+Updated delivered-C1 validation: [unified C1–C4 results](../tests/UNIFIED_C1_C4_RESULTS.md).
