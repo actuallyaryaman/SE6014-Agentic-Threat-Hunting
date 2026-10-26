@@ -169,3 +169,14 @@ The rules variant also checks raw Apache (including a malformed request),
 unknown JSON/CSV through B2, the original normalized A3 path with duplicate
 replay, and rejection of unapproved raw pipelines. Existing A3 parsers and
 sender scripts remain usable. See [the transport contract](B3_A3_CONTRACT.md).
+
+## Current C4 compatibility
+
+To use the expanded comparator, select
+`--c4-ref 5e76ccf6262fc756a0b5c5fce3d11eb09fac97c4` after fetching
+`feature/c4-repeatability`. Historical pins above remain reproducible.
+The harness handles both APIs and records the actual number of checks.
+Comparison completion does not imply all fields match: inspect `all_match`
+and `differing_fields` in the summary. Add `--require-c4-match` when every
+C4 field, including execution metadata, must match for the run to pass.
+See [the compatibility results](tests/C4_COMPATIBILITY_RESULTS.md).

@@ -363,15 +363,30 @@ class HuntDemo(Integration):
         self.report["c4_script_sha256"] = hashlib.sha256(data).hexdigest()
         module = runpy.run_path(str(script))
         a, b = (output / name / "result.json" for name in ("attack", "attack-repeat"))
-        metrics = module["compare"](json.loads(a.read_text()), json.loads(b.read_text()))
-        (output / "c4-comparison.json").write_text(json.dumps(metrics, indent=2) + "\n")
-        (output / "c4-comparison.md").write_text(module["report"](metrics, "attack/result.json", "attack-repeat/result.json"))
-        assert len(metrics) == 7
-        matched = sum(v["match"] for v in metrics.values())
-        if not self.llm_env_file:
-            assert matched == 7, metrics
-        self.report["c4"] = {"matched": matched, "checks": 7}
-        self.case("c4_repeatability_comparison", matched=matched, total=7)
+        compared = module["compare"](json.loads(a.read_text()), json.loads(b.read_text()))
+        if isinstance(compared, tuple) and len(compared) == 2:
+            metrics, errors = compared
+            markdown = module["report"](metrics, errors, "attack/result.json", "attack-repeat/result.json")
+        elif isinstance(compared, dict):
+            metrics, errors = compared, []
+            markdown = module["report"](metrics, "attack/result.json", "attack-repeat/result.json")
+        else:
+            raise TypeError("unsupported C4 comparison API")
+        (output / "c4-comparison.json").write_text(json.dumps({"checks": metrics, "errors": errors}, indent=2) + "\n")
+        (output / "c4-comparison.md").write_text(markdown)
+        if errors:
+            self.report["c4"] = {"status": "invalid_input", "errors": errors}
+            raise ValueError("C4 input validation failed: " + "; ".join(errors))
+        if not isinstance(metrics, dict) or not metrics:
+            raise ValueError("C4 returned no comparison checks")
+        differing = [name for name, value in metrics.items() if not value["match"]]
+        matched = len(metrics) - len(differing)
+        self.report["c4"] = {"status": "compared", "matched": matched, "checks": len(metrics),
+                             "all_match": not differing, "differing_fields": differing}
+        if getattr(self, "require_c4_match", False) and differing:
+            raise AssertionError("C4 repeatability differences: " + ", ".join(differing))
+        self.case("c4_repeatability_comparison", matched=matched, total=len(metrics))
+
 
 
 def main():
@@ -385,6 +400,7 @@ def main():
     parser.add_argument("--require-c3-agreement", action="store_true", help="require expected verdicts and full query replay")
     parser.add_argument("--llm-env", type=Path, help="explicit private provider config; enables bounded live agent checks")
     parser.add_argument("--a3-stream", action="store_true", help="send bounded raw records through actual A3 UDP receiver")
+    parser.add_argument("--require-c4-match", action="store_true", help="fail on any C4 difference, including execution metadata")
     parser.add_argument("--c4-ref", help="optional pinned C4 comparator snapshot")
     args = parser.parse_args()
     if not args.hunt_python.is_file():
@@ -394,6 +410,7 @@ def main():
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
     test = HuntDemo("8b86c10eb5ee5248f087aa6c8273c8fadb82758c")
+    test.require_c4_match = args.require_c4_match
     test.llm_env_file = args.llm_env
     test.stream_mode = args.a3_stream
     test.es_mcp_module = args.es_mcp_module

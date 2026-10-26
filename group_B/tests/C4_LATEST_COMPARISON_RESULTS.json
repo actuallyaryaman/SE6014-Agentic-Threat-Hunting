@@ -1,0 +1,55 @@
+[
+  {
+    "scenario": "rules-final",
+    "cases": [
+      {
+        "name": "c4_repeatability_comparison",
+        "status": "passed",
+        "matched": 23,
+        "total": 24
+      }
+    ],
+    "c4_commit": "5e76ccf6262fc756a0b5c5fce3d11eb09fac97c4",
+    "c4_script_sha256": "6b3d3a3b0eea6f03b273c36c4343cfa577e7daca663ad666049fd60f30f12eb4",
+    "c4": {
+      "status": "compared",
+      "matched": 23,
+      "checks": 24,
+      "all_match": false,
+      "differing_fields": [
+        "manifest"
+      ]
+    }
+  },
+  {
+    "scenario": "deepseek-agent",
+    "cases": [
+      {
+        "name": "c4_repeatability_comparison",
+        "status": "passed",
+        "matched": 14,
+        "total": 24
+      }
+    ],
+    "c4_commit": "5e76ccf6262fc756a0b5c5fce3d11eb09fac97c4",
+    "c4_script_sha256": "6b3d3a3b0eea6f03b273c36c4343cfa577e7daca663ad666049fd60f30f12eb4",
+    "c4": {
+      "status": "compared",
+      "matched": 14,
+      "checks": 24,
+      "all_match": false,
+      "differing_fields": [
+        "verdict",
+        "evidence_contents",
+        "queries_and_values",
+        "actions",
+        "agent",
+        "dynamic_steps",
+        "intake",
+        "manifest",
+        "skeptic",
+        "step_results"
+      ]
+    }
+  }
+]
