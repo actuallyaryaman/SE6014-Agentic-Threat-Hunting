@@ -24,7 +24,9 @@ Rules:
   gte, lte, gt, lt, exists. wildcard and prefix work only on keyword fields; use contains on text fields. Actions are
   search, aggregate or count:
 """ + agent.PARAMS_HELP + """
-- benign_if is a condition on the query's total number of hits: ">0", "==0", ">=N" or "<N".
+- benign_if is a condition on what the query measures: ">0", "==0", ">=N" or "<N". It is evaluated on the number of
+  hits for search, count, stats and date_histogram; the number of buckets for terms and rare_terms (at most size); and the
+  value for cardinality. To count distinct hosts, users or IPs, use terms (with a large enough size) or cardinality.
 - A test must look beyond the finding's own events (other times, hosts, users or datasets): re-counting the finding's
   events fits the attack as well as the benign story, and such a test is not counted.
 - Do not repeat the queries that already ran. Give no explanation you cannot test with these logs.
@@ -58,6 +60,18 @@ def restates(step, obs: dict, claim) -> bool:
     pins = any(f.get("op", "eq") in ("eq", "in") and {str(x) for x in (f["value"] if isinstance(f.get("value"), list) else [f.get("value")])} <= facts
                for f in step.params.get("filters", []) if f.get("field") != "event.dataset")
     return pins and 0 < total <= size
+
+
+def measure(step, raw: dict) -> tuple[int, str]:
+    """What benign_if is evaluated on (found on the team stack: "at least 5 distinct hosts" was once checked against the
+    number of events): hits, buckets of a terms aggregation, or a cardinality value."""
+    r = raw.get("result")
+    if step.tool == "aggregate" and step.params.get("agg") in ("terms", "rare_terms") and isinstance(r, list):
+        return len(r), "buckets"
+    if step.tool == "aggregate" and step.params.get("agg") == "cardinality":
+        v = r.get("value", 0) if isinstance(r, dict) else r
+        return int(v or 0), "distinct values"
+    return int(raw.get("total", 0) or 0), "hits"
 
 
 def targets(plan: HuntPlan, st: hunter.HuntState) -> list:
@@ -141,5 +155,7 @@ async def _run_tests(mcp, st, ctx, claims, alts, out, state) -> list[dict]:
             rec.update(outcome="not_discriminating",
                        reason="the test only re-measures the finding's own evidence, so it cannot tell the benign story from the attack")
         else:
-            rec["outcome"] = "supported" if _holds(rec["benign_if"], res.get("total", 0)) else "ruled_out"
+            value, unit = measure(step, st.raw.get(step.step_id, {}))
+            rec.update(measured=value, measure=unit)
+            rec["outcome"] = "supported" if _holds(rec["benign_if"], value) else "ruled_out"
     return rejected

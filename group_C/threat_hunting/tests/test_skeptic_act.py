@@ -1,6 +1,8 @@
 """Skeptic (benign explanations lower confidence only) and action drafts (Sigma rendering, replay, response proposals)."""
 import asyncio
 
+import pytest
+
 from threat_hunting import act, llm, skeptic, verdict
 from threat_hunting.models import Claim, PlanStep
 from tests.test_agent import FakeMcp, _rows_plan, setup
@@ -113,3 +115,15 @@ def test_a_test_that_only_recounts_the_evidence_does_not_count(fake_llm):
     sk = asyncio.run(skeptic.challenge(Thirty(), plan, st, notes, {"findings": []}))
     assert sk["alternatives"][0]["outcome"] == "not_discriminating"
     assert verdict.decide(plan, st, notes, skeptic=sk)["confidence"] == "high"
+
+
+@pytest.mark.parametrize("params, raw, expected", [
+    ({"agg": "terms", "field": "host.name"}, {"total": 31, "result": [{"key": "DEMO-SSH", "count": 31}]}, (1, "buckets")),
+    ({"agg": "cardinality", "field": "host.name"}, {"total": 31, "result": {"value": 4}}, (4, "distinct values")),
+    ({"agg": "cardinality", "field": "host.name"}, {"total": 31, "result": 4}, (4, "distinct values")),
+    ({"agg": "date_histogram", "field": "@timestamp"}, {"total": 31, "result": [{"key": 1, "count": 31}]}, (31, "hits")),
+])
+def test_benign_conditions_measure_what_the_aggregation_counts(params, raw, expected):
+    """Team-stack run: "203.0.113.99 probes at least 5 distinct hosts" held because 31 events were counted, not 1 host."""
+    step = PlanStep(step_id="SK-01", technique="T1110", tool="aggregate", purpose="x", params=params)
+    assert skeptic.measure(step, raw) == expected
