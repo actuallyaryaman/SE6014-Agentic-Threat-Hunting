@@ -40,3 +40,29 @@ def test_negative_scenario_requires_expected_label_and_no_claims(demo, run, labe
         demo.check_ground_truth(run, result(label, [{'event_ids': ['unexpected']}]), {'unexpected'})
     with pytest.raises(AssertionError, match='wrong seeded-scenario verdict'):
         demo.check_ground_truth(run, result('SUPPORTED'), set())
+
+
+def test_failed_ground_truth_retains_hunt_and_audit(demo, tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    module = importlib.import_module('group_B.scripts.check_onboarding_hunt_demo')
+    folder = tmp_path / 'c2/runs/attack'
+    folder.mkdir(parents=True)
+    payload = result('SUPPORTED', [{'event_ids': ['attack-event-1']}])
+    payload['manifest'] = {'planner': 'rules', 'backend': 'rules'}
+    (folder / 'result.json').write_text(json.dumps(payload))
+    (folder / 'trace.jsonl').write_text('\n'.join(json.dumps({'ok': True, 'server': server}) for server in ('es', 'analytics')))
+    audit = tmp_path / 'c2/audit'
+    audit.mkdir()
+    (audit / 'attack.jsonl').write_text('synthetic audit\n')
+    demo.c2_root = tmp_path / 'c2'
+    demo.hunt_python = 'python'
+    demo.hunt_env = {}
+    demo.llm_env_file = None
+    demo.report = {}
+    monkeypatch.setattr(module.subprocess, 'Popen', lambda *a, **kw: SimpleNamespace(returncode=0, communicate=lambda **kw: ('', '')))
+    with pytest.raises(AssertionError, match='citations differ'):
+        demo.run_hunt('attack', 'hypothesis', tmp_path / 'output')
+    assert json.loads((tmp_path / 'output/attack/result.json').read_text()) == payload
+    assert (tmp_path / 'output/attack/mcp-audit.jsonl').read_text() == 'synthetic audit\n'
+    assert demo.report['ground_truth_checks'][0]['missing_ids'] == ['attack-event-2']

@@ -1,0 +1,22 @@
+{
+  "implementation_commit": "59b283127c17b55831a3348750b3a15fcc1b3d32",
+  "note": "Rules run executed the implementation worktree before commit; these hashes identify the committed implementation. code_head in the raw summary records its prior parent, not a claim of a clean run.",
+  "sha256": {
+    "group_B/B1/Pipelines/firewall-syslog.json": "f83bbd74ace0a7b49f582a92583f43360aef3c7aab0cd826300dc78b569dadda",
+    "group_B/B1/Pipelines/linux-auth.json": "1bd1785e4534b4b1f0daf37d419dce8130ca03224267ef534359db425836ce7c",
+    "group_B/B1/README.md": "da5f445013d8fd2a4d7fc2d94f56e702cdfc92148466d36f973b6cd7052622a4",
+    "group_B/B1/Tests/test_b1.py": "438b6bb978867f499f86c29f868ebc8dcbf6b360712a94adf4f0b3001e1b1aec",
+    "group_B/B1/load_file.py": "6d808b789edc8fc0dbb9359177fc75ffc299e1e6d6ce2a412817aa8bc7b6989b",
+    "group_B/B3_A3_CONTRACT.md": "8fe3dae137a7c4c72d5b94b8ed0b3ed5f415d9fd0a58f08c51771a08fabb03eb",
+    "group_B/CONTRACTS.md": "8f4f85f334205f1421964af69e6f3ffa9717076d716bb808f0c8624c58087078",
+    "group_B/DEMO_RUNBOOK.md": "05be29295f5e2a4a5f53c9e8856945623623659c114044df6f8344fc08ea344f",
+    "group_B/agentic_ingestion/README.md": "7e204de685a64263c192f54733513a086063dfc10e79a0b806c60a4784a8f50b",
+    "group_B/agentic_ingestion/cli.py": "0c3117de04d308b2d7abda32a4a822705aa35fb122cd2bd90990d419d527fa11",
+    "group_B/agentic_ingestion/execution.py": "62129196b88888facba826162cd9ca3a4a5f0bae99e12ec6adf0602be6be7b5f",
+    "group_B/agentic_ingestion/models.py": "2c35a5df12be3acc6a9b280fe9578314d352f7c6f07ddeefe4aa898a571dd346",
+    "group_B/agentic_ingestion/planner.py": "293b447bd7a961235c1c171575e7bc37a9bee350a5f9949328483cbb06e61df4",
+    "group_B/agentic_ingestion/verify.py": "9f558355014ee3f9b2ec838b343fabe7ee8f75485cc3bd63d9f44a1f9954a964",
+    "group_B/scripts/check_onboarding_hunt_demo.py": "c54aedcb68763d4cadc318e28a0cb8ffe506fcd0e7dcf67ad2ea498b31d073a2",
+    "group_B/tests/test_year_policy.py": "3d2c0bc3541a1ae183d6744efc43423b8b053c3f132424a9066c979fb74e6d04"
+  }
+}

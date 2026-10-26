@@ -93,7 +93,9 @@ All owned containers, networks, data, certificates and credentials were removed.
 ## Remaining scope
 
 This completes a bounded local integration, not a lossless production stream.
-Continuous UDP capture and yearless raw sources remain blocked. Windows/Sysmon
+Continuous UDP capture remains blocked. The later
+[confirmed-year verification](YEAR_POLICY_E2E_RESULTS.md) completes yearless
+Linux/firewall onboarding with explicit policy. Windows/Sysmon
 playbooks, mixed-date behavior, broad accuracy/completeness, PDF rendering and
 full-budget agent behavior were not established by these SSH-focused runs.
 The existing C1 mapping-permission caveat is separate; these runs used the

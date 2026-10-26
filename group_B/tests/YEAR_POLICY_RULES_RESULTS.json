@@ -1,0 +1,872 @@
+{
+  "started_at": "2026-10-26T08:26:50.793661+00:00",
+  "a2_ref": "8b86c10eb5ee5248f087aa6c8273c8fadb82758c",
+  "cases": [
+    {
+      "name": "authenticated_https",
+      "status": "passed"
+    },
+    {
+      "name": "unauthenticated_rejected",
+      "status": "passed"
+    },
+    {
+      "name": "untrusted_ca_rejected",
+      "status": "passed"
+    },
+    {
+      "name": "read_key_cannot_install_pipeline",
+      "status": "passed"
+    },
+    {
+      "name": "write_key_cannot_search",
+      "status": "passed"
+    },
+    {
+      "name": "real_b1_pipelines_installed",
+      "status": "passed"
+    },
+    {
+      "name": "c2_test_template_installed",
+      "status": "passed"
+    },
+    {
+      "name": "isolated_c2_snapshot_and_readonly_key",
+      "status": "passed"
+    },
+    {
+      "name": "a2_and_hunt_index_namespace_aligned",
+      "status": "passed"
+    },
+    {
+      "name": "push_listener_ready",
+      "status": "passed",
+      "host_refusals": 0,
+      "container_refusals": 2
+    },
+    {
+      "name": "b3_a2_real_b1_https_ingestion",
+      "status": "passed",
+      "indexed": 35,
+      "replay_submitted": 0
+    },
+    {
+      "name": "ground_truth_31_attack_events",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_attack",
+      "status": "passed",
+      "verdict": "Confirmed"
+    },
+    {
+      "name": "attack_supported_exact_ground_truth",
+      "status": "passed",
+      "cited": 31,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    {
+      "name": "c3_live_mcp_report_benign",
+      "status": "passed",
+      "verdict": "Refuted"
+    },
+    {
+      "name": "benign_not_supported",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_missing-host",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "missing_host_inconclusive",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_empty-window",
+      "status": "passed",
+      "verdict": "Inconclusive"
+    },
+    {
+      "name": "empty_window_insufficient_data",
+      "status": "passed"
+    },
+    {
+      "name": "c3_live_mcp_report_attack-repeat",
+      "status": "passed",
+      "verdict": "Confirmed"
+    },
+    {
+      "name": "hunt_repeatability",
+      "status": "passed"
+    },
+    {
+      "name": "c4_repeatability_comparison",
+      "status": "passed",
+      "matched": 24,
+      "total": 24
+    },
+    {
+      "name": "a3_stream_apache",
+      "status": "passed",
+      "indexed": 6,
+      "pipeline_id": "apache-access",
+      "replay_submitted": 0
+    },
+    {
+      "name": "a3_stream_json",
+      "status": "passed",
+      "indexed": 61,
+      "pipeline_id": "b2-test.generated-v1",
+      "replay_submitted": 0
+    },
+    {
+      "name": "a3_stream_csv",
+      "status": "passed",
+      "indexed": 6,
+      "pipeline_id": "b2-test.csv-v1",
+      "replay_submitted": 0
+    },
+    {
+      "name": "legacy_normalized_a3_replay",
+      "status": "passed",
+      "indexed": 3,
+      "sent": 6
+    },
+    {
+      "name": "a3_unapproved_pipeline_never_verified",
+      "status": "passed"
+    },
+    {
+      "name": "year_policy_linux",
+      "status": "passed",
+      "indexed": 2,
+      "identical_records_distinct_ids": true,
+      "log_year": 2024,
+      "log_timezone": "UTC",
+      "expected_timestamp": "2024-02-29T00:15:00+00:00",
+      "replay_submitted": 0,
+      "changed_year_rejected": true,
+      "missing_policy_rejected": true
+    },
+    {
+      "name": "year_policy_firewall",
+      "status": "passed",
+      "indexed": 2,
+      "identical_records_distinct_ids": true,
+      "log_year": 2024,
+      "log_timezone": "Asia/Singapore",
+      "expected_timestamp": "2023-12-31T16:15:00+00:00",
+      "replay_submitted": 0,
+      "changed_year_rejected": true,
+      "missing_policy_rejected": true
+    }
+  ],
+  "scope": "isolated B3/A2/B1/HTTPS ES/MCP/C2; es_mcp_server.server; no live LLM; optional C3/C4",
+  "pipeline_sha256": {
+    "group_A/logstash/pipeline/logstash.conf": "46a57a53f78d6de86544ad508f414de9eec9b84f34357d2716e65e42f9aabef2",
+    "group_A/a2/pipeline/pull.conf": "d44d140ff5a59e078bb23d7f9aabe9cabcb65a17acb1f09a89e709adaec513d2",
+    "group_A/a2/push-pipeline/push.conf": "06187687e04f6d040e3b5c30cd42ae4ff9b9af91c8ed8f5d9f702188bd8176de"
+  },
+  "code_head": "640af07232cbc323da4ee45da03e77a98713152a",
+  "harness_sha256": "84ee7d1a6fb07e3b9aceeeea5dc145fd25d7bd16b7c8f8cf74cb809d510cfcd8",
+  "images": {
+    "docker.elastic.co/elasticsearch/elasticsearch:8.19.23": [
+      "docker.elastic.co/elasticsearch/elasticsearch@sha256:4d0724bb8d78d7a2330693623e26ca4d621079d062ecc8a30b3e1fc180ec14c1"
+    ],
+    "docker.elastic.co/logstash/logstash:8.19.23": [
+      "docker.elastic.co/logstash/logstash@sha256:a77c29e406ddc6311b302703889f0953b5620dd5aa2445b0cdbcf7f88e285766"
+    ]
+  },
+  "demo_sha256": "c54aedcb68763d4cadc318e28a0cb8ffe506fcd0e7dcf67ad2ea498b31d073a2",
+  "c3_commit": "5d8ced350259c3727d9c1bddabf292194518797e",
+  "c2_commit": "fd9995af15804a7e2fe33b13d90f39911ef6ee36",
+  "c2_tree": "5c5cf39036dbecc9002a4a92066ce1c759cd2534",
+  "c2_dependencies": {
+    "mcp": "1.30.0",
+    "elasticsearch": "8.19.3",
+    "pydantic": "2.13.5",
+    "PyYAML": "6.0.3"
+  },
+  "es_mcp_module": "es_mcp_server.server",
+  "a3_sha256": {
+    "receiver.py": "d73ef52b63db1e0b3cbbc5384eb974f61cea1be381091c0eb66ef029a17baea8",
+    "event_utils.py": "013c6e6138676d3e35d15e81227d567c19b4b3e742ad0a587044f69640d37aed",
+    "log_parser.py": "1635c848d899a9fa99c90f8008bc5525bab03d13f45e79fda4f14aa37b8e5ee4"
+  },
+  "onboarding": {
+    "run_id": "a4328393-ba92-4979-ab8d-dac7e5e02341",
+    "source_id": "b3-25c7cb921538f26d43c9fa62",
+    "status": "verified",
+    "ingest_mode": "stream",
+    "pipeline_id": "linux-auth",
+    "dataset": "linux.auth",
+    "record_count": 35,
+    "submitted_count": 35,
+    "acknowledged_count": 0,
+    "indexed_count": 35,
+    "reused_count": 0,
+    "parse_failure_count": 0,
+    "dry_run": false,
+    "error_codes": [],
+    "warnings": []
+  },
+  "hunts": [
+    {
+      "run_id": "attack",
+      "verdict": "SUPPORTED",
+      "claims": 2,
+      "cited_events": 31,
+      "tool_calls": 18,
+      "self_check": {
+        "claims": 2,
+        "self_checked": 2,
+        "failed": []
+      },
+      "independently_checked_ids": 31,
+      "llm_calls": 0
+    },
+    {
+      "run_id": "benign",
+      "verdict": "NOT_SUPPORTED",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 13,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0,
+      "llm_calls": 0
+    },
+    {
+      "run_id": "missing-host",
+      "verdict": "INCONCLUSIVE",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 13,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0,
+      "llm_calls": 0
+    },
+    {
+      "run_id": "empty-window",
+      "verdict": "INSUFFICIENT_DATA",
+      "claims": 0,
+      "cited_events": 0,
+      "tool_calls": 9,
+      "self_check": {
+        "claims": 0,
+        "self_checked": 0,
+        "failed": []
+      },
+      "independently_checked_ids": 0,
+      "llm_calls": 0
+    },
+    {
+      "run_id": "attack-repeat",
+      "verdict": "SUPPORTED",
+      "claims": 2,
+      "cited_events": 31,
+      "tool_calls": 18,
+      "self_check": {
+        "claims": 2,
+        "self_checked": 2,
+        "failed": []
+      },
+      "independently_checked_ids": 31,
+      "llm_calls": 0
+    }
+  ],
+  "c3_reports": [
+    {
+      "run_id": "attack",
+      "decision": {
+        "verdict": "Confirmed",
+        "confidence": "high",
+        "review": {
+          "c2_label": "SUPPORTED",
+          "c2_verdict": "Confirmed",
+          "c2_confidence": "high",
+          "own_verdict": "Confirmed",
+          "own_confidence": "high",
+          "outcome": "agrees",
+          "note": "C2 reported SUPPORTED (high); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": "T1110",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1110-a"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": "T1078",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1078-b-203.0.113.99"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "Every part of the hypothesis has a technique with at least the minimum number of independent verified indicators.",
+          "C2 reported SUPPORTED (high); C3's re-verification agrees."
+        ],
+        "next_steps": [],
+        "analyst_review": true,
+        "review_reasons": [
+          "a Confirmed verdict is never acted on automatically"
+        ]
+      },
+      "verification": {
+        "claims": 2,
+        "verified": 2,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 17,
+          "identical": 17,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "benign",
+      "decision": {
+        "verdict": "Refuted",
+        "confidence": "medium",
+        "review": {
+          "c2_label": "NOT_SUPPORTED",
+          "c2_verdict": "Refuted",
+          "c2_confidence": "medium",
+          "own_verdict": "Refuted",
+          "own_confidence": "medium",
+          "outcome": "agrees",
+          "note": "C2 reported NOT_SUPPORTED (medium); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": "T1110",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": "T1078",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "Every part of the hypothesis was testable over gap-free data and no verified indicator exists.",
+          "C2 reported NOT_SUPPORTED (medium); C3's re-verification agrees."
+        ],
+        "next_steps": [],
+        "analyst_review": false,
+        "review_reasons": []
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 12,
+          "identical": 12,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "missing-host",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "INCONCLUSIVE",
+          "c2_verdict": "Inconclusive",
+          "c2_confidence": "low",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "agrees",
+          "note": "C2 reported INCONCLUSIVE (low); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": "T1110",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": "T1078",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "No telemetry exists for named entities ['NO-SUCH-HOST']; absence of events cannot be interpreted.",
+          "C2 reported INCONCLUSIVE (low); C3's re-verification agrees."
+        ],
+        "next_steps": [
+          "Check the host name spelling or ingest logs from NO-SUCH-HOST."
+        ],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low"
+        ]
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 12,
+          "identical": 12,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "empty-window",
+      "decision": {
+        "verdict": "Inconclusive",
+        "confidence": "low",
+        "review": {
+          "c2_label": "INSUFFICIENT_DATA",
+          "c2_verdict": "Inconclusive",
+          "c2_confidence": "low",
+          "own_verdict": "Inconclusive",
+          "own_confidence": "low",
+          "outcome": "agrees",
+          "note": "C2 reported INSUFFICIENT_DATA (low); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": "T1110",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": false,
+            "gaps": [
+              "auth: 24/24 buckets have no events"
+            ],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": "T1078",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 0,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [],
+            "min_support": 1,
+            "supported": false,
+            "any_signal": false,
+            "testable": true,
+            "covered": false,
+            "gaps": [
+              "auth: 24/24 buckets have no events"
+            ],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": false,
+            "any_signal": false,
+            "covered": false,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "No telemetry exists for named entities ['DEMO-SSH']; absence of events cannot be interpreted.",
+          "C2 reported INSUFFICIENT_DATA (low); C3's re-verification agrees."
+        ],
+        "next_steps": [
+          "Check the host name spelling or ingest logs from DEMO-SSH."
+        ],
+        "analyst_review": true,
+        "review_reasons": [
+          "confidence is low",
+          "coverage gap for T1110, T1078"
+        ]
+      },
+      "verification": {
+        "claims": 0,
+        "verified": 0,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 8,
+          "identical": 8,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    },
+    {
+      "run_id": "attack-repeat",
+      "decision": {
+        "verdict": "Confirmed",
+        "confidence": "high",
+        "review": {
+          "c2_label": "SUPPORTED",
+          "c2_verdict": "Confirmed",
+          "c2_confidence": "high",
+          "own_verdict": "Confirmed",
+          "own_confidence": "high",
+          "outcome": "agrees",
+          "note": "C2 reported SUPPORTED (high); C3's re-verification agrees."
+        },
+        "rows": [
+          {
+            "technique": "T1110",
+            "name": "Brute Force",
+            "required": true,
+            "group": "T1110",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1110-a"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          },
+          {
+            "technique": "T1078",
+            "name": "Valid Accounts",
+            "required": true,
+            "group": "T1078",
+            "sources": [
+              "auth"
+            ],
+            "verified_claims": 1,
+            "llm_claims": 0,
+            "llm_only": false,
+            "supporting_steps": [
+              "T1078-b-203.0.113.99"
+            ],
+            "min_support": 1,
+            "supported": true,
+            "any_signal": true,
+            "testable": true,
+            "covered": true,
+            "gaps": [],
+            "not_tested": [],
+            "weak": []
+          }
+        ],
+        "groups": [
+          {
+            "label": "T1110",
+            "kind": "technique",
+            "techniques": [
+              "T1110"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          },
+          {
+            "label": "T1078",
+            "kind": "technique",
+            "techniques": [
+              "T1078"
+            ],
+            "supported": true,
+            "any_signal": true,
+            "covered": true,
+            "untestable": [],
+            "weak": [],
+            "llm_leads": false
+          }
+        ],
+        "reasons": [
+          "Every part of the hypothesis has a technique with at least the minimum number of independent verified indicators.",
+          "C2 reported SUPPORTED (high); C3's re-verification agrees."
+        ],
+        "next_steps": [],
+        "analyst_review": true,
+        "review_reasons": [
+          "a Confirmed verdict is never acted on automatically"
+        ]
+      },
+      "verification": {
+        "claims": 2,
+        "verified": 2,
+        "unsupported": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "narrative_flags": 0,
+        "replay": {
+          "replayed": 17,
+          "identical": 17,
+          "mismatches": [],
+          "skipped": []
+        }
+      }
+    }
+  ],
+  "c4_commit": "315cb6c784d32fdeabfa41546c285d329f556d3e",
+  "c4_script_sha256": "4ab334447d9b07da3929a1d5519301fa844718ac0c49b969383f68a7cc41711c",
+  "c4": {
+    "status": "compared",
+    "matched": 24,
+    "checks": 24,
+    "all_match": true,
+    "differing_fields": []
+  },
+  "status": "passed",
+  "cleanup": "owned containers, network, data, credentials and certificates removed",
+  "completed_at": "2026-10-26T08:28:09.804093+00:00"
+}
