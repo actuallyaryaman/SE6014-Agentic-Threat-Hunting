@@ -105,6 +105,7 @@ CI runs the same tests on every pull request (`.github/workflows/b1-ci.yml`).
 | Apache access (attack: Nikto scan of DVWA) | 7,205 | 7,205 | 0 |
 | Windows / Sysmon, Mordor empire_mimikatz | 7,887 | 7,887 | 0 |
 | Firewall sample (from A3) | 6 | 6 | 0 |
+| Windows clean control (500 events, a normal laptop's event log) | 500 | 500 | 0 |
 | Linux auth sample (Kali VM) | 19 | 19 | 0 |
 
 Ground truth, Apache attack file (Nikto 2.6 scan of a local DVWA container, 2026-10-26, times UTC):
@@ -117,7 +118,8 @@ user-agent search misses most of the scan. Other signs of the scan: a burst of t
 
 Ground truth, Windows file: the file holds 4 known attack events (Event ID 5145, `RelativeTargetName`
 `lsarpc`, 2020-10-22 18:33:36 UTC); the search `event.code : 5145 and RelativeTargetName : lsarpc`
-returns 4 hits. Kibana shows times in local time; the data is UTC.
+returns 4 hits. On the clean Windows control the same search returns 0 hits.
+The clean file comes from a different machine and has no channel name, so its `event.dataset` is the fallback `windows`. Kibana shows times in local time; the data is UTC.
 
 ## Files
 
