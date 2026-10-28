@@ -1,0 +1,16 @@
+{
+  "source_commit": "c3b291edd025959fbe4181259c02c4edcad4811e",
+  "ui_assets": {
+    "ui/tokens.css": "131524586d086269f2c110329fff6002ca0e2a75f4a085397d333daaabba175a",
+    "ui/story.css": "cc9c4286424c5883f860dfb0b387f4e4bc374fe0f5a5858ae2cb1cd8acde638e",
+    "ui/story.js": "a7bd521d93772029f15ed64059effebf0a795429db262ac8c8587ddf753a4bf2",
+    "ui/index.html": "8bc4151122b086ab4da9b931268a870417879871bff8c882993e5656b0041fdd",
+    "ui/data/recorded-run.json": "2d9b4d4d86400bfe05da47b314fe335a0796143afe09f5a23c9f0a3d8e6dcee7",
+    "ui/assets/fonts/SOURCE-CODE-LICENSE.md": "0b2c3168605cb4f3ba54cf3cf2003f67ff894c66484c75702007f23eda92c353",
+    "ui/assets/fonts/REDHAT-LICENSE.txt": "67414d7bd2dee0381d21f9dea43c2653972967a64402e7579f9a0f6c3a47c938",
+    "ui/assets/fonts/NOTO-LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "ui/assets/fonts/mono.otf": "9f9664e2edf6f045c11e774f9bd0be6993971f2544a39061a5ce478b96b051f8",
+    "ui/assets/fonts/body.otf": "d88c64c5db835c0cc4c5a7b6f07a9fb37e1c68d4abd7857988244681fd58a7d2",
+    "ui/assets/fonts/display.ttf": "279ce2b4aae61db0ad8edd5fcca51786628f41f5f7e0d9f0bbf4ca5315f6a4bf"
+  }
+}
